@@ -6,6 +6,7 @@ extends Node
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
 ##     --area=<name>            start in an area (clearing, labyrinth)
+##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
@@ -31,6 +32,8 @@ func _ready() -> void:
 		_teleport_local_player.call_deferred(_args.at)
 	if _args.has("map"):
 		_press_map.call_deferred()
+	if _args.has("skills"):
+		_press_skills.call_deferred()
 	if _args.has("give"):
 		_give.call_deferred()
 	if _args.has("screenshot"):
@@ -57,6 +60,19 @@ func _press_map() -> void:
 	await get_tree().create_timer(0.8).timeout
 	var ev := InputEventAction.new()
 	ev.action = "map"
+	ev.pressed = true
+	Input.parse_input_event(ev)
+
+
+## --skills: grants 3 skill points and opens the skill screen.
+func _press_skills() -> void:
+	await get_tree().create_timer(0.8).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p:
+		p.survival.skill_points += 3
+		p.survival.learn("might")
+	var ev := InputEventAction.new()
+	ev.action = "skills"
 	ev.pressed = true
 	Input.parse_input_event(ev)
 

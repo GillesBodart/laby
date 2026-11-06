@@ -22,12 +22,23 @@ const REGEN_DELAY := 0.8
 ## Once exhausted, running needs this much stamina back.
 const RECOVER_THRESHOLD := 25.0
 
+const SKILL_MAX_RANK := 3
+const SKILLS := {
+	"vigor": {"name": "Vigor", "desc": "+15 max health per rank"},
+	"might": {"name": "Might", "desc": "+3 attack damage per rank"},
+	"fleet": {"name": "Fleet foot", "desc": "+8% move speed per rank"},
+	"stamina": {"name": "Endurance", "desc": "-20% running cost per rank"},
+}
+
 var health := MAX_HEALTH
+
 var hunger := MAX_HUNGER
 var stamina := MAX_STAMINA
 var xp := 0
 var level := 1
 var skill_points := 0
+## skill id -> rank.
+var skills := {}
 
 var _exhausted := false
 var _regen_wait := 0.0
@@ -35,6 +46,38 @@ var _regen_wait := 0.0
 
 static func xp_for_level(lvl: int) -> int:
 	return 20 + 10 * lvl
+
+
+func rank(id: String) -> int:
+	return int(skills.get(id, 0))
+
+
+func max_health() -> float:
+	return MAX_HEALTH + 15.0 * rank("vigor")
+
+
+func damage_bonus() -> int:
+	return 3 * rank("might")
+
+
+func speed_multiplier() -> float:
+	return 1.0 + 0.08 * rank("fleet")
+
+
+func can_learn(id: String) -> bool:
+	return SKILLS.has(id) and skill_points > 0 and rank(id) < SKILL_MAX_RANK
+
+
+## Spends one skill point; returns false if not allowed.
+func learn(id: String) -> bool:
+	if not can_learn(id):
+		return false
+	skill_points -= 1
+	skills[id] = rank(id) + 1
+	if id == "vigor":
+		health += 15.0
+	changed.emit()
+	return true
 
 
 func can_run() -> bool:
@@ -56,7 +99,7 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 	var run_active := running and moving and can_run()
 	hunger = maxf(hunger - (HUNGER_DRAIN + (RUN_HUNGER_DRAIN if run_active else 0.0)) * delta, 0.0)
 	if run_active:
-		stamina = maxf(stamina - RUN_COST * delta, 0.0)
+		stamina = maxf(stamina - RUN_COST * (1.0 - 0.2 * rank("stamina")) * delta, 0.0)
 		_regen_wait = REGEN_DELAY
 		if stamina == 0.0:
 			_exhausted = true
@@ -68,8 +111,8 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 				_exhausted = false
 	if is_starving():
 		damage(STARVE_DAMAGE * delta)
-	elif hunger >= REGEN_MIN_HUNGER and health < MAX_HEALTH:
-		health = minf(health + REGEN_RATE * delta, MAX_HEALTH)
+	elif hunger >= REGEN_MIN_HUNGER and health < max_health():
+		health = minf(health + REGEN_RATE * delta, max_health())
 	changed.emit()
 
 
@@ -88,7 +131,7 @@ func damage(amount: float) -> void:
 
 ## Full reset of the needs after respawning (XP and levels are kept).
 func revive() -> void:
-	health = MAX_HEALTH
+	health = max_health()
 	hunger = 60.0
 	stamina = MAX_STAMINA
 	_exhausted = false
@@ -113,17 +156,21 @@ func add_xp(amount: int) -> int:
 func to_data() -> Dictionary:
 	return {
 		"health": health, "hunger": hunger, "stamina": stamina,
-		"xp": xp, "level": level, "skill_points": skill_points,
+		"xp": xp, "level": level, "skill_points": skill_points, "skills": skills.duplicate(),
 	}
 
 
 func load_data(data: Dictionary) -> void:
-	health = clampf(float(data.get("health", MAX_HEALTH)), 0.0, MAX_HEALTH)
 	hunger = clampf(float(data.get("hunger", MAX_HUNGER)), 0.0, MAX_HUNGER)
 	stamina = clampf(float(data.get("stamina", MAX_STAMINA)), 0.0, MAX_STAMINA)
 	xp = int(data.get("xp", 0))
 	level = maxi(int(data.get("level", 1)), 1)
 	skill_points = int(data.get("skill_points", 0))
+	skills = {}
+	for k in data.get("skills", {}):
+		if SKILLS.has(k):
+			skills[k] = clampi(int(data.skills[k]), 0, SKILL_MAX_RANK)
+	health = clampf(float(data.get("health", MAX_HEALTH)), 0.0, max_health())
 	_exhausted = false
 	_regen_wait = 0.0
 	changed.emit()

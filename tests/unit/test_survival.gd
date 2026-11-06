@@ -63,3 +63,21 @@ func test_save_round_trip() -> void:
 func test_food_items() -> void:
 	check(ItemCatalog.food_of("berry") > 0.0, "berry is food")
 	check_eq(ItemCatalog.food_of("wood"), 0.0, "wood is not food")
+
+
+func test_skills() -> void:
+	var s := Survival.new()
+	check(not s.learn("vigor"), "no points")
+	s.skill_points = 4
+	check(s.learn("vigor"), "learn")
+	check_eq(s.max_health(), 115.0, "vigor")
+	s.learn("vigor")
+	s.learn("vigor")
+	check(not s.learn("vigor"), "max rank")
+	check_eq(s.skill_points, 1, "points spent")
+	s.learn("might")
+	check_eq(s.damage_bonus(), 3, "might")
+	var t := Survival.new()
+	t.load_data(s.to_data())
+	check_eq(t.rank("vigor"), 3, "saved ranks")
+	check_eq(t.health, 145.0, "health kept")

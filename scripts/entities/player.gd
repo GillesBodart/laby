@@ -79,7 +79,7 @@ func _physics_process(delta: float) -> void:
 
 	if state == State.MOVE:
 		var speed := RUN_SPEED if input.run and survival.can_run() else WALK_SPEED
-		velocity = velocity.move_toward(move * speed, ACCELERATION * delta)
+		velocity = velocity.move_toward(move * speed * survival.speed_multiplier(), ACCELERATION * delta)
 		facing = _cardinal(move)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
@@ -143,10 +143,10 @@ func _on_died() -> void:
 ## Damage dealt per hit: tools double as weapons.
 func weapon_damage() -> int:
 	if inventory.has_tool("axe"):
-		return BASE_DAMAGE + 6
+		return BASE_DAMAGE + 6 + survival.damage_bonus()
 	if inventory.has_tool("pickaxe"):
-		return BASE_DAMAGE + 4
-	return BASE_DAMAGE
+		return BASE_DAMAGE + 4 + survival.damage_bonus()
+	return BASE_DAMAGE + survival.damage_bonus()
 
 
 func _attack() -> void:

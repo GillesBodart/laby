@@ -36,7 +36,7 @@ func _draw() -> void:
 	var s := player.survival
 	draw_rect(PANEL, BG)
 	draw_rect(PANEL, EDGE, false)
-	var values := [s.health / Survival.MAX_HEALTH, s.hunger / Survival.MAX_HUNGER, s.stamina / Survival.MAX_STAMINA]
+	var values := [s.health / s.max_health(), s.hunger / Survival.MAX_HUNGER, s.stamina / Survival.MAX_STAMINA]
 	for i in ROWS.size():
 		var y := PANEL.position.y + 4.0 + i * 14.0
 		draw_string(_font, Vector2(PANEL.position.x + 4, y + 9), ROWS[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT)
