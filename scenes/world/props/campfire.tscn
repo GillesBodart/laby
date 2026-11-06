@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/campfire.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/sprites/shadow.png" id="2_shadow"]
+[ext_resource type="Texture2D" path="res://assets/sprites/light_banded.tres" id="3_light"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_fire"]
+radius = 6.0
+
+[node name="Campfire" type="StaticBody2D"]
+collision_mask = 0
+script = ExtResource("1_script")
+
+[node name="Shadow" type="Sprite2D" parent="."]
+texture = ExtResource("2_shadow")
+
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
+position = Vector2(0, -6)
+
+[node name="Light" type="PointLight2D" parent="."]
+position = Vector2(0, -6)
+color = Color(1, 0.72, 0.42, 1)
+energy = 1.1
+texture = ExtResource("3_light")
+texture_scale = 1.75
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+position = Vector2(0, -4)
+shape = SubResource("CircleShape2D_fire")

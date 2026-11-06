@@ -1,0 +1,8 @@
+# Godot
+.godot/
+/android/
+*.translation
+
+# IDE
+.idea/
+__pycache__/
