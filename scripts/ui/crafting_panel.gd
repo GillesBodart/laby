@@ -147,7 +147,25 @@ func _diamond(c: Vector2, r: float, fill: Color, border: Color) -> void:
 	draw_polyline(pts, border, 1.0)
 
 
+var _icon_cache := {}
+
+
+func _icon_tex(path: String) -> Texture2D:
+	if not _icon_cache.has(path):
+		_icon_cache[path] = ImageTexture.create_from_image((load(path) as Texture2D).get_image())
+	return _icon_cache[path]
+
+
 func _icon(c: Vector2, id: String, half := 6) -> void:
+	var small := half < 5
+	var path := "res://assets/ui/items/%s%s.png" % [id, "_s" if small else ""]
+	if ResourceLoader.exists(path):
+		var tex := _icon_tex(path)
+		var sz := Vector2(tex.get_size()) * 0.5
+		draw_set_transform((c - sz * 0.5).round(), 0.0, Vector2(0.5, 0.5))
+		draw_texture(tex, Vector2.ZERO)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	var col: Color = ItemCatalog.ITEMS[id].color
 	if ItemCatalog.tool_of(id) != "":
 		draw_line(c + Vector2(-half, half), c + Vector2(half, -half + 2), Color8(120, 84, 52), 2.0)
