@@ -155,3 +155,22 @@ func test_gate_waits_for_player_to_step_off() -> void:
 	await _frames(2)
 	check(clearing.walls.get_cell_source_id(gate_cell) != -1, "gate cell closes once free")
 	world.free()
+
+func test_player_kills_enemy_and_enemy_hurts_player() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	var enemy: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	enemy.setup("grub")
+	world.add_child(enemy)
+	player.facing = Vector2.RIGHT
+	enemy.global_position = player.global_position + Vector2(20, 0)
+	var hp_before := player.survival.health
+	await _frames(40)
+	check(player.survival.health < hp_before, "enemy bit the player")
+	var xp_before := player.survival.xp
+	Input.action_press("attack")
+	await _frames(120)
+	Input.action_release("attack")
+	check(not is_instance_valid(enemy) or enemy.is_queued_for_deletion(), "enemy killed")
+	check(player.survival.xp > xp_before or player.survival.level > 1, "xp gained")
+	world.free()
