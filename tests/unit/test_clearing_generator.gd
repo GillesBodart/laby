@@ -157,3 +157,15 @@ func test_dirt_overlay_rounds_outer_corners() -> void:
 			check(pixel.call(c * tile).a < 0.5, "corner %s rounded off" % c)
 			check(pixel.call(c * tile + Vector2i(tile - 2, tile - 2)).a == 1.0, "inner side of %s is dirt" % c)
 	check(corners > 0, "found outer corners")
+
+
+func test_pond_art_is_never_clipped() -> void:
+	for s in [1, 5, 9, 42, 77, 2024]:
+		for pond in ClearingGenerator.generate(s).ponds:
+			var img := Pond.paint(pond.blobs, 16, pond.seed)
+			var clipped := 0
+			for x in img.get_width():
+				clipped += int(img.get_pixel(x, 0).a > 0.0) + int(img.get_pixel(x, img.get_height() - 1).a > 0.0)
+			for y in img.get_height():
+				clipped += int(img.get_pixel(0, y).a > 0.0) + int(img.get_pixel(img.get_width() - 1, y).a > 0.0)
+			check_eq(clipped, 0, "seed %d pond border is transparent" % s)

@@ -32,12 +32,43 @@ static func field(blobs: Array, p: Vector2) -> float:
 	return f
 
 
-## Bounding rectangle in cells (with room for the bank).
+## Field below which nothing is painted (bank shadow edge, minus the wobble).
+const EDGE := 0.5
+
+
+## Bounding rectangle in cells (with room for the bank). Blobs add up, so a
+## side is pushed out while the field along it is still above EDGE.
 static func bounds(blobs: Array) -> Rect2:
 	var r := Rect2(blobs[0].c, Vector2.ZERO)
 	for b in blobs:
 		r = r.expand(b.c - b.r * 1.6).expand(b.c + b.r * 1.6)
-	return r
+	var lo := r.position
+	var hi := r.end
+	for i in 40:
+		var grown := false
+		if _edge_max(blobs, Vector2(lo.x, lo.y), Vector2(lo.x, hi.y)) > EDGE:
+			lo.x -= 0.5
+			grown = true
+		if _edge_max(blobs, Vector2(hi.x, lo.y), Vector2(hi.x, hi.y)) > EDGE:
+			hi.x += 0.5
+			grown = true
+		if _edge_max(blobs, Vector2(lo.x, lo.y), Vector2(hi.x, lo.y)) > EDGE:
+			lo.y -= 0.5
+			grown = true
+		if _edge_max(blobs, Vector2(lo.x, hi.y), Vector2(hi.x, hi.y)) > EDGE:
+			hi.y += 0.5
+			grown = true
+		if not grown:
+			break
+	return Rect2(lo, hi - lo)
+
+
+static func _edge_max(blobs: Array, a: Vector2, b: Vector2) -> float:
+	var best := 0.0
+	var steps := maxi(2, int(ceil(a.distance_to(b) * 4.0)))
+	for k in steps + 1:
+		best = maxf(best, field(blobs, a.lerp(b, float(k) / steps)))
+	return best
 
 
 static func _hash(x: int, y: int, s: int) -> float:
