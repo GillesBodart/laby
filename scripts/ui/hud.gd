@@ -24,6 +24,9 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.set_script(preload("res://scripts/ui/crafting_panel.gd"))
 	add_child(panel)
+	var stash_panel := PanelContainer.new()
+	stash_panel.set_script(preload("res://scripts/ui/stash_panel.gd"))
+	add_child(stash_panel)
 	_on_minute_changed(TimeSystem.clock.day(), int(TimeSystem.minute_of_day()))
 
 

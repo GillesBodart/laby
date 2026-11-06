@@ -26,6 +26,8 @@ func collect() -> Dictionary:
 	return {
 		"version": SAVE_VERSION,
 		"seed": GameState.world_seed,
+		"area": GameState.area,
+		"stash": GameState.stash.to_data(),
 		"time": TimeSystem.get_save_data(),
 		"nodes": nodes,
 	}
@@ -55,9 +57,14 @@ func load_game(slot: int = 0) -> bool:
 		push_error("Invalid or incompatible save file.")
 		return false
 	GameState.world_seed = int(data.seed)
+	GameState.area = String(data.get("area", "clearing"))
+	GameState.arriving = false
+	GameState.depleted_cells = {}
+	GameState.structures = {}
+	GameState.stash.load_data(data.get("stash", []))
 	GameState.pending_save = data
 	TimeSystem.load_save_data(data.time)
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file(GameState.area_scene())
 	return true
 
 

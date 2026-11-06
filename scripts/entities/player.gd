@@ -42,7 +42,12 @@ func _ready() -> void:
 	input.peer_id = peer_id
 	sprite.sprite_frames = SpriteFramesBuilder.build(SHEET, FRAME_SIZE, ANIMATIONS)
 	sprite.play("idle_down")
+	if GameState.inventories.has(peer_id):
+		inventory.load_data(GameState.inventories[peer_id])
+	inventory.changed.connect(func() -> void: GameState.inventories[peer_id] = inventory.to_data())
 	GameState.register_player(self)
+	if input.is_local():
+		add_child(Builder.new())
 
 
 func _exit_tree() -> void:
@@ -101,9 +106,6 @@ func nearby_stations() -> Array:
 			if global_position.distance_to(node.global_position) <= STATION_RANGE:
 				found.append(group)
 				break
-	# Until placeable stations (M3), a carried workbench counts.
-	if inventory.count("workbench") > 0 and not found.has("workbench"):
-		found.append("workbench")
 	return found
 
 func _cardinal(v: Vector2) -> Vector2:

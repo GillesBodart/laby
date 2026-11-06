@@ -4,11 +4,29 @@ extends Node
 ## local player (LAN co-op readiness).
 
 const OFFLINE_PEER_ID := 1
+const STASH_SLOTS := 40
+const AREA_SCENES := {
+	"clearing": "res://scenes/world/world.tscn",
+	"labyrinth": "res://scenes/world/labyrinth.tscn",
+}
 
 var world_seed: int = 0
 var players: Dictionary = {} # peer_id -> Player node
 ## Save data waiting to be applied once the world scene is built.
 var pending_save: Dictionary = {}
+var area := "clearing"
+## Optional override of the scene switch (used by tests).
+var scene_changer := Callable()
+## True right after crossing a portal: the player spawns at the arrival cell.
+var arriving := false
+## Per-peer backpacks kept while changing area (peer_id -> Inventory data).
+var inventories: Dictionary = {}
+## Harvested Clearing props (cell -> true), so they stay gone across areas.
+var depleted_cells: Dictionary = {}
+## Player-built structures in the Clearing (cell -> {"type": String, "open": bool}).
+var structures: Dictionary = {}
+## Shared Stash (chest storage): never lost on death (see design spec).
+var stash := Inventory.new(STASH_SLOTS)
 
 
 func _ready() -> void:
@@ -23,6 +41,28 @@ func new_game(seed_value: int = 0) -> void:
 		seed_value = rng.randi_range(1, 2_000_000_000)
 	world_seed = seed_value
 	pending_save = {}
+	area = "clearing"
+	arriving = false
+	inventories = {}
+	depleted_cells = {}
+	structures = {}
+	stash = Inventory.new(STASH_SLOTS)
+
+
+func area_scene() -> String:
+	return AREA_SCENES[area]
+
+
+## Moves every player to another area (scene change).
+func travel(target: String) -> void:
+	if not AREA_SCENES.has(target) or target == area:
+		return
+	area = target
+	arriving = true
+	if scene_changer.is_valid():
+		scene_changer.call(AREA_SCENES[target])
+	else:
+		get_tree().change_scene_to_file.call_deferred(AREA_SCENES[target])
 
 
 func local_peer_id() -> int:

@@ -8,22 +8,37 @@ const PROP_SCENES := {
 	"campfire": preload("res://scenes/world/props/campfire.tscn"),
 }
 
+const VARIANT_COUNT := 10
+## type -> Array[Texture2D], filled in _ready from assets/sprites/<type>s/.
+var _prop_variants := {}
+
 @onready var ground: TileMapLayer = $Ground
 @onready var walls: TileMapLayer = $Walls
 @onready var entities: Node2D = $Entities
 @onready var gates: ClearingGates = $Gates
 
 var layout: ClearingLayout
-var depleted_cells: Array[Vector2i] = []
+var _structure_nodes := {} # cell -> Structure
+var _floors: Node2D
 
 
 func _ready() -> void:
 	add_to_group("persist")
+	add_to_group("clearing_world")
+	# Floors draw above the ground but below every entity.
+	_floors = Node2D.new()
+	_floors.name = "Floors"
+	add_child(_floors)
+	move_child(_floors, entities.get_index())
+	for type in ["tree", "rock"]:
+		var list: Array[Texture2D] = []
+		for i in VARIANT_COUNT:
+			list.append(load("res://assets/sprites/%ss/%s_%d.png" % [type, type, i]))
+		_prop_variants[type] = list
 
 
 func build(new_layout: ClearingLayout) -> void:
 	layout = new_layout
-	depleted_cells.clear()
 	var tile_set := TileSetFactory.clearing_tileset()
 	ground.tile_set = tile_set
 	walls.tile_set = tile_set
@@ -36,17 +51,97 @@ func build(new_layout: ClearingLayout) -> void:
 			if layout.is_wall(cell):
 				walls.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(layout.get_wall(cell)))
 	for prop in layout.props:
+		if GameState.depleted_cells.has(prop.cell):
+			continue
 		var node: Node2D = PROP_SCENES[prop.type].instantiate()
 		node.position = cell_to_feet(prop.cell)
+		_apply_variant(node, prop)
 		if node is Gatherable:
 			node.cell = prop.cell
 			node.depleted.connect(_on_depleted)
 		entities.add_child(node)
 	gates.setup(walls, layout.gates)
+	_spawn_structures()
+
+
+func _apply_variant(node: Node2D, prop: Dictionary) -> void:
+	var textures: Array = _prop_variants.get(prop.type, [])
+	var sprite := node.get_node_or_null("Sprite") as Sprite2D
+	if sprite and not textures.is_empty():
+		sprite.texture = textures[int(prop.get("variant", 0)) % textures.size()]
 
 
 func _on_depleted(g: Gatherable) -> void:
-	depleted_cells.append(g.cell)
+	GameState.depleted_cells[g.cell] = true
+
+
+# ------------------------------------------------------------ structures
+
+func _spawn_structures() -> void:
+	for node in get_tree().get_nodes_in_group("structures"):
+		node.free()
+	_structure_nodes.clear()
+	if not layout.buildable:
+		return
+	for cell in GameState.structures:
+		var d: Dictionary = GameState.structures[cell]
+		_add_structure_node(cell, d.type, d.open)
+
+
+func _add_structure_node(cell: Vector2i, type: String, open: bool) -> void:
+	var s := Structure.create(type, cell, open)
+	var parent := _floors if BuildCatalog.TYPES[type].layer == "floor" else entities
+	parent.add_child(s)
+	_structure_nodes[cell] = s
+
+
+func structure_at(cell: Vector2i) -> Structure:
+	return _structure_nodes.get(cell)
+
+
+## Why a structure cannot be placed at the cell ("" if it can).
+func build_blocker(cell: Vector2i, type: String) -> String:
+	if not layout.buildable or not layout.clearing_rect.has_point(cell):
+		return "Can only build inside the Clearing"
+	if GameState.structures.has(cell) or layout.is_wall(cell):
+		return "Occupied"
+	if cell == layout.campfire_cell:
+		return "Occupied"
+	for prop in layout.props:
+		if prop.cell == cell and not GameState.depleted_cells.has(cell):
+			return "Blocked by %s" % prop.type
+	if BuildCatalog.TYPES[type].solid:
+		for player in GameState.players.values():
+			if walls.local_to_map(walls.to_local(player.global_position)) == cell:
+				return "Someone is standing there"
+	return ""
+
+
+func place_structure(cell: Vector2i, type: String) -> bool:
+	if build_blocker(cell, type) != "":
+		return false
+	GameState.structures[cell] = {"type": type, "open": false}
+	_add_structure_node(cell, type, false)
+	return true
+
+
+## Removes the structure and returns its type ("" if none).
+func remove_structure(cell: Vector2i) -> String:
+	if not GameState.structures.has(cell):
+		return ""
+	var type: String = GameState.structures[cell].type
+	GameState.structures.erase(cell)
+	if _structure_nodes.has(cell):
+		_structure_nodes[cell].queue_free()
+		_structure_nodes.erase(cell)
+	return type
+
+
+func toggle_structure(cell: Vector2i) -> void:
+	var s := structure_at(cell)
+	if s and BuildCatalog.TYPES[s.type].get("door", false):
+		s.toggle()
+		GameState.structures[cell].open = s.is_open
 
 
 func get_save_key() -> String:
@@ -54,19 +149,28 @@ func get_save_key() -> String:
 
 
 func get_save_data() -> Dictionary:
-	return {"depleted": depleted_cells.map(func(c: Vector2i) -> Array: return [c.x, c.y])}
+	var cells: Array = []
+	for c in GameState.depleted_cells:
+		cells.append([c.x, c.y])
+	var built: Array = []
+	for c in GameState.structures:
+		var d: Dictionary = GameState.structures[c]
+		built.append({"cell": [c.x, c.y], "type": d.type, "open": d.open})
+	return {"depleted": cells, "structures": built}
 
 
 func load_save_data(data: Dictionary) -> void:
-	var gone := {}
+	GameState.depleted_cells = {}
 	for c in data.get("depleted", []):
-		gone[Vector2i(int(c[0]), int(c[1]))] = true
+		GameState.depleted_cells[Vector2i(int(c[0]), int(c[1]))] = true
 	for node in get_tree().get_nodes_in_group("gatherable"):
-		if node is Gatherable and gone.has(node.cell):
+		if node is Gatherable and GameState.depleted_cells.has(node.cell):
 			node.free()
-	depleted_cells.clear()
-	for c in gone:
-		depleted_cells.append(c)
+	GameState.structures = {}
+	for d in data.get("structures", []):
+		if BuildCatalog.TYPES.has(d.type):
+			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = {"type": String(d.type), "open": bool(d.open)}
+	_spawn_structures()
 
 
 func pixel_size() -> Vector2i:

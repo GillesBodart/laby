@@ -5,6 +5,7 @@ extends Node
 ##     --seed=<int>             force world seed
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
+##     --area=<name>            start in an area (clearing, labyrinth)
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -19,6 +20,9 @@ func _ready() -> void:
 		_args[parts[0]] = parts[1] if parts.size() > 1 else ""
 	if _args.has("seed"):
 		GameState.new_game(int(_args.seed))
+	if _args.has("area") and GameState.AREA_SCENES.has(_args.area):
+		GameState.area = _args.area
+		get_tree().change_scene_to_file.call_deferred(GameState.area_scene())
 	if _args.has("time"):
 		var hm: PackedStringArray = _args.time.split(":")
 		TimeSystem.set_time_of_day.call_deferred(int(hm[0]) * 60 + (int(hm[1]) if hm.size() > 1 else 0))

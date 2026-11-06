@@ -39,7 +39,7 @@ stretch_mode = 3
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.93, 0.89, 0.78, 1)
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 16
 text = "Day 1  07:00"
 
 [node name="Notice" type="Label" parent="."]
@@ -58,5 +58,6 @@ grow_vertical = 0
 theme_override_colors/font_color = Color(0.98, 0.92, 0.74, 1)
 theme_override_colors/font_outline_color = Color(0.06, 0.06, 0.09, 1)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 8
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_panel")
 horizontal_alignment = 1

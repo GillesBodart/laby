@@ -75,13 +75,19 @@ var rng := RandomNumberGenerator.new()
 
 
 func _init() -> void:
-	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/ui"]:
+	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/ui"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_save(_make_tileset(), Catalog.TEXTURE_PATH)
 	_save(_make_player(), "res://assets/sprites/player.png")
-	_save(_make_tree(), "res://assets/sprites/tree.png")
-	_save(_make_rock(), "res://assets/sprites/rock.png")
+	for v in VARIANTS:
+		_save(_make_tree(v), "res://assets/sprites/trees/tree_%d.png" % v)
+		_save(_make_rock(v), "res://assets/sprites/rocks/rock_%d.png" % v)
+	_save(_make_tree(0), "res://assets/sprites/tree.png")
+	_save(_make_rock(0), "res://assets/sprites/rock.png")
 	_save(_make_campfire(), "res://assets/sprites/campfire.png")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/structures"))
+	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open"]:
+		_save(_make_structure(s), "res://assets/sprites/structures/%s.png" % s)
 	_save(_make_shadow(), "res://assets/sprites/shadow.png")
 	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
 	print("Placeholder art generated.")
@@ -368,74 +374,144 @@ func _outline(img: Image, color: Color) -> void:
 						break
 
 
-func _make_tree() -> Image:
+const VARIANTS := 10
+const TREE_RADIUS := [13.0, 12.0, 14.0, 11.0, 13.5, 12.5, 10.5, 14.0, 11.5, 13.0]
+const TREE_CENTER_Y := [14, 15, 13, 17, 14, 15, 18, 13, 16, 14]
+const TREE_STRETCH := [1.0, 1.08, 0.92, 1.1, 0.98, 0.95, 1.1, 0.95, 1.1, 1.0]
+const TREE_TRUNK := [6, 5, 7, 4, 6, 5, 4, 7, 5, 6]
+const TREE_TINT := [0.0, 0.05, -0.06, 0.08, 0.0, -0.08, 0.1, -0.03, 0.04, 0.0]
+const TREE_LOBES := [5.0, 3.0, 6.0, 4.0, 7.0, 5.0, 3.0, 6.0, 4.0, 8.0]
+const TREE_FRUIT := {3: Color8(200, 67, 43), 8: Color8(200, 67, 43), 5: Color8(242, 210, 92)}
+
+
+func _tint(color: Color, t: float) -> Color:
+	return color.lightened(t) if t >= 0.0 else color.darkened(-t)
+
+
+func _make_tree(v: int = 0) -> Image:
 	var img := _new_image(32, 40)
-	rng.seed = 42
+	rng.seed = 42 + v * 13
+	var t: float = TREE_TINT[v]
+	var radius_base: float = TREE_RADIUS[v]
+	var cy: int = TREE_CENTER_Y[v]
+	var stretch: float = TREE_STRETCH[v]
+	var trunk_w: int = TREE_TRUNK[v]
+	var bark := _tint(C.bark, t * 0.5)
+	var bark_dark := _tint(C.bark_dark, t * 0.5)
 	# Trunk with roots.
-	for y in range(24, 38):
-		for x in range(13, 19):
-			var col: Color = C.bark
-			if x == 13 or (x == 16 and y % 4 == 0):
-				col = C.bark_dark
-			elif x == 17:
-				col = C.bark_dark
+	var tx0 := 16 - trunk_w / 2
+	var trunk_top := int(cy + radius_base * 0.55)
+	for y in range(trunk_top, 38):
+		for x in range(tx0, tx0 + trunk_w):
+			var col: Color = bark
+			if x == tx0 or x == tx0 + trunk_w - 1 or (x == 16 and y % 4 == 0):
+				col = bark_dark
 			img.set_pixel(x, y, col)
-	for p in [Vector2i(12, 37), Vector2i(11, 37), Vector2i(19, 37), Vector2i(20, 37), Vector2i(12, 36), Vector2i(19, 36)]:
-		img.set_pixel(p.x, p.y, C.bark_dark)
+	for p in [Vector2i(tx0 - 1, 37), Vector2i(tx0 - 2, 37), Vector2i(tx0 + trunk_w, 37), Vector2i(tx0 + trunk_w + 1, 37), Vector2i(tx0 - 1, 36), Vector2i(tx0 + trunk_w, 36)]:
+		img.set_pixel(p.x, p.y, bark_dark)
 	# Canopy: irregular blob lit from top-left.
-	var center := Vector2(16, 14)
-	for y in range(0, 30):
+	var center := Vector2(16, cy)
+	var leaf := _tint(C.leaf, t)
+	var leaf_dark := _tint(C.leaf_dark, t)
+	var leaf_light := _tint(C.leaf_light, t)
+	var leaf_hi := _tint(C.leaf_hi, t)
+	for y in range(0, 31):
 		for x in range(1, 31):
 			var d := Vector2(x, y) - center
-			var ang := d.angle()
-			var radius := 13.0 + 1.6 * sin(ang * 5.0) + 0.8 * cos(ang * 9.0)
+			d.x /= stretch
+			var radius := radius_base + 1.6 * sin(d.angle() * TREE_LOBES[v]) + 0.8 * cos(d.angle() * 9.0)
 			if d.length() > radius:
 				continue
 			var shade := (d.x + d.y) / radius
-			var col: Color = C.leaf
+			var col: Color = leaf
 			if shade < -0.55:
-				col = C.leaf_light
+				col = leaf_light
 			elif shade > 0.45:
-				col = C.leaf_dark
+				col = leaf_dark
 			if d.length() > radius - 1.5 and d.y > 0:
-				col = C.leaf_dark
+				col = leaf_dark
 			img.set_pixel(x, y, col)
 	# Leaf clusters.
 	for i in 26:
-		var p := center + Vector2(rng.randf_range(-10, 10), rng.randf_range(-10, 9))
+		var p := center + Vector2(rng.randf_range(-10, 10) * stretch, rng.randf_range(-10, 9))
 		var px := int(p.x)
 		var py := int(p.y)
-		if img.get_pixel(px, py).a == 0.0:
+		if px < 0 or py < 0 or px >= 32 or py >= 39 or img.get_pixel(px, py).a == 0.0:
 			continue
 		var lit := (p - center).x + (p - center).y < 0
-		img.set_pixel(px, py, C.leaf_hi if lit else C.leaf_light)
-		if py + 1 < 40 and img.get_pixel(px, py + 1).a > 0.0:
-			img.set_pixel(px, py + 1, C.leaf_dark)
+		img.set_pixel(px, py, leaf_hi if lit else leaf_light)
+		if img.get_pixel(px, py + 1).a > 0.0:
+			img.set_pixel(px, py + 1, leaf_dark)
+	if TREE_FRUIT.has(v):
+		for i in 7:
+			var p := center + Vector2(rng.randf_range(-9, 9) * stretch, rng.randf_range(-8, 8))
+			if img.get_pixel(int(p.x), int(p.y)).a > 0.0:
+				img.set_pixel(int(p.x), int(p.y), TREE_FRUIT[v])
 	_outline(img, C.outline)
 	return img
 
 
-func _make_rock() -> Image:
+# Each rock is a union of ellipses [cx, cy, rx, ry] on a 16x16 canvas.
+const ROCK_SHAPES := [
+	[[7.5, 9.5, 6.0, 4.5]],
+	[[7.5, 9.0, 4.8, 5.0]],
+	[[7.5, 11.0, 7.0, 3.5]],
+	[[5.0, 10.0, 4.0, 3.5], [10.5, 9.0, 4.5, 4.5]],
+	[[7.5, 8.5, 5.5, 5.5]],
+	[[4.0, 12.0, 2.5, 2.0], [8.0, 11.0, 3.0, 2.5], [11.5, 12.0, 2.5, 2.0]],
+	[[7.5, 9.5, 6.0, 4.5]],
+	[[6.0, 9.0, 5.0, 5.0], [11.0, 11.5, 3.5, 3.0]],
+	[[7.5, 10.0, 6.5, 4.0]],
+	[[7.5, 9.0, 5.5, 5.0]],
+]
+const ROCK_MOSS := [1, 0, 0, 1, 0, 0, 7, 2, 0, 1]
+
+
+func _make_rock(v: int = 0) -> Image:
 	var img := _new_image(T, T)
-	var center := Vector2(7.5, 9.5)
+	rng.seed = 500 + v * 17
+	var shapes: Array = ROCK_SHAPES[v]
 	for y in T:
 		for x in T:
-			var d := Vector2(x, y) - center
-			if (d.x * d.x) / 36.0 + (d.y * d.y) / 20.0 > 1.0:
-				continue
-			var col: Color = C.rock
-			if d.y < -2 or (d.x < -3 and d.y < 0):
-				col = C.rock_light
-			elif d.y > 2:
-				col = C.rock_dark
-			img.set_pixel(x, y, col)
-	for p in [Vector2i(8, 8), Vector2i(9, 9), Vector2i(9, 10)]:
-		img.set_pixel(p.x, p.y, C.rock_dark)
-	img.set_pixel(5, 7, C.moss_light)
-	img.set_pixel(6, 7, C.moss)
+			for s in shapes:
+				var d := Vector2(x - s[0], y - s[1])
+				if y > 13:
+					continue
+				# Squarish boulders for 1, 4, 9; slightly lumpy outline for all.
+				var p := 3.0 if v in [1, 4, 9] else 2.0
+				var lump := 1.0 + 0.09 * sin(d.angle() * 3.0 + v * 2.0)
+				var f := (pow(absf(d.x) / s[2], p) + pow(absf(d.y) / s[3], p)) * lump
+				if f > 1.0:
+					continue
+				var col: Color = C.rock
+				if d.y < -s[3] * 0.45 or (d.x < -s[2] * 0.5 and d.y < 0):
+					col = C.rock_light
+				elif d.y > s[3] * 0.45:
+					col = C.rock_dark
+				img.set_pixel(x, y, col)
+				break
+	var first: Array = shapes[0]
+	var c := Vector2i(int(first[0]), int(first[1]))
+	for p in [Vector2i(1, -1), Vector2i(2, 0), Vector2i(2, 1)]:
+		var q: Vector2i = c + p
+		if img.get_pixel(q.x, q.y).a > 0.0:
+			img.set_pixel(q.x, q.y, C.rock_dark)
+	if v == 4:
+		for i in 6:
+			var q := Vector2i(6 + i / 2, 5 + i)
+			if img.get_pixel(q.x, q.y).a > 0.0:
+				img.set_pixel(q.x, q.y, C.rock_dark)
+	for i in ROCK_MOSS[v] * 3 + 1:
+		var q := Vector2i(rng.randi_range(2, 13), rng.randi_range(4, 12))
+		if ROCK_MOSS[v] > 0 and img.get_pixel(q.x, q.y).a > 0.0 and q.y < 11:
+			img.set_pixel(q.x, q.y, C.moss_light if i % 2 == 0 else C.moss)
+	if v == 8:
+		for x in [1, 3, 12, 14]:
+			for y in [12, 13]:
+				if img.get_pixel(x, y).a == 0.0:
+					img.set_pixel(x, y, C.grass_light if y == 12 else C.grass)
 	_outline(img, C.outline)
 	return img
-
 
 func _make_campfire() -> Image:
 	var img := _new_image(T * 3, T)
@@ -463,6 +539,67 @@ func _make_campfire() -> Image:
 				img.set_pixel(o.x + x, o.y + py, col)
 		var spark := Vector2i(rng.randi_range(5, 10), rng.randi_range(0, 2))
 		img.set_pixel(o.x + spark.x, o.y + spark.y, C.fire_core)
+	return img
+
+
+func _rect(img: Image, x: int, y: int, w: int, h: int, col: Color) -> void:
+	for yy in range(y, y + h):
+		for xx in range(x, x + w):
+			img.set_pixel(xx, yy, col)
+
+
+func _make_structure(kind: String) -> Image:
+	var img := _new_image(T, T)
+	match kind:
+		"wooden_floor":
+			_rect(img, 0, 0, T, T, C.wood_light)
+			for y in [0, 5, 10, 15]:
+				_rect(img, 0, y, T, 1, C.wood)
+			for p in [Vector2i(4, 0), Vector2i(11, 5), Vector2i(7, 10)]:
+				_rect(img, p.x, p.y, 1, 5, C.wood)
+			return img
+		"wooden_wall":
+			_rect(img, 0, 0, T, T, C.wood_light)
+			for y in [0, 5, 10]:
+				_rect(img, 0, y, T, 1, C.wood_dark)
+			_rect(img, 0, 15, T, 1, C.wood_dark)
+			for p in [Vector2i(5, 1), Vector2i(11, 6), Vector2i(4, 11)]:
+				_rect(img, p.x, p.y, 1, 4, C.wood)
+			_rect(img, 0, 0, T, 1, C.wood_light)
+			_rect(img, 0, 1, T, 1, C.wood)
+		"wooden_door_closed":
+			_rect(img, 1, 0, 14, T, C.wood)
+			_rect(img, 0, 0, 1, T, C.wood_dark)
+			_rect(img, 15, 0, 1, T, C.wood_dark)
+			_rect(img, 1, 0, 14, 1, C.wood_dark)
+			for x in [4, 8, 12]:
+				_rect(img, x, 1, 1, 15, C.wood_dark)
+			_rect(img, 11, 8, 2, 2, C.iron_light)
+		"wooden_door_open":
+			_rect(img, 0, 0, 2, T, C.wood_dark)
+			_rect(img, 14, 0, 2, T, C.wood_dark)
+			_rect(img, 2, 0, 2, T, C.wood)
+		"workbench":
+			_rect(img, 1, 5, 14, 4, C.wood_light)
+			_rect(img, 1, 9, 14, 1, C.wood_dark)
+			_rect(img, 2, 10, 2, 5, C.wood)
+			_rect(img, 12, 10, 2, 5, C.wood)
+			_rect(img, 4, 3, 5, 2, C.iron)
+			_rect(img, 10, 3, 3, 2, C.wood_dark)
+			_rect(img, 1, 5, 14, 1, C.wood_light)
+			_rect(img, 1, 6, 14, 1, C.wood)
+			_outline(img, C.outline)
+			return img
+		"chest":
+			_rect(img, 2, 5, 12, 9, C.wood)
+			_rect(img, 2, 5, 12, 3, C.wood_light)
+			_rect(img, 2, 8, 12, 1, C.wood_dark)
+			_rect(img, 2, 5, 1, 9, C.iron)
+			_rect(img, 13, 5, 1, 9, C.iron)
+			_rect(img, 7, 7, 2, 3, C.iron_light)
+			_outline(img, C.outline)
+			return img
+	_outline(img, C.outline)
 	return img
 
 

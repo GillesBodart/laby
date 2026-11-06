@@ -113,6 +113,32 @@ func test_gathering_a_tree_yields_wood_and_persists() -> void:
 	world.free()
 
 
+func test_walking_through_the_gate_travels_to_labyrinth_and_back() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var layout: ClearingLayout = world.layout
+	var requested: Array[String] = []
+	GameState.scene_changer = func(path: String) -> void: requested.append(path)
+	_local_player().inventory.add("wood", 4)
+	_local_player().global_position = ClearingWorld.cell_center(layout.portal_rect.position + Vector2i(1, 1))
+	await _frames(3)
+	check_eq(requested, ["res://scenes/world/labyrinth.tscn"], "labyrinth requested once")
+	check_eq(GameState.area, "labyrinth", "area switched")
+	world.free()
+
+	var lab: World = load(GameState.area_scene()).instantiate()
+	_tree().root.add_child(lab)
+	await _tree().physics_frame
+	check_eq(lab.layout.portal_target, "clearing", "labyrinth portal")
+	check_eq(_local_player().inventory.count("wood"), 4, "backpack carried over")
+	check_eq(ClearingWorld.cell_center(lab.layout.return_cell), _local_player().global_position, "arrives at the vestibule")
+	_local_player().global_position = ClearingWorld.cell_center(lab.layout.portal_rect.position + Vector2i(1, 1))
+	await _frames(3)
+	check_eq(GameState.area, "clearing", "back in the clearing")
+	check_eq(requested.size(), 2, "clearing requested")
+	GameState.scene_changer = Callable()
+	lab.free()
+
+
 func test_gate_waits_for_player_to_step_off() -> void:
 	var world: Node = await _start_world(DayClock.NIGHT_START - 1)
 	var clearing: ClearingWorld = world.get_node("Clearing")

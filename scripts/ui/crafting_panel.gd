@@ -8,13 +8,14 @@ var _label := Label.new()
 
 func _ready() -> void:
 	visible = false
+	add_to_group("ui_panels")
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.08, 0.12, 0.94)
 	style.set_border_width_all(1)
 	style.border_color = Color(0.62, 0.55, 0.4)
 	style.set_content_margin_all(5)
 	add_theme_stylebox_override("panel", style)
-	_label.add_theme_font_size_override("font_size", 8)
+	_label.add_theme_font_size_override("font_size", 16)
 	_label.add_theme_color_override("font_color", Color(0.93, 0.89, 0.78))
 	add_child(_label)
 	position = Vector2(150, 12)
@@ -26,6 +27,9 @@ func _player() -> Player:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("inventory"):
+		for p in get_tree().get_nodes_in_group("ui_panels"):
+			if p != self:
+				p.visible = false
 		visible = not visible
 		_refresh()
 		get_viewport().set_input_as_handled()

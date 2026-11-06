@@ -15,14 +15,41 @@ func test_different_seed_different_layout() -> void:
 	check(a.props != b.props, "props differ")
 
 
-func test_four_gates_in_walls() -> void:
+func test_single_north_gate_in_walls() -> void:
 	var layout := ClearingGenerator.generate(7)
-	check_eq(layout.gates.size(), 4, "gate count")
+	check_eq(layout.gates.size(), 1, "gate count")
+	check_eq(layout.gates[0].side, "north", "gate on top")
 	for gate in layout.gates:
 		check_eq(gate.cells.size(), ClearingGenerator.GATE_WIDTH, "%s width" % gate.side)
 		for cell in gate.cells:
 			check(not layout.is_wall(cell), "%s gate open by default" % gate.side)
 			check(not layout.clearing_rect.has_point(cell), "%s gate outside glade" % gate.side)
+	check_eq(layout.portal_target, "labyrinth", "portal to labyrinth")
+	check(layout.is_walkable(layout.return_cell), "return cell walkable")
+	check(layout.portal_rect.position.y < layout.gates[0].cells[0].y, "portal beyond the gate")
+
+
+func test_big_clearing_and_prop_variants() -> void:
+	var layout := ClearingGenerator.generate(8)
+	check(layout.clearing_rect.size.x >= 90 and layout.clearing_rect.size.y >= 60, "big glade")
+	var seen := {}
+	for prop in layout.props:
+		if prop.type != "campfire":
+			seen["%s_%d" % [prop.type, prop.variant]] = true
+	check_eq(seen.size(), 20, "all 10 tree and 10 rock variants used")
+
+
+func test_labyrinth_is_connected_and_returns_to_clearing() -> void:
+	for seed_value in [1, 77]:
+		var layout := LabyrinthGenerator.generate(seed_value)
+		check_eq(layout.portal_target, "clearing", "portal back")
+		check(layout.is_walkable(layout.spawn_cell), "spawn walkable")
+		var reached := _flood(layout, layout.spawn_cell, {})
+		var o := LabyrinthGenerator.cell_origin(Vector2i.ZERO)
+		check(reached.has(o + Vector2i.ONE), "far corner reachable (seed %d)" % seed_value)
+		var far := LabyrinthGenerator.cell_origin(Vector2i(LabyrinthGenerator.COLS - 1, 0))
+		check(reached.has(far + Vector2i.ONE), "opposite corner reachable (seed %d)" % seed_value)
+		check(reached.has(layout.portal_rect.position), "portal reachable (seed %d)" % seed_value)
 
 
 func test_map_border_is_sealed() -> void:

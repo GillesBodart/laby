@@ -4,14 +4,16 @@ extends RefCounted
 ## enclosed by massive walls with four gates, surrounded by a ring
 ## corridor and corridor stubs hinting at the labyrinth beyond.
 
-const MAP_SIZE := Vector2i(72, 56)
-const CLEARING_RECT := Rect2i(14, 12, 44, 32)
+const MAP_SIZE := Vector2i(128, 98)
+const CLEARING_RECT := Rect2i(14, 14, 100, 70)
 const WALL_THICKNESS := 3
 const RING_WIDTH := 3
 const GATE_WIDTH := 3
+const VARIANTS := 10
+const PORTAL_ROWS := 3
 const PLAZA_RADIUS := 3.5
-const TREE_TARGET := 40
-const ROCK_TARGET := 14
+const TREE_TARGET := 130
+const ROCK_TARGET := 45
 
 const Id := TileCatalog.Id
 
@@ -54,6 +56,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_paint_ground()
 	_carve_paths(center)
 	_resolve_walls()
+	_setup_portal(center)
 	_place_props(center)
 	return _layout
 
@@ -73,21 +76,6 @@ func _carve_gates(center: Vector2i, inner_ring: Rect2i, outer_ring: Rect2i) -> v
 			Rect2i(center.x - half, inner_ring.position.y, GATE_WIDTH, WALL_THICKNESS),
 			Rect2i(center.x - half, 1, GATE_WIDTH, outer_ring.position.y - 1),
 			Rect2i(center.x - half, r.position.y - 2, GATE_WIDTH, 1),
-		],
-		"south": [
-			Rect2i(center.x - half, r.end.y, GATE_WIDTH, WALL_THICKNESS),
-			Rect2i(center.x - half, outer_ring.end.y, GATE_WIDTH, MAP_SIZE.y - 1 - outer_ring.end.y),
-			Rect2i(center.x - half, r.end.y + 1, GATE_WIDTH, 1),
-		],
-		"west": [
-			Rect2i(inner_ring.position.x, center.y - half, WALL_THICKNESS, GATE_WIDTH),
-			Rect2i(1, center.y - half, outer_ring.position.x - 1, GATE_WIDTH),
-			Rect2i(r.position.x - 2, center.y - half, 1, GATE_WIDTH),
-		],
-		"east": [
-			Rect2i(r.end.x, center.y - half, WALL_THICKNESS, GATE_WIDTH),
-			Rect2i(outer_ring.end.x, center.y - half, MAP_SIZE.x - 1 - outer_ring.end.x, GATE_WIDTH),
-			Rect2i(r.end.x + 1, center.y - half, 1, GATE_WIDTH),
 		],
 	}
 	for side in specs:
@@ -167,22 +155,15 @@ func _carve_paths(center: Vector2i) -> void:
 
 
 func _resolve_walls() -> void:
-	for y in MAP_SIZE.y:
-		for x in MAP_SIZE.x:
-			var cell := Vector2i(x, y)
-			if not _solid.has(cell):
-				continue
-			var below := cell + Vector2i.DOWN
-			var below2 := cell + Vector2i(0, 2)
-			var id: int
-			if not _is_solid(below):
-				id = Id.WALL_FACE_LOW_VINES if _rng.randf() < 0.25 else Id.WALL_FACE_LOW
-			elif not _is_solid(below2):
-				id = Id.WALL_FACE_HIGH_VINES if _rng.randf() < 0.25 else Id.WALL_FACE_HIGH
-			else:
-				id = Id.WALL_TOP_MOSS if _rng.randf() < 0.2 else Id.WALL_TOP
-			_layout.set_wall(cell, id)
+	WallResolver.resolve(_layout, _solid, _rng)
 
+
+func _setup_portal(center: Vector2i) -> void:
+	var half := GATE_WIDTH / 2
+	_layout.portal_rect = Rect2i(center.x - half, 1, GATE_WIDTH, PORTAL_ROWS)
+	_layout.portal_target = "labyrinth"
+	_layout.buildable = true
+	_layout.return_cell = Vector2i(center.x, 1 + PORTAL_ROWS + 3)
 
 func _is_solid(cell: Vector2i) -> bool:
 	if not _layout.in_bounds(cell):
@@ -199,7 +180,7 @@ func _place_props(center: Vector2i) -> void:
 		gate_approaches.append(gate.cells[gate.cells.size() / 2])
 
 	var trees := 0
-	for attempt in 800:
+	for attempt in 3000:
 		if trees >= TREE_TARGET:
 			break
 		var cell := Vector2i(
@@ -210,11 +191,11 @@ func _place_props(center: Vector2i) -> void:
 		if not _is_free_for_prop(cell, center, gate_approaches, occupied, 3.0):
 			continue
 		occupied[cell] = true
-		_layout.props.append({"type": "tree", "cell": cell})
+		_layout.props.append({"type": "tree", "cell": cell, "variant": _rng.randi_range(0, VARIANTS - 1)})
 		trees += 1
 
 	var rocks := 0
-	for attempt in 400:
+	for attempt in 1500:
 		if rocks >= ROCK_TARGET:
 			break
 		var cell := Vector2i(
@@ -223,7 +204,7 @@ func _place_props(center: Vector2i) -> void:
 		if not _is_free_for_prop(cell, center, gate_approaches, occupied, 2.0):
 			continue
 		occupied[cell] = true
-		_layout.props.append({"type": "rock", "cell": cell})
+		_layout.props.append({"type": "rock", "cell": cell, "variant": _rng.randi_range(0, VARIANTS - 1)})
 		rocks += 1
 
 

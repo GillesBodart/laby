@@ -15,6 +15,13 @@ var gates: Array[Dictionary] = []
 var props: Array[Dictionary] = []
 var spawn_cell: Vector2i
 var campfire_cell: Vector2i
+## Area transition: entering portal_rect (cells) travels to portal_target;
+## arriving from the other area places the player on return_cell.
+var portal_rect: Rect2i
+var portal_target := ""
+var return_cell: Vector2i
+## Whether the player may build here (only the Clearing).
+var buildable := false
 
 
 func _init(map_size: Vector2i) -> void:
