@@ -2048,6 +2048,12 @@ const DCSS_ICONS := ["apple", "honey", "flatbread", "hunter_feast", "fruit_salad
 
 func _make_biome_art() -> void:
 	_import_creatures()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/crops"))
+	for crop in FarmingScript.CROPS:
+		var def: Dictionary = FarmingScript.CROPS[crop]
+		var col := _item_color(def.yield)
+		for stage in [1, 2]:
+			_save(_make_crop(def.shape, col, stage), "res://assets/sprites/crops/%s_%d.png" % [crop, stage])
 	_save(_make_structure_m10("loom"), "res://assets/sprites/structures/loom.png")
 	_save(_make_structure_m10("alchemy_table"), "res://assets/sprites/structures/alchemy_table.png")
 	var nodes := _biome_nodes()
@@ -2079,6 +2085,80 @@ func _import_creatures() -> void:
 
 
 const EnemyCatalogScript := preload("res://scripts/core/enemy_catalog.gd")
+const FarmingScript := preload("res://scripts/core/farming.gd")
+
+const STEM5 := [Color8(28, 60, 30), Color8(44, 88, 40), Color8(70, 124, 52), Color8(108, 160, 70), Color8(156, 200, 104)]
+
+
+## Item colour read from the catalog source (ItemCatalog needs autoloads to compile).
+func _item_color(id: String) -> Color:
+	var src := FileAccess.get_file_as_string("res://scripts/core/item_catalog.gd")
+	var re := RegEx.create_from_string('"%s": \\{[^\\n]*?"color": Color8\\((\\d+), (\\d+), (\\d+)\\)' % id)
+	var m := re.search(src)
+	if m == null:
+		push_error("No colour for %s" % id)
+		return Color.MAGENTA
+	return Color8(int(m.get_string(1)), int(m.get_string(2)), int(m.get_string(3)))
+
+
+## 32x32 crop overlay for a farm plot (transparent; drawn over the tilled soil).
+## Stage 1 = sprouts, stage 2 = ripe plants bearing the crop's colour.
+func _make_crop(shape: String, col: Color, stage: int) -> Image:
+	var img := _new_image(32, 32)
+	var fruit := [col.darkened(0.55), col.darkened(0.3), col, col.lightened(0.25), col.lightened(0.55)]
+	var spots := [Vector2(9, 14), Vector2(23, 14), Vector2(9, 28), Vector2(23, 28)]
+	if shape == "tree":
+		spots = [Vector2(16, 28)]
+	for i in spots.size():
+		var f: Vector2 = spots[i]
+		if stage == 1:
+			_bevel(img, _mask_stroke(f, f + Vector2(0, -3), 0.6), STEM5)
+			_leaf(img, f + Vector2(0, -3), PI * 1.15, 4.5, STEM5)
+			_leaf(img, f + Vector2(0, -3), -PI * 0.15, 4.5, STEM5)
+			if shape == "tree":
+				_bevel(img, _mask_stroke(f, f + Vector2(0, -7), 1.0), WOOD5)
+				_leaf(img, f + Vector2(0, -7), -PI * 0.5, 5.0, STEM5)
+			continue
+		match shape:
+			"bush":
+				_blob(img, f.x, f.y - 5, 6, 5, STEM5, 0.25, 900 + i)
+				for d in [Vector2(-3, -7), Vector2(2, -8), Vector2(3, -4), Vector2(-2, -3)]:
+					_berry_dot(img, f + d, fruit, 1.5)
+			"root":
+				_bevel(img, _mask_ellipse(f + Vector2(0, -1), 3.0, 1.8), fruit)
+				for a in [-PI * 0.75, -PI * 0.5, -PI * 0.25]:
+					_leaf(img, f + Vector2(0, -2), a, 8.0, STEM5)
+			"stalk":
+				_leaf(img, f, PI * 1.1, 5.0, STEM5)
+				_leaf(img, f, -PI * 0.1, 5.0, STEM5)
+				for dx in [-3, 0, 3]:
+					var top := f + Vector2(dx * 1.6, -9 + absi(dx) * 0.5)
+					for y in range(int(top.y) + 2, int(f.y) + 1):
+						var t := (f.y - y) / (f.y - top.y)
+						_px(img, int(round(f.x + dx * 0.5 + (top.x - f.x - dx * 0.5) * t)), y, STEM5[2] if col.v <= 0.5 else fruit[1])
+					for k in 3:
+						_px(img, int(top.x) - 1, int(top.y) + k, fruit[3] if k == 0 else fruit[2])
+						_px(img, int(top.x), int(top.y) + k - 1, fruit[4] if k == 0 else fruit[3])
+			"flower":
+				_bevel(img, _mask_stroke(f, f + Vector2(0, -8), 0.6), STEM5)
+				_leaf(img, f + Vector2(0, -3), PI * 1.2, 5.0, STEM5)
+				_leaf(img, f + Vector2(0, -4), -PI * 0.2, 5.0, STEM5)
+				for k in 5:
+					var a := TAU * k / 5.0 - PI / 2.0
+					_berry_dot(img, f + Vector2(0, -9) + Vector2(cos(a), sin(a)) * 2.4, fruit, 1.5)
+				_px(img, int(f.x), int(f.y - 9), Color8(250, 220, 90))
+			"cap":
+				_bevel(img, _mask_stroke(f, f + Vector2(0, -4), 1.0), [Color8(150, 130, 100), Color8(190, 172, 140), Color8(222, 208, 180), Color8(236, 226, 204), Color8(250, 244, 230)])
+				_bevel(img, _mask_cut(_mask_ellipse(f + Vector2(0, -5), 5.0, 3.6), _mask_fn(func(p: Vector2) -> bool: return p.y > f.y - 4.5)), fruit)
+				_px(img, int(f.x - 2), int(f.y - 7), fruit[4])
+			"tree":
+				_bevel(img, _mask_stroke(f, f + Vector2(0, -10), 1.6), WOOD5)
+				_blob(img, f.x, f.y - 17, 10, 8, STEM5, 0.25, 950)
+				_blob(img, f.x - 5, f.y - 14, 5, 4, STEM5, 0.25, 951)
+				for d in [Vector2(-5, -18), Vector2(3, -20), Vector2(6, -14), Vector2(-2, -13), Vector2(1, -17)]:
+					_berry_dot(img, f + d, fruit, 1.8)
+	_outline(img, Color8(28, 34, 22))
+	return img
 
 
 ## Crops a creature to its pixels and rescales it so its longest side is `size`:

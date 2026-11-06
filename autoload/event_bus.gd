@@ -19,3 +19,5 @@ signal player_despawned(peer_id: int)
 signal notify(text: String)
 ## E on a crafting station: opens its recipe book ("" = close the book).
 signal station_used(station: String)
+## E on an empty farm plot: the seed picker opens for it.
+signal farm_plot_used(plot: Node)

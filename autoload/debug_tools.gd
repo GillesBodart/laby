@@ -46,6 +46,8 @@ func _ready() -> void:
 		_give.call_deferred()
 	if _args.has("spawn"):
 		_spawn.call_deferred(_args.spawn)
+	if _args.has("farm"):
+		_farm.call_deferred(_args.farm)
 	if _args.has("swing"):
 		_swing_loop.call_deferred(_args.swing)
 	if _args.has("screenshot"):
@@ -72,6 +74,33 @@ func _give() -> void:
 		ev.action = "inventory"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+
+
+## --farm=<crop,...>: an empty plot right of the player whose seed picker opens,
+## then plots with ripe crops (seeds for every crop are given).
+func _farm(list: String) -> void:
+	await get_tree().create_timer(0.4).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	var clearing := get_tree().current_scene.get_node_or_null("Clearing") as ClearingWorld
+	if p == null or clearing == null:
+		return
+	for id in Farming.CROPS:
+		p.inventory.add(Farming.CROPS[id].seed, 3)
+	var base := clearing.walls.local_to_map(clearing.walls.to_local(p.global_position))
+	var crops := Array(list.split(",", false)).filter(func(c): return Farming.CROPS.has(c))
+	crops.push_front("")
+	TimeSystem.clock.total_minutes += 1440.0 * 3
+	for i in crops.size():
+		var cell := base + Vector2i(1 + i, 0)
+		if not clearing.place_structure(cell, "farm_plot"):
+			continue
+		if crops[i] != "":
+			GameState.structures[cell].planted = TimeSystem.clock.total_minutes - Farming.grow_minutes(crops[i])
+			GameState.structures[cell].crop = crops[i]
+		elif not _args.has("panel"):
+			for s in get_tree().get_nodes_in_group("farm_plot"):
+				if s.cell == cell:
+					s.farm_interact(p)
 
 
 ## --swing: repeats the tool swing (for checking the animation in screenshots).

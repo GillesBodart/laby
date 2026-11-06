@@ -8,6 +8,8 @@ var is_open := false
 var stage := 0
 
 var _sprite := Sprite2D.new()
+## Crop growing on a farm plot (drawn over the soil).
+var _crop_sprite := Sprite2D.new()
 var _collision := CollisionShape2D.new()
 
 
@@ -31,6 +33,8 @@ func _ready() -> void:
 	_collision.shape = shape
 	add_child(_collision)
 	add_child(_sprite)
+	if is_farm():
+		add_child(_crop_sprite)
 	_refresh()
 
 
@@ -40,35 +44,57 @@ func is_farm() -> bool:
 
 func _process(_delta: float) -> void:
 	if is_farm():
-		var planted: float = GameState.structures.get(cell, {}).get("planted", Farming.NOT_PLANTED)
-		var now := Farming.stage(planted, TimeSystem.clock.total_minutes)
+		var now := _farm_stage()
 		if now != stage:
 			stage = now
 			_refresh()
 
 
-## Plants a berry, or harvests ripe crops. Returns true if something happened.
-func farm_interact(player: Player) -> bool:
+## Crop sown here ("" when the plot is empty).
+func crop() -> String:
+	var data: Dictionary = GameState.structures.get(cell, {})
+	if data.get("planted", Farming.NOT_PLANTED) < 0.0:
+		return ""
+	return data.get("crop", Farming.DEFAULT_CROP)
+
+
+func _farm_stage() -> int:
+	var planted: float = GameState.structures.get(cell, {}).get("planted", Farming.NOT_PLANTED)
+	return Farming.stage(planted, TimeSystem.clock.total_minutes, Farming.grow_minutes(crop()))
+
+
+## On an empty plot sows `crop_id` (or asks for a seed when ""); shows growth;
+## harvests ripe crops. Returns true if something happened.
+func farm_interact(player: Player, crop_id := "") -> bool:
 	var data: Dictionary = GameState.structures[cell]
 	var planted: float = data.get("planted", Farming.NOT_PLANTED)
 	var now := TimeSystem.clock.total_minutes
-	match Farming.stage(planted, now):
+	match _farm_stage():
 		Farming.EMPTY:
-			if not player.inventory.remove("berry", 1):
-				EventBus.notify.emit("Plant a berry here")
+			if crop_id == "":
+				if player.input.is_local():
+					EventBus.farm_plot_used.emit(self)
+				return false
+			var def: Dictionary = Farming.CROPS[crop_id]
+			if not player.inventory.remove(def.seed, 1):
+				EventBus.notify.emit("You need %s to plant" % ItemCatalog.item_name(def.seed))
 				return false
 			data["planted"] = now
-			EventBus.notify.emit("Berry planted")
+			data["crop"] = crop_id
+			EventBus.notify.emit("%s planted" % ItemCatalog.item_name(def.yield))
 		Farming.GROWING:
-			EventBus.notify.emit("Growing... %d min left" % ceili(Farming.minutes_left(planted, now) / 2.0))
+			var left_min := Farming.minutes_left(planted, now, Farming.grow_minutes(crop()))
+			EventBus.notify.emit("%s growing... %d min left" % [ItemCatalog.item_name(Farming.CROPS[crop()].yield), ceili(left_min / 120.0)])
 			return false
 		_:
-			var n := randi_range(3, 5)
-			var left := player.inventory.add("berry", n)
-			EventBus.notify.emit("Harvest: +%d Berries" % (n - left))
+			var def: Dictionary = Farming.CROPS[crop()]
+			var n := randi_range(def.min, def.max)
+			var left := player.inventory.add(def.yield, n)
+			EventBus.notify.emit("Harvest: +%d %s" % [n - left, ItemCatalog.item_name(def.yield)])
 			data["planted"] = Farming.NOT_PLANTED
-			player.gain_xp(3)
-	stage = Farming.stage(data["planted"], now)
+			data.erase("crop")
+			player.gain_xp(def.xp)
+	stage = _farm_stage()
 	_refresh()
 	return true
 
@@ -81,5 +107,8 @@ func toggle() -> void:
 
 func _refresh() -> void:
 	var def: Dictionary = BuildCatalog.TYPES[type]
-	_sprite.texture = load(BuildCatalog.texture_path(type, is_open, stage))
+	_sprite.texture = load(BuildCatalog.texture_path(type, is_open, 0 if is_farm() else stage))
+	if is_farm():
+		var path := "res://assets/sprites/crops/%s_%d.png" % [crop(), stage]
+		_crop_sprite.texture = load(path) if stage > 0 and ResourceLoader.exists(path) else null
 	_collision.set_deferred("disabled", not def.solid or is_open)

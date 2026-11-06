@@ -3,10 +3,14 @@ extends RefCounted
 ## Fixed-slot stackable inventory (pure data, per player).
 
 signal changed
+## First time an item id ever enters this inventory.
+signal discovered(id: String)
 
 const DEFAULT_SLOTS := 30
 
 var slots: Array = [] # each: {} or {"id": String, "count": int}
+## Every item id ever held (id -> true): recipes unlock from these.
+var known: Dictionary = {}
 
 
 func _init(slot_count: int = DEFAULT_SLOTS) -> void:
@@ -48,8 +52,22 @@ func add(id: String, amount: int) -> int:
 			slots[i] = {"id": id, "count": n}
 			left -= n
 	if left != amount:
+		discover(id)
 		changed.emit()
 	return left
+
+
+## Marks an item as seen; returns true the first time.
+func discover(id: String) -> bool:
+	if known.has(id) or not ItemCatalog.ITEMS.has(id):
+		return false
+	known[id] = true
+	discovered.emit(id)
+	return true
+
+
+func knows(id: String) -> bool:
+	return known.has(id)
 
 
 ## Removes items if all are available; returns success.
@@ -120,4 +138,16 @@ func load_data(data: Array) -> void:
 			var d: Dictionary = data[i]
 			if ItemCatalog.ITEMS.has(d.id):
 				slots[i] = {"id": String(d.id), "count": int(d.count)}
+				known[String(d.id)] = true
 	changed.emit()
+
+
+func known_to_data() -> Array:
+	return known.keys()
+
+
+## Restores discoveries (older saves have none: what is carried counts).
+func load_known(ids: Array) -> void:
+	for id in ids:
+		if ItemCatalog.ITEMS.has(id):
+			known[String(id)] = true

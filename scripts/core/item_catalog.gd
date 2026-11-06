@@ -221,7 +221,7 @@ const ITEMS := {
 	"stone_wall": {"name": "Stone Wall", "stack": 40, "color": Color8(130, 138, 132), "desc": "Place with B. Sturdy defense."},
 	"stone_floor": {"name": "Stone Floor", "stack": 40, "color": Color8(150, 154, 148), "desc": "Place with B. Walkable."},
 	"brick_wall": {"name": "Brick Wall", "stack": 40, "color": Color8(184, 82, 60), "desc": "Place with B. Warm red masonry."},
-	"farm_plot": {"name": "Farm Plot", "stack": 10, "color": Color8(110, 78, 50), "desc": "Place with B. E plants a berry; ripe in 4 min."},
+	"farm_plot": {"name": "Farm Plot", "stack": 10, "color": Color8(110, 78, 50), "desc": "Place with B. E on it picks a seed to sow: berries, wheat, carrots, herbs, mushrooms..."},
 }
 
 ## station: "" = craftable anywhere, otherwise a node group that must be near.
@@ -538,6 +538,29 @@ static func recipes_at(station: String) -> Array:
 		var b: String = RECIPES[y].id
 		return sorts_before(a, b) or (a == b and x < y))
 	_recipes_cache[station] = out
+	return out
+
+
+## A recipe shows up in its book once any of its ingredients has been discovered.
+static func recipe_known(index: int, known: Dictionary) -> bool:
+	for id in RECIPES[index]["in"]:
+		if known.has(id):
+			return true
+	return false
+
+
+## Recipes that the discovery of `id` reveals (none of their other ingredients known yet).
+static func recipes_revealed_by(id: String, known: Dictionary) -> Array:
+	var out := []
+	for i in RECIPES.size():
+		if not RECIPES[i]["in"].has(id):
+			continue
+		var before := false
+		for other in RECIPES[i]["in"]:
+			if other != id and known.has(other):
+				before = true
+		if not before:
+			out.append(i)
 	return out
 
 

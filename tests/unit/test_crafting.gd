@@ -142,3 +142,31 @@ func test_labyrinth_spawns_ores() -> void:
 			ores += 1
 			check(ResourceCatalog.has(p.type), "%s is a known resource" % p.type)
 	check(ores > 10, "labyrinth holds ore deposits")
+
+
+func test_recipes_unlock_from_discovered_ingredients() -> void:
+	var inv := Inventory.new()
+	var i := ItemCatalog.RECIPES.find_custom(func(r: Dictionary) -> bool: return r["in"].size() >= 2)
+	var ingredients: Array = ItemCatalog.RECIPES[i]["in"].keys()
+	check(not ItemCatalog.recipe_known(i, inv.known), "hidden before discovery")
+	var seen := []
+	inv.discovered.connect(func(id: String) -> void: seen.append(id))
+	inv.add(ingredients[0], 1)
+	check(ItemCatalog.recipe_known(i, inv.known), "one ingredient reveals it")
+	inv.remove(ingredients[0], 1)
+	check(ItemCatalog.recipe_known(i, inv.known), "stays known after using the item up")
+	inv.add(ingredients[0], 1)
+	check_eq(seen, [ingredients[0]], "discovered once")
+	check(not ItemCatalog.recipes_revealed_by(ingredients[1], inv.known).has(i), "already revealed recipe not counted again")
+
+
+func test_known_items_survive_save() -> void:
+	var inv := Inventory.new()
+	inv.add("stone", 2)
+	inv.remove("stone", 2)
+	var copy := Inventory.new()
+	copy.load_known(inv.known_to_data())
+	check(copy.knows("stone"), "known restored")
+	var legacy := Inventory.new()
+	legacy.load_data([{"id": "stone", "count": 1}])
+	check(legacy.knows("stone"), "old saves: carried items count as discovered")

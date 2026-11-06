@@ -41,6 +41,9 @@ func _ready() -> void:
 	var stash_panel := PanelContainer.new()
 	stash_panel.set_script(preload("res://scripts/ui/stash_panel.gd"))
 	add_child(stash_panel)
+	var seed_panel := Control.new()
+	seed_panel.set_script(preload("res://scripts/ui/seed_panel.gd"))
+	add_child(seed_panel)
 	# Added last so it sees Esc after panels had the chance to close themselves.
 	var menu := Control.new()
 	menu.set_script(preload("res://scripts/ui/settings_menu.gd"))

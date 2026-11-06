@@ -145,7 +145,10 @@ func _on_station_used(group: String) -> void:
 func _book() -> Array:
 	var out := []
 	var last := ""
+	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
+		if not ItemCatalog.recipe_known(i, known):
+			continue
 		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
 		if _cat != "" and cat != _cat:
 			continue
@@ -160,7 +163,10 @@ func _book() -> Array:
 ## Categories present in the current station's book, in display order.
 func _categories() -> Array:
 	var out := []
+	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
+		if not ItemCatalog.recipe_known(i, known):
+			continue
 		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
 		if cat not in out:
 			out.append(cat)
@@ -169,10 +175,17 @@ func _categories() -> Array:
 
 ## First recipe output of a category in the book (used as the chip icon).
 func _category_icon(cat: String) -> String:
+	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
-		if ItemCatalog.category_of(ItemCatalog.RECIPES[i].id) == cat:
+		if ItemCatalog.recipe_known(i, known) and ItemCatalog.category_of(ItemCatalog.RECIPES[i].id) == cat:
 			return ItemCatalog.RECIPES[i].id
 	return ""
+
+
+## Items the local player has discovered (recipes unlock from these).
+func _known() -> Dictionary:
+	var player := _player()
+	return player.inventory.known if player != null else {}
 
 
 func sort_backpack() -> void:
@@ -492,6 +505,18 @@ func _draw_crafting(player: Player) -> String:
 		if not ok:
 			draw_rect(r.grow(-1), Color(0.35, 0.28, 0.2, 0.45))
 	_draw_chips()
+	var locked := 0
+	for i in ItemCatalog.recipes_at(station):
+		if not ItemCatalog.recipe_known(i, player.inventory.known):
+			locked += 1
+	if book.is_empty():
+		var msg := "No recipes yet: gather new materials to discover some."
+		var mw := _font.get_string_size(msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_string(_font, Vector2(PANEL.get_center().x - mw / 2.0, PANEL.get_center().y), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+	if locked > 0:
+		var lt := "%d undiscovered" % locked
+		var lw := _font.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_string(_font, Vector2(PANEL.end.x - lw - 14, PANEL.end.y - 10), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
 	if station == "":
 		var hint := "E at a campfire, workbench, furnace, anvil... for more."
 		var w := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x

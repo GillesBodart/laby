@@ -20,7 +20,11 @@ const ANIMATIONS := {
 	"walk_side": {"row": 2, "frames": [1, 0, 2, 0], "fps": 8.0},
 }
 
-const REACH := 36.0
+## Body sprite rest position (feet on the node origin).
+const SPRITE_OFFSET := Vector2(0, -16)
+## Gathering/interaction reach, measured from a point just in front of the body.
+const REACH := 22.0
+const PROBE := 12.0
 const STATION_RANGE := 112.0
 const GATHER_COOLDOWN := 0.4
 const ATTACK_COOLDOWN := 0.45
@@ -61,7 +65,9 @@ func _ready() -> void:
 	sprite.play("idle_down")
 	if GameState.inventories.has(peer_id):
 		inventory.load_data(GameState.inventories[peer_id])
+	inventory.load_known(GameState.knowns.get(peer_id, []))
 	inventory.changed.connect(func() -> void: GameState.inventories[peer_id] = inventory.to_data())
+	inventory.discovered.connect(_on_discovered)
 	if GameState.equipments.has(peer_id):
 		equipment.load_data(GameState.equipments[peer_id])
 	equipment.changed.connect(_on_equipment_changed)
@@ -368,14 +374,14 @@ func _ui_open() -> bool:
 
 ## Crafting station group of the nearest station in reach ("" = none).
 func find_station() -> String:
-	var probe := global_position + Vector2(0, -8) + facing * 16.0
+	var probe := global_position + Vector2(0, -6) + facing * PROBE
 	var best := ""
 	var best_d := REACH
 	for group in ItemCatalog.STATIONS:
 		if group == "":
 			continue
 		for node in get_tree().get_nodes_in_group(group):
-			var d := probe.distance_to(node.global_position)
+			var d := _dist_to_tile(probe, node.global_position)
 			if d < best_d:
 				best_d = d
 				best = group
@@ -383,20 +389,27 @@ func find_station() -> String:
 
 
 func _find_farm_plot() -> Structure:
-	var probe := global_position + Vector2(0, -8) + facing * 16.0
+	var probe := global_position + Vector2(0, -6) + facing * PROBE
 	var best: Structure = null
 	var best_d := REACH
 	for node in get_tree().get_nodes_in_group("farm_plot"):
-		var d := probe.distance_to(node.global_position)
+		var d := _dist_to_tile(probe, node.global_position)
 		if d < best_d:
 			best_d = d
 			best = node
 	return best
 
 
+## Distance from a point to the tile-sized box of a structure centred on center.
+static func _dist_to_tile(p: Vector2, center: Vector2) -> float:
+	var half := TileCatalog.TILE_SIZE / 2.0
+	var d := (p - center).abs() - Vector2(half, half)
+	return Vector2(maxf(d.x, 0.0), maxf(d.y, 0.0)).length()
+
+
 ## Nearest harvestable prop within reach in front of the player.
 func find_gatherable() -> Gatherable:
-	var probe := global_position + Vector2(0, -8) + facing * 16.0
+	var probe := global_position + Vector2(0, -6) + facing * PROBE
 	var best: Gatherable = null
 	var best_d := REACH
 	for node in get_tree().get_nodes_in_group("gatherable"):
@@ -439,6 +452,13 @@ func _update_visuals() -> void:
 	light.energy = 0.55 * LightingCurve.darkness_at(TimeSystem.minute_of_day())
 
 
+func _on_discovered(id: String) -> void:
+	var revealed := ItemCatalog.recipes_revealed_by(id, inventory.known)
+	GameState.knowns[peer_id] = inventory.known_to_data()
+	if input.is_local() and not revealed.is_empty():
+		EventBus.notify.emit("%s discovered: %d new recipe%s" % [ItemCatalog.item_name(id), revealed.size(), "" if revealed.size() == 1 else "s"])
+
+
 func get_save_key() -> String:
 	return "player_%d" % peer_id
 
@@ -448,6 +468,7 @@ func get_save_data() -> Dictionary:
 		"position": [global_position.x, global_position.y],
 		"facing": [facing.x, facing.y],
 		"inventory": inventory.to_data(),
+		"known": inventory.known_to_data(),
 		"equipment": equipment.to_data(),
 		"survival": survival.to_data(),
 	}
@@ -455,7 +476,12 @@ func get_save_data() -> Dictionary:
 
 func load_save_data(data: Dictionary) -> void:
 	inventory.load_data(data.get("inventory", []))
+	inventory.load_known(data.get("known", []))
 	equipment.load_data(data.get("equipment", {}))
+	for worn in equipment.to_data().values():
+		if worn is String and worn != "":
+			inventory.known[worn] = true
+	GameState.knowns[peer_id] = inventory.known_to_data()
 	survival.load_data(data.get("survival", {}))
 	var p: Array = data.get("position", [global_position.x, global_position.y])
 	global_position = Vector2(p[0], p[1])
@@ -517,16 +543,16 @@ func swing(item_id: String, on_impact := Callable()) -> void:
 		_tool_pivot.z_index = -1
 	_tool_arm.rotation_degrees = raise - 15.0
 	_tool_pivot.visible = true
-	sprite.position = Vector2.ZERO
+	sprite.position = SPRITE_OFFSET
 	sprite.scale = Vector2.ONE
 	_swing = create_tween()
 	_swing.tween_property(_tool_arm, "rotation_degrees", raise, 0.07)
 	_swing.tween_property(_tool_arm, "rotation_degrees", strike, 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	_swing.parallel().tween_property(sprite, "position", facing * 2.0, 0.09)
+	_swing.parallel().tween_property(sprite, "position", SPRITE_OFFSET + facing * 2.0, 0.09)
 	_swing.tween_callback(func() -> void:
 		sprite.scale = Vector2(1.08, 0.92)
 		if on_impact.is_valid():
 			on_impact.call())
 	_swing.tween_property(sprite, "scale", Vector2.ONE, 0.08)
-	_swing.parallel().tween_property(sprite, "position", Vector2.ZERO, 0.1)
+	_swing.parallel().tween_property(sprite, "position", SPRITE_OFFSET, 0.1)
 	_swing.tween_callback(func() -> void: _tool_pivot.visible = false)

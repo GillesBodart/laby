@@ -100,3 +100,39 @@ func test_e_on_a_station_opens_its_book() -> void:
 	check_eq(opened, ["anvil"], "E opens the anvil book")
 	check(player.nearby_stations().has("anvil"), "anvil counts for crafting")
 	world.free()
+
+func test_farm_plot_offers_seeds_and_grows_the_chosen_crop() -> void:
+	var world: Node = await _start()
+	var clearing: ClearingWorld = world.get_node("Clearing")
+	var cell := _free_cell(clearing)
+	check(clearing.place_structure(cell, "farm_plot"), "plot placed")
+	var plot: Structure = null
+	for s in _tree().get_nodes_in_group("farm_plot"):
+		if s.cell == cell:
+			plot = s
+	var player: Player = GameState.players.get(GameState.local_peer_id())
+	player.inventory.add("wheat", 2)
+	var asked := []
+	var on_used := func(p: Node) -> void: asked.append(p)
+	EventBus.farm_plot_used.connect(on_used)
+	check(not plot.farm_interact(player), "E on an empty plot does not plant by itself")
+	EventBus.farm_plot_used.disconnect(on_used)
+	check_eq(asked, [plot], "seed picker requested")
+	check(Farming.plantable(player.inventory).has("wheat"), "wheat is sowable")
+	check(not plot.farm_interact(player, "carrot"), "no carrot seed")
+	check(plot.farm_interact(player, "wheat"), "wheat sown")
+	check_eq(player.inventory.count("wheat"), 1, "one wheat used")
+	check_eq(plot.crop(), "wheat", "wheat growing")
+	check(FileAccess.file_exists("res://assets/sprites/crops/wheat_2.png"), "crop art")
+	TimeSystem.clock.total_minutes += Farming.grow_minutes("wheat")
+	check(plot.farm_interact(player), "ripe wheat harvested")
+	check(player.inventory.count("wheat") >= 1 + Farming.CROPS.wheat.min, "wheat yield")
+	check_eq(plot.crop(), "", "plot empty again")
+	world.free()
+
+
+func test_every_crop_uses_real_items() -> void:
+	for id in Farming.CROPS:
+		var def: Dictionary = Farming.CROPS[id]
+		check(ItemCatalog.ITEMS.has(def.seed) and ItemCatalog.ITEMS.has(def.yield), "%s items exist" % id)
+		check(def.min <= def.max and def.minutes > 0.0, "%s numbers" % id)

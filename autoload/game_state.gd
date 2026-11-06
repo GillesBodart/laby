@@ -23,6 +23,8 @@ var arriving := false
 var inventories: Dictionary = {}
 ## Per-peer worn gear kept while changing area (peer_id -> Equipment data).
 var equipments: Dictionary = {}
+## Discovered item ids per peer (peer_id -> Array), kept across area changes.
+var knowns: Dictionary = {}
 ## Per-peer survival stats kept while changing area (peer_id -> Survival data).
 var survivals: Dictionary = {}
 ## Explored cells per area (area name -> FogMap), only for fogged areas.
@@ -51,6 +53,7 @@ func new_game(seed_value: int = 0) -> void:
 	arriving = false
 	inventories = {}
 	equipments = {}
+	knowns = {}
 	survivals = {}
 	fog = {}
 	depleted_cells = {}
