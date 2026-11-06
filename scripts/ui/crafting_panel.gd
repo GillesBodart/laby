@@ -12,10 +12,11 @@ const DIAMOND := 15
 const DOLL := {
 	"head": Vector2(104, 62), "amulet": Vector2(134, 74), "weapon": Vector2(74, 104),
 	"body": Vector2(104, 104), "ring": Vector2(134, 104), "feet": Vector2(104, 146),
+	"offhand": Vector2(134, 134),
 }
 const GHOST := {
 	"head": "leather_cap", "amulet": "bone_charm", "weapon": "stone_sword",
-	"body": "leather_armor", "ring": "copper_ring", "feet": "leather_boots",
+	"body": "leather_armor", "ring": "copper_ring", "feet": "leather_boots", "offhand": "wooden_shield",
 }
 const EQUIP_SLOT := Vector2(24, 24)
 const PANEL := Rect2(44, 36, 320, 196)
@@ -44,6 +45,10 @@ var _font: Font
 var _hover := -1
 var _hover_slot := ""
 var _scroll := 0
+## Recipe-book category filter ("" = all categories, each starting on a new row).
+var _cat := ""
+var _hover_chip := -2
+var _hover_sort := false
 ## Station whose recipe book is shown ("" = handcraft).
 var station := ""
 
@@ -72,6 +77,8 @@ func _process(_delta: float) -> void:
 		return
 	_hover = _hover_index(get_local_mouse_position())
 	_hover_slot = _hover_equip(get_local_mouse_position()) if tab == 0 else ""
+	_hover_chip = _hover_chip_index(get_local_mouse_position()) if tab == 1 else -2
+	_hover_sort = tab == 0 and SORT_BUTTON.has_point(get_local_mouse_position())
 	queue_redraw()
 
 
@@ -84,6 +91,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if visible:
 			station = ""
 			_scroll = 0
+			_cat = ""
 		get_viewport().set_input_as_handled()
 	elif not visible:
 		return
@@ -105,7 +113,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			if _tab_rect(i).has_point(m):
 				tab = i
 				return
-		if tab == 1 and _hover >= 0:
+		if tab == 1 and _hover_chip > -2:
+			_cat = "" if _hover_chip < 0 else _categories()[_hover_chip]
+			_scroll = 0
+		elif tab == 0 and _hover_sort:
+			sort_backpack()
+		elif tab == 1 and _hover >= 0:
 			craft(_hover)
 		elif tab == 0 and _hover_slot != "":
 			unequip(_hover_slot)
@@ -123,12 +136,50 @@ func _on_station_used(group: String) -> void:
 	station = group
 	tab = 1
 	_scroll = 0
+	_cat = ""
 	visible = true
 
 
-## Recipe indices shown in the book for the current station.
+## Grid cells of the book for the current station and filter: recipe indices, with
+## -1 padding so each category starts on a fresh row.
 func _book() -> Array:
-	return ItemCatalog.recipes_at(station)
+	var out := []
+	var last := ""
+	for i in ItemCatalog.recipes_at(station):
+		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
+		if _cat != "" and cat != _cat:
+			continue
+		if last != "" and cat != last:
+			while out.size() % GRID_COLS != 0:
+				out.append(-1)
+		last = cat
+		out.append(i)
+	return out
+
+
+## Categories present in the current station's book, in display order.
+func _categories() -> Array:
+	var out := []
+	for i in ItemCatalog.recipes_at(station):
+		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
+		if cat not in out:
+			out.append(cat)
+	return out
+
+
+## First recipe output of a category in the book (used as the chip icon).
+func _category_icon(cat: String) -> String:
+	for i in ItemCatalog.recipes_at(station):
+		if ItemCatalog.category_of(ItemCatalog.RECIPES[i].id) == cat:
+			return ItemCatalog.RECIPES[i].id
+	return ""
+
+
+func sort_backpack() -> void:
+	var player := _player()
+	if player != null:
+		player.inventory.sort()
+		EventBus.notify.emit("Backpack sorted")
 
 
 func _scroll_by(d: int) -> void:
@@ -157,6 +208,8 @@ func equip_slot(index: int) -> bool:
 	if player == null:
 		return false
 	var s: Dictionary = player.inventory.slots[index]
+	if not s.is_empty() and ItemCatalog.slot_of(s.id) == "" and ItemCatalog.is_consumable(s.id):
+		return player.use_item(s.id)
 	if s.is_empty() or ItemCatalog.slot_of(s.id) == "":
 		return false
 	var ok := player.equipment.equip(player.inventory, s.id)
@@ -197,6 +250,24 @@ func _visible_recipes() -> Array:
 	return range(first, last)
 
 
+## Filter chip i (-1 = "all") above the recipe grid.
+func _chip_rect(i: int) -> Rect2:
+	var n := _categories().size() + 1
+	var w := 22.0
+	var x0 := PANEL.get_center().x - n * w / 2.0
+	return Rect2(x0 + (i + 1) * w, PANEL.position.y + 10, w - 2, 18)
+
+
+func _hover_chip_index(m: Vector2) -> int:
+	for i in range(-1, _categories().size()):
+		if _chip_rect(i).has_point(m):
+			return i
+	return -2
+
+
+const SORT_BUTTON := Rect2(372, 212, 100, 18)
+
+
 func _hover_equip(m: Vector2) -> String:
 	for slot in DOLL:
 		if Rect2(DOLL[slot] - EQUIP_SLOT / 2.0, EQUIP_SLOT).has_point(m):
@@ -213,7 +284,7 @@ func _hover_index(m: Vector2) -> int:
 	else:
 		var book := _book()
 		for pos in _visible_recipes():
-			if _recipe_rect(pos).has_point(m):
+			if book[pos] >= 0 and _recipe_rect(pos).has_point(m):
 				return book[pos]
 	return -1
 
@@ -330,6 +401,11 @@ func _draw() -> void:
 			detail_extra = "Click to take off."
 		elif detail_id != "" and ItemCatalog.slot_of(detail_id) != "":
 			detail_extra = "Click to equip (%s)." % Equipment.SLOT_NAMES[ItemCatalog.slot_of(detail_id)]
+		elif detail_id != "" and ItemCatalog.is_consumable(detail_id):
+			detail_extra = "Click to use."
+		_box(SORT_BUTTON, CREAM if _hover_sort else TAN, GOLD if _hover_sort else BROWN, 3)
+		var sw := _font.get_string_size("SORT", HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		draw_string(_font, Vector2(SORT_BUTTON.get_center().x - sw / 2.0, SORT_BUTTON.end.y - 5), "SORT", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
 	else:
 		detail_id = _draw_crafting(player)
 		if _hover >= 0:
@@ -388,6 +464,7 @@ func _draw_doll(player: Player) -> String:
 		"ATK %d" % player.weapon_damage(),
 		"DEF %d" % player.armor(),
 		"HP %d" % int(player.survival.max_health()),
+		"BLK %d%%" % player.block_chance(),
 	]
 	for i in lines.size():
 		draw_string(_font, Vector2(62, 178 + i * 14), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
@@ -400,6 +477,8 @@ func _draw_crafting(player: Player) -> String:
 	var book := _book()
 	for pos in _visible_recipes():
 		var i: int = book[pos]
+		if i < 0:
+			continue
 		var rec: Dictionary = ItemCatalog.RECIPES[i]
 		var ok := Crafting.can_craft(inv, rec, stations)
 		var r := _recipe_rect(pos)
@@ -412,6 +491,7 @@ func _draw_crafting(player: Player) -> String:
 			_text(p, t, TEXT_LIGHT)
 		if not ok:
 			draw_rect(r.grow(-1), Color(0.35, 0.28, 0.2, 0.45))
+	_draw_chips()
 	if station == "":
 		var hint := "E at a campfire, workbench, furnace, anvil... for more."
 		var w := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
@@ -421,6 +501,28 @@ func _draw_crafting(player: Player) -> String:
 		var w := _font.get_string_size(warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
 		draw_string(_font, Vector2(PANEL.get_center().x - w / 2.0, PANEL.end.y - 14), warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD)
 	return ItemCatalog.RECIPES[_hover].id if _hover >= 0 else ""
+
+
+## Category filter chips: "all" (a grid glyph) then one icon per category.
+func _draw_chips() -> void:
+	var cats := _categories()
+	for i in range(-1, cats.size()):
+		var r := _chip_rect(i)
+		var on: bool = _cat == ("" if i < 0 else cats[i])
+		var hot := i == _hover_chip
+		_box(r, CREAM if on else TAN, GOLD if on or hot else BROWN, 3)
+		if i < 0:
+			for k in 4:
+				draw_rect(Rect2(r.get_center() + Vector2(-5 + (k % 2) * 6, -5 + (k / 2) * 6), Vector2(4, 4)), BROWN)
+		else:
+			_icon(r.get_center(), _category_icon(cats[i]), 6, Color.WHITE if on or hot else Color(1, 1, 1, 0.7))
+	if _hover_chip > -2:
+		var label := "All" if _hover_chip < 0 else String(ItemCatalog.CATEGORY_NAMES[cats[_hover_chip]])
+		var r := _chip_rect(_hover_chip)
+		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		var tip := Rect2(r.get_center().x - w / 2.0 - 4, r.end.y + 2, w + 8, 13)
+		_box(tip, CREAM, BROWN, 2)
+		draw_string(_font, Vector2(tip.position.x + 4, tip.end.y - 3), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_DARK)
 
 
 ## Ingredient lines (have/need) plus the required station.
@@ -445,7 +547,10 @@ func _draw_card(id: String, extra: String) -> void:
 	var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	draw_string(_font, Vector2(CARD.get_center().x - nw / 2.0, CARD.position.y + 16), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
 	draw_rect(Rect2(CARD.position.x + 8, CARD.position.y + 21, CARD.size.x - 16, 1), BROWN)
+	var cat := ItemCatalog.category_name(id).to_upper()
+	var cw := _font.get_string_size(cat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+	draw_string(_font, Vector2(CARD.get_center().x - cw / 2.0, CARD.position.y + 31), cat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, FADED)
 	var body := ItemCatalog.description(id)
 	if extra != "":
 		body += "\n" + extra
-	draw_multiline_string(_font, CARD.position + Vector2(8, 38), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, TEXT_DARK)
+	draw_multiline_string(_font, CARD.position + Vector2(8, 44), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, TEXT_DARK)

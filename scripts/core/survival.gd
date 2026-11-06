@@ -123,6 +123,17 @@ func eat(amount: float) -> void:
 	changed.emit()
 
 
+func heal(amount: float) -> void:
+	health = minf(health + amount, max_health())
+	changed.emit()
+
+
+func restore_stamina(amount: float) -> void:
+	stamina = minf(stamina + amount, MAX_STAMINA)
+	_exhausted = false
+	changed.emit()
+
+
 func damage(amount: float) -> void:
 	if is_dead():
 		return

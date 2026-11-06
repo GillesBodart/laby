@@ -11,6 +11,8 @@ const TYPES := {
 	"cooking_pot": {"solid": true, "layer": "entity", "group": "cooking_pot"},
 	"tanning_rack": {"solid": true, "layer": "entity", "group": "tanning_rack"},
 	"stonecutter": {"solid": true, "layer": "entity", "group": "stonecutter"},
+	"loom": {"solid": true, "layer": "entity", "group": "loom"},
+	"alchemy_table": {"solid": true, "layer": "entity", "group": "alchemy_table"},
 	"stone_wall": {"solid": true, "layer": "entity", "group": ""},
 	"brick_wall": {"solid": true, "layer": "entity", "group": ""},
 	"stone_floor": {"solid": false, "layer": "floor", "group": ""},

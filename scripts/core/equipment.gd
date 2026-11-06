@@ -5,9 +5,9 @@ extends RefCounted
 
 signal changed
 
-const SLOTS := ["weapon", "head", "body", "feet", "ring", "amulet"]
+const SLOTS := ["weapon", "offhand", "head", "body", "feet", "ring", "amulet"]
 const SLOT_NAMES := {
-	"weapon": "Weapon", "head": "Head", "body": "Body",
+	"weapon": "Weapon", "offhand": "Offhand", "head": "Head", "body": "Body",
 	"feet": "Feet", "ring": "Ring", "amulet": "Amulet",
 }
 

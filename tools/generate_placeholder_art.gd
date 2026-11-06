@@ -113,8 +113,7 @@ func _init() -> void:
 	_save(_make_ore([MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 2), "res://assets/sprites/resources/ore_copper.png")
 	_save(_make_ore([Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 3), "res://assets/sprites/resources/ore_iron.png")
 	_save(_make_ore([MAT["crystal"][2], MAT["crystal"][3], MAT["crystal"][4]], 4), "res://assets/sprites/resources/ore_crystal.png")
-	for e in ["grub", "stalker", "warden"]:
-		_save(_make_enemy(e), "res://assets/sprites/enemies/%s.png" % e)
+	_make_biome_art()
 	print("Art generated.")
 	quit()
 
@@ -1917,5 +1916,973 @@ func _ic_bowl(surface: Array, bits: Array, hot: bool) -> Image:
 			_px(img, s[0], s[1], Color(1, 1, 1, 0.6))
 			_px(img, s[0] + 1, s[1] - 2, Color(1, 1, 1, 0.45))
 			_px(img, s[0], s[1] - 4, Color(1, 1, 1, 0.3))
+	_outline(img, C.outline)
+	return img
+
+
+# ---------------------------------------------------------------- biome art (M10)
+# Creature sprites and gear/potion icons are vendored Dungeon Crawl Stone Soup
+# tiles (CC0, OpenGameArt) under tools/third_party/dcss, re-outlined to match.
+# Everything else below is procedural, built from a few shaded primitives.
+
+const DCSS := "res://tools/third_party/dcss"
+const BRONZE5 := [Color8(96, 58, 26), Color8(146, 96, 40), Color8(196, 140, 62), Color8(226, 182, 98), Color8(246, 222, 150)]
+const OBSID5 := [Color8(14, 10, 22), Color8(30, 22, 44), Color8(52, 40, 76), Color8(92, 76, 128), Color8(160, 146, 200)]
+const SILVER5 := [Color8(90, 96, 112), Color8(140, 148, 164), Color8(188, 196, 210), Color8(222, 228, 238), Color8(250, 252, 255)]
+const TIN5 := [Color8(80, 86, 90), Color8(120, 128, 130), Color8(160, 168, 166), Color8(196, 204, 200), Color8(230, 236, 232)]
+const WHITE5 := [Color8(150, 146, 140), Color8(196, 192, 184), Color8(228, 224, 216), Color8(244, 242, 236), Color8(255, 255, 252)]
+const AMBER5 := [Color8(110, 52, 10), Color8(170, 90, 20), Color8(220, 140, 40), Color8(246, 190, 80), Color8(255, 234, 160)]
+const SULF5 := [Color8(120, 100, 20), Color8(170, 150, 30), Color8(220, 200, 60), Color8(244, 230, 110), Color8(255, 250, 190)]
+const SLIME5 := [Color8(30, 80, 40), Color8(60, 130, 60), Color8(100, 180, 80), Color8(150, 220, 120), Color8(210, 250, 190)]
+const VENOM5 := [Color8(50, 20, 60), Color8(90, 40, 110), Color8(140, 70, 160), Color8(190, 120, 200), Color8(230, 190, 240)]
+const GLOW5 := [Color8(20, 70, 90), Color8(30, 120, 140), Color8(60, 190, 200), Color8(130, 240, 240), Color8(220, 255, 255)]
+const BLUE5 := [Color8(24, 30, 70), Color8(44, 56, 120), Color8(70, 90, 170), Color8(120, 140, 210), Color8(190, 200, 250)]
+const CARROT5 := [Color8(130, 50, 14), Color8(190, 84, 24), Color8(234, 124, 40), Color8(250, 166, 80), Color8(255, 214, 150)]
+const POTATO5 := [Color8(96, 66, 36), Color8(140, 100, 58), Color8(180, 138, 86), Color8(208, 170, 116), Color8(230, 204, 156)]
+const WHEAT5 := [Color8(120, 86, 30), Color8(170, 130, 50), Color8(214, 176, 80), Color8(238, 210, 120), Color8(252, 238, 180)]
+const SAND5 := [Color8(150, 120, 74), Color8(190, 158, 104), Color8(222, 192, 134), Color8(238, 214, 162), Color8(250, 236, 196)]
+const FUR5 := [Color8(60, 58, 56), Color8(96, 92, 88), Color8(136, 130, 122), Color8(176, 170, 160), Color8(214, 208, 198)]
+const CHITIN5 := [Color8(30, 40, 30), Color8(50, 70, 46), Color8(80, 104, 60), Color8(120, 140, 80), Color8(170, 184, 120)]
+const SCALE5 := [Color8(20, 60, 50), Color8(30, 96, 76), Color8(50, 138, 104), Color8(90, 180, 140), Color8(160, 220, 190)]
+const PURPLE5 := [Color8(40, 16, 50), Color8(80, 30, 96), Color8(124, 54, 140), Color8(170, 96, 186), Color8(220, 170, 230)]
+const PINK5 := [Color8(120, 40, 70), Color8(180, 70, 110), Color8(230, 120, 150), Color8(246, 170, 190), Color8(255, 220, 230)]
+const CRUST5 := [Color8(110, 70, 30), Color8(160, 106, 50), Color8(204, 146, 72), Color8(230, 184, 104), Color8(248, 220, 150)]
+const SOIL5 := [Color8(50, 34, 24), Color8(78, 54, 36), Color8(104, 74, 50), Color8(130, 96, 64), Color8(156, 120, 82)]
+const GLASS5 := [Color8(60, 110, 130), Color8(110, 170, 190), Color8(170, 220, 230), Color8(210, 240, 246), Color8(250, 255, 255)]
+const RED5 := [Color8(90, 20, 20), Color8(150, 36, 30), Color8(200, 60, 44), Color8(232, 104, 80), Color8(250, 170, 150)]
+
+const DCSS_ICONS := ["apple", "honey", "flatbread", "hunter_feast", "fruit_salad", "healing_potion", "greater_potion",
+	"antidote", "stamina_tonic", "glass_vial", "flint_knife", "wooden_club", "flint_spear", "tusk_dagger", "bronze_spear",
+	"iron_spear", "war_hammer", "venom_dagger", "silver_sword", "horn_halberd", "short_bow", "long_bow", "bone_bow",
+	"crossbow", "arc_staff", "flint_arrow", "iron_arrow", "blast_arrow", "wool_tunic", "fur_coat", "scale_vest",
+	"chitin_armor", "silk_robe", "straw_hat", "fur_hood", "chitin_helm", "horned_helm", "reed_sandals", "fur_boots",
+	"wooden_shield", "shell_shield", "bronze_shield", "iron_shield", "obsidian_shield", "silver_ring", "gold_ring",
+	"quartz_ring", "obsidian_ring", "feather_charm", "fang_necklace", "glow_amulet", "gold_amulet", "shadow_amulet",
+	"spark_core", "glow_gland"]
+
+
+func _make_biome_art() -> void:
+	_import_creatures()
+	_save(_make_structure_m10("loom"), "res://assets/sprites/structures/loom.png")
+	_save(_make_structure_m10("alchemy_table"), "res://assets/sprites/structures/alchemy_table.png")
+	var nodes := _biome_nodes()
+	for id in nodes:
+		_save(nodes[id], "res://assets/sprites/resources/%s.png" % id)
+	var icons := _biome_icons()
+	for id in DCSS_ICONS:
+		icons[id] = _dcss("items/" + id)
+	icons["loom"] = _make_structure_m10("loom")
+	icons["alchemy_table"] = _make_structure_m10("alchemy_table")
+	for id in icons:
+		var big: Image = icons[id]
+		_save(big, "res://assets/ui/items/%s.png" % id)
+		var small := big.duplicate() as Image
+		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
+		_save(small, "res://assets/ui/items/%s_s.png" % id)
+
+
+## Copies every vendored creature tile to assets/sprites/enemies.
+func _import_creatures() -> void:
+	var dir := DirAccess.open(DCSS + "/monsters")
+	if dir == null:
+		push_error("Missing %s/monsters" % DCSS)
+		return
+	for f in dir.get_files():
+		if f.ends_with(".png"):
+			_save(_dcss("monsters/" + f.get_basename()), "res://assets/sprites/enemies/" + f)
+
+
+## Loads a vendored 32px tile, hardens its alpha and adds our dark outline.
+func _dcss(rel: String) -> Image:
+	var img := Image.load_from_file(ProjectSettings.globalize_path("%s/%s.png" % [DCSS, rel]))
+	if img == null:
+		push_error("Missing DCSS tile " + rel)
+		return _new_image(T, T)
+	img.convert(Image.FORMAT_RGBA8)
+	if img.get_width() != T or img.get_height() != T:
+		img.resize(T, T, Image.INTERPOLATE_NEAREST)
+	for y in T:
+		for x in T:
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(0, 0, 0, 0) if c.a < 0.5 else Color(c.r, c.g, c.b, 1.0))
+	_outline(img, C.outline)
+	return img
+
+
+# ---- primitives
+
+func _rough(c: Vector2, r: float, sides: int, seed: int, squash := 1.0) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in sides:
+		var a := TAU * i / sides + _hash(i, 0, seed) * 0.5
+		var rr := r * (0.75 + _hash(i, 1, seed) * 0.35)
+		pts.append(c + Vector2(cos(a) * rr, sin(a) * rr * squash))
+	return pts
+
+
+func _speck(img: Image, mask: Dictionary, col: Color, chance: float, seed: int) -> void:
+	for p in mask:
+		if _hash(p.x, p.y, seed) > 1.0 - chance:
+			_px(img, p.x, p.y, col)
+
+
+func _fin(img: Image) -> Image:
+	_outline(img, C.outline)
+	return img
+
+
+## Heap of irregular chunks (minerals, goo, powders).
+func _i_lump(tones: Array, seed: int, n := 3) -> Image:
+	var img := _new_image(T, T)
+	var cs := [Vector2(11, 20), Vector2(21, 21), Vector2(16, 13)]
+	var rs := [7.0, 7.0, 6.5]
+	for i in n:
+		var m := _mask_poly(_rough(cs[i], rs[i], 7, seed + i * 7))
+		_bevel(img, m, tones)
+		_speck(img, m, tones[4], 0.06, seed + 50 + i)
+	return _fin(img)
+
+
+func _i_shard(tones: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	var j := func(v: Vector2, i: int) -> Vector2: return v + Vector2(_hash(i, 1, seed) - 0.5, _hash(i, 2, seed) - 0.5) * 4.0
+	_bevel(img, _mask_poly(PackedVector2Array([j.call(Vector2(5, 22), 0), j.call(Vector2(13, 5), 1), j.call(Vector2(25, 8), 2), j.call(Vector2(27, 20), 3), j.call(Vector2(17, 28), 4)])), tones)
+	_line(img, Vector2(13, 8), Vector2(17, 25), tones[3])
+	_line(img, Vector2(14, 7), Vector2(23, 10), tones[4])
+	_line(img, Vector2(17, 25), Vector2(25, 19), tones[1])
+	return _fin(img)
+
+
+func _crystals(img: Image, base: Vector2, tones: Array, s := 1.0) -> void:
+	for k in [[-5.0, 10.0, -0.4], [5.0, 11.0, 0.35], [0.0, 16.0, 0.0]]:
+		var dir := Vector2(sin(k[2]), -cos(k[2]))
+		var side := Vector2(-dir.y, dir.x) * 2.8 * s
+		var root := base + Vector2(k[0], 0) * s
+		var shoulder: Vector2 = root + dir * (k[1] - 3.5) * s
+		var tip: Vector2 = root + dir * k[1] * s
+		_bevel(img, _mask_poly(PackedVector2Array([root - side, shoulder - side, tip, shoulder + side, root + side])), tones)
+		_line(img, root + dir * s, tip - dir * 2.0, tones[4])
+
+
+func _i_crystals(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_crystals(img, Vector2(16, 28), tones, 1.3)
+	return _fin(img)
+
+
+func _i_sack(cloth: Array, content: Array, sparkle := Color(0, 0, 0, 0)) -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(9, 12), Vector2(23, 12), Vector2(27, 21), Vector2(25, 29), Vector2(7, 29), Vector2(5, 21)])), cloth)
+	_bevel(img, _mask_ellipse(Vector2(16, 12), 8, 3), cloth)
+	_bevel(img, _mask_ellipse(Vector2(16, 11.5), 6, 2), content)
+	_bevel(img, _mask_ellipse(Vector2(16, 9), 4, 3), content)
+	_line(img, Vector2(9, 15), Vector2(23, 15), cloth[0])
+	for p in [Vector2i(10, 22), Vector2i(14, 19), Vector2i(20, 24), Vector2i(22, 18)]:
+		_px(img, p.x, p.y, cloth[1])
+	if sparkle.a > 0:
+		for p in [Vector2i(9, 5), Vector2i(23, 6), Vector2i(26, 12), Vector2i(5, 10)]:
+			_px(img, p.x, p.y, sparkle)
+			_px(img, p.x + 1, p.y, sparkle.darkened(0.3))
+	return _fin(img)
+
+
+## Three stacked folds of fabric.
+func _i_bolt(tones: Array, stripe: Color) -> Image:
+	var img := _new_image(T, T)
+	for i in 3:
+		var y := 21 - i * 6
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(5 + i, y), Vector2(27 - i, y - 2), Vector2(27 - i, y + 5), Vector2(5 + i, y + 7)])), tones)
+		_line(img, Vector2(6 + i, y + 3), Vector2(26 - i, y + 1), stripe)
+	return _fin(img)
+
+
+## Ball of thread or yarn.
+func _i_ball(tones: Array, strand: Color) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 17, 10, 10, [tones[1], tones[2], tones[3], tones[4]], 0.1, 960)
+	for k in 3:
+		var rot := 0.6 + k * 0.95
+		for s in 48:
+			var a := TAU * s / 48.0
+			if sin(a) > 0.0:
+				var p := Vector2(cos(a) * 8.5, sin(a) * 3.0).rotated(rot) + Vector2(16, 17)
+				_px(img, int(p.x), int(p.y), strand)
+	_line(img, Vector2(24, 23), Vector2(29, 29), tones[2])
+	return _fin(img)
+
+
+func _i_coil(tones: Array, leaves := false) -> Image:
+	var img := _new_image(T, T)
+	for k in 4:
+		var r := 11.0 - k * 2.3
+		for s in 72:
+			var a := TAU * s / 72.0
+			var p := Vector2(16 + cos(a) * r, 18 + sin(a) * r * 0.6)
+			_rect(img, int(p.x), int(p.y), 2, 2, tones[1 + (k + int(sin(a) < 0.0)) % 4])
+	if leaves:
+		for c in [Vector2(6, 15), Vector2(25, 21), Vector2(13, 25), Vector2(20, 11)]:
+			_bevel(img, _mask_ellipse(c, 3.0, 2.0), LEAF5)
+	return _fin(img)
+
+
+## Tapering curved spike from a to b (tusk, horn, fang).
+func _i_horn(tones: Array, a: Vector2, b: Vector2, bend: float, thick: float, rings := false) -> Image:
+	var img := _new_image(T, T)
+	var m := {}
+	var perp := (b - a).normalized().rotated(PI / 2)
+	for i in 15:
+		var t := i / 14.0
+		var p := a.lerp(b, t) + perp * sin(t * PI) * bend
+		var r := maxf(0.8, thick * (1.0 - t * 0.85))
+		m = _mask_add(m, _mask_ellipse(p, r, r))
+	_bevel(img, m, tones)
+	if rings:
+		for t in [0.15, 0.3, 0.45]:
+			var p := a.lerp(b, t) + perp * sin(t * PI) * bend
+			_line(img, p - perp.rotated(0.3) * thick, p + perp.rotated(0.3) * thick * 0.8, tones[1])
+	return _fin(img)
+
+
+func _mush(img: Image, cx: float, base_y: float, s: float, cap: Array) -> void:
+	_bevel(img, _mask_stroke(Vector2(cx, base_y), Vector2(cx, base_y - 4.0 * s), 1.2 * s), MAT["bone"])
+	var top := base_y - 4.0 * s
+	_bevel(img, _mask_cut(_mask_ellipse(Vector2(cx, top), 4.2 * s, 3.0 * s), _mask_fn(func(p: Vector2) -> bool: return p.y > top + 0.6 * s)), cap)
+	for d in [Vector2(-1.6, -1.6), Vector2(1.4, -2.2), Vector2(2.6, -0.6)]:
+		_px(img, int(cx + d.x * s), int(top + d.y * s), cap[4])
+
+
+func _berry_dot(img: Image, c: Vector2, tones: Array, r := 2.4) -> void:
+	_bevel(img, _mask_ellipse(c, r, r), tones)
+	_px(img, int(c.x - r * 0.4), int(c.y - r * 0.4), tones[4])
+
+
+func _leaf(img: Image, c: Vector2, ang: float, len: float, tones: Array) -> void:
+	var d := Vector2(cos(ang), sin(ang))
+	var n := Vector2(-d.y, d.x) * len * 0.35
+	_bevel(img, _mask_poly(PackedVector2Array([c, c + d * len * 0.5 + n, c + d * len, c + d * len * 0.5 - n])), tones)
+
+
+# ---- item icons
+
+func _biome_icons() -> Dictionary:
+	var ic := {}
+	var bone: Array = MAT["bone"]
+	ic["flint"] = _i_shard([Color8(30, 30, 38), Color8(56, 58, 68), Color8(90, 92, 104), Color8(130, 132, 142), Color8(180, 182, 190)], 11)
+	ic["reed"] = _i_bundle(LEAF5, HIDE5, "reed")
+	ic["wheat"] = _i_bundle(WHEAT5, WHEAT5, "wheat")
+	ic["herb"] = _i_sprig(LEAF5, Color8(240, 240, 250))
+	ic["cotton"] = _i_cotton()
+	ic["resin"] = _i_drop(AMBER5)
+	ic["slime"] = _i_drop(SLIME5)
+	ic["ectoplasm"] = _i_drop([Color8(60, 110, 110), Color8(110, 180, 170), Color8(170, 230, 210), Color8(210, 250, 236), Color8(245, 255, 250)])
+	ic["egg"] = _i_egg()
+	ic["carrot"] = _i_carrot(CARROT5, false)
+	ic["roasted_carrot"] = _i_carrot([COOK5[0], COOK5[1], CARROT5[1], CARROT5[2], CARROT5[3]], true)
+	ic["potato"] = _i_potato(POTATO5, false)
+	ic["baked_potato"] = _i_potato(COOK5, true)
+	ic["blueberry"] = _i_berries(BLUE5)
+	ic["petals"] = _i_petals(PINK5, 970)
+	ic["shadow_petal"] = _i_petals(PURPLE5, 975)
+	ic["sand"] = _i_pile(SAND5, 980)
+	ic["tin_ore"] = _ic_ore(MAT["stone"], TIN5, 733)
+	ic["silver_ore"] = _ic_ore(MAT["stone"], SILVER5, 734)
+	ic["gold_ore"] = _ic_ore(MAT["stone"], GOLD5, 735)
+	ic["quartz"] = _i_crystals(WHITE5)
+	ic["obsidian"] = _i_shard(OBSID5, 21)
+	ic["sulfur"] = _i_lump(SULF5, 990)
+	ic["saltpeter"] = _i_lump(WHITE5, 995)
+	ic["glowcap"] = _i_glowcap()
+	ic["moss"] = _i_lump(LEAF5, 1000)
+	ic["vine"] = _i_coil(LEAF5, true)
+	ic["scrap"] = _i_scrap()
+	ic["cog"] = _i_cog(MAT["iron"])
+	ic["silk"] = _i_ball(WHITE5, WHITE5[1])
+	ic["wool"] = _i_wool()
+	ic["wing_dust"] = _i_sack(HIDE5, PINK5, Color8(255, 240, 160))
+	ic["spores"] = _i_sack(LEAF5, [CAP5[1], CAP5[2], CAP5[3], CAP5[4], WHITE5[4]], CAP5[4])
+	ic["tusk"] = _i_horn(bone, Vector2(6, 26), Vector2(26, 6), 5.0, 3.6)
+	ic["horn"] = _i_horn([Color8(50, 36, 30), Color8(86, 64, 50), Color8(128, 100, 80), Color8(170, 140, 112), Color8(214, 190, 160)], Vector2(7, 27), Vector2(25, 5), 7.0, 4.5, true)
+	ic["fang"] = _i_horn(bone, Vector2(12, 6), Vector2(19, 27), 3.0, 4.0)
+	ic["fur"] = _i_pelt(FUR5)
+	ic["venom_sac"] = _i_sac(VENOM5)
+	ic["glow_gland"] = _i_sac(GLOW5)
+	ic["chitin"] = _i_plate(CHITIN5)
+	ic["scale"] = _i_scales(SCALE5)
+	ic["shell"] = _i_shell()
+	ic["feather"] = _i_feather()
+	ic["flour"] = _i_sack([Color8(130, 110, 80), Color8(170, 150, 110), Color8(204, 186, 146), Color8(226, 212, 176), Color8(240, 232, 206)], WHITE5)
+	ic["gunpowder"] = _i_sack(HIDE5, MAT["coal"], C.fire_mid)
+	ic["glass"] = _i_glass()
+	ic["cloth"] = _i_bolt([Color8(120, 100, 70), Color8(160, 140, 100), Color8(200, 182, 138), Color8(222, 206, 166), Color8(238, 228, 196)], Color8(140, 70, 50))
+	ic["silk_cloth"] = _i_bolt(WHITE5, Color8(180, 150, 210))
+	ic["felt"] = _i_bolt(RED5, RED5[4])
+	ic["bronze_ingot"] = _ic_ingots(BRONZE5)
+	ic["silver_ingot"] = _ic_ingots(SILVER5)
+	ic["gold_ingot"] = _ic_ingots(GOLD5)
+	ic["glue"] = _i_pot(MAT["clay"], AMBER5)
+	ic["dye"] = _ic_bowl([RED5[2], RED5[1]], [BLUE5[2], SULF5[3], LEAF5[3], PURPLE5[3]], false)
+	ic["bowstring"] = _i_coil(WHITE5)
+	for m in [["bronze", BRONZE5], ["obsidian", OBSID5]]:
+		ic[m[0] + "_axe"] = _ic_axe(m[1])
+		ic[m[0] + "_pickaxe"] = _ic_pickaxe(m[1])
+	ic["bronze_sword"] = _icon_sword(BRONZE5)
+	ic["obsidian_blade"] = _icon_sword(OBSID5)
+	ic["bronze_armor"] = _ic_armor(BRONZE5, false)
+	ic["obsidian_plate"] = _ic_armor(OBSID5, false)
+	ic["bronze_helm"] = _ic_helm(BRONZE5, "copper")
+	ic["obsidian_helm"] = _ic_helm(OBSID5, "iron")
+	ic["bronze_boots"] = _ic_boots(BRONZE5, MAT["leather"])
+	ic["obsidian_boots"] = _ic_boots(OBSID5, PURPLE5)
+	ic["fried_egg"] = _i_fried_egg()
+	ic["candied_apple"] = _i_candied_apple()
+	ic["omelette"] = _i_omelette()
+	ic["porridge"] = _ic_bowl([Color8(236, 222, 186), Color8(206, 188, 146)], [WHEAT5[3], BERRY[2], Color8(240, 230, 200)], true)
+	ic["carrot_soup"] = _ic_bowl([CARROT5[3], CARROT5[2]], [CARROT5[1], LEAF5[3], CARROT5[4]], true)
+	ic["vegetable_stew"] = _ic_bowl([COOK5[3], COOK5[2]], [CARROT5[2], POTATO5[3], LEAF5[3], COOK5[0]], true)
+	ic["glowcap_broth"] = _ic_bowl([GLOW5[3], GLOW5[2]], [GLOW5[4], CAP5[3], LEAF5[3]], true)
+	ic["apple_pie"] = _i_pie(RED5)
+	ic["blueberry_pie"] = _i_pie(BLUE5)
+	ic["honey_cake"] = _i_cake()
+	ic["moss_poultice"] = _i_poultice()
+	ic["bandage"] = _i_bandage()
+	ic["healing_salve"] = _i_pot(MAT["iron"], SLIME5)
+	return ic
+
+
+func _i_bundle(stem: Array, head: Array, kind: String) -> Image:
+	var img := _new_image(T, T)
+	for i in 5:
+		var a := Vector2(12 + i * 2, 29)
+		var b := Vector2(5 + i * 5.5, 7 + absf(i - 2) * 2.5)
+		_line(img, a, b, stem[1 + i % 3])
+		if kind == "wheat":
+			_bevel(img, _mask_ellipse(b, 2.2, 4.2), head)
+			for k in 3:
+				_px(img, int(b.x) - 2, int(b.y) - 2 + k * 2, head[1])
+		else:
+			_bevel(img, _mask_stroke(b, b + (a - b).normalized() * 7.0, 1.7), head)
+	_line(img, Vector2(10, 21), Vector2(22, 21), WOOD5[3], 2)
+	_line(img, Vector2(10, 22), Vector2(22, 22), WOOD5[1])
+	return _fin(img)
+
+
+func _i_sprig(tones: Array, flower: Color) -> Image:
+	var img := _new_image(T, T)
+	_line(img, Vector2(16, 29), Vector2(16, 6), tones[1], 2)
+	for i in 5:
+		var s := -1.0 if i % 2 == 0 else 1.0
+		_leaf(img, Vector2(16, 11 + i * 4), PI * 0.5 - s * PI * 0.4 - PI * 0.5 * (1 - s), 9.0, tones)
+	for d in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+		_px(img, 16 + int(d.x), 5 + int(d.y), flower)
+	_px(img, 16, 5, SULF5[3])
+	return _fin(img)
+
+
+func _i_cotton() -> Image:
+	var img := _new_image(T, T)
+	_line(img, Vector2(16, 29), Vector2(16, 14), WOOD5[2], 2)
+	_line(img, Vector2(16, 20), Vector2(9, 13), WOOD5[2])
+	_line(img, Vector2(16, 18), Vector2(23, 11), WOOD5[2])
+	for c in [Vector2(9, 11), Vector2(23, 9), Vector2(16, 10)]:
+		_blob(img, c.x, c.y, 5, 4.5, [WHITE5[1], WHITE5[2], WHITE5[3], WHITE5[4]], 0.2, 1010)
+		_px(img, int(c.x), int(c.y) + 4, WOOD5[1])
+	return _fin(img)
+
+
+func _i_drop(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	var m := _mask_add(_mask_ellipse(Vector2(16, 20), 8, 8), _mask_poly(PackedVector2Array([Vector2(16, 4), Vector2(23, 17), Vector2(9, 17)])))
+	_bevel(img, m, tones)
+	_rect(img, 12, 16, 2, 4, tones[4])
+	_px(img, 13, 14, tones[4])
+	return _fin(img)
+
+
+func _i_egg() -> Image:
+	var img := _new_image(T, T)
+	var t := [Color8(170, 150, 120), Color8(210, 190, 156), Color8(236, 222, 190), Color8(248, 240, 216), Color8(255, 252, 240)]
+	_blob(img, 16, 17, 8, 11, [t[1], t[2], t[3], t[4]], 0.04, 1020)
+	for i in 6:
+		_px(img, 11 + int(_hash(i, 1, 1021) * 10.0), 10 + int(_hash(i, 2, 1021) * 14.0), Color8(170, 120, 90))
+	return _fin(img)
+
+
+func _i_carrot(tones: Array, roasted: bool) -> Image:
+	var img := _new_image(T, T)
+	if roasted:
+		_handle(img, Vector2(4.5, 28.5), Vector2(14.5, 18.5))
+	else:
+		for a in [-2.2, -1.7, -1.2]:
+			_leaf(img, Vector2(22, 9), a, 9.0, LEAF5)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(18, 7), Vector2(25, 13), Vector2(8, 28)])), tones)
+	for t in [0.3, 0.5, 0.7]:
+		var p := Vector2(21, 10).lerp(Vector2(9, 27), t)
+		_line(img, p, p + Vector2(2, 2), tones[1])
+	return _fin(img)
+
+
+func _i_potato(tones: Array, baked: bool) -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(_rough(Vector2(16, 18), 11.0, 9, 1030, 0.75)), tones)
+	for p in [Vector2i(11, 15), Vector2i(19, 13), Vector2i(21, 21), Vector2i(13, 22)]:
+		_px(img, p.x, p.y, tones[0])
+	if baked:
+		_line(img, Vector2(10, 17), Vector2(22, 17), WHITE5[3], 2)
+		_rect(img, 14, 14, 5, 3, SULF5[3])
+		_rect(img, 15, 14, 2, 1, SULF5[4])
+	return _fin(img)
+
+
+func _i_berries(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_leaf(img, Vector2(16, 10), -2.4, 9.0, LEAF5)
+	_leaf(img, Vector2(16, 10), -0.7, 9.0, LEAF5)
+	for c in [Vector2(11, 16), Vector2(18, 14), Vector2(15, 21), Vector2(22, 20), Vector2(9, 23), Vector2(19, 26)]:
+		_berry_dot(img, c, tones, 3.4)
+		_px(img, int(c.x), int(c.y) - 2, tones[0])
+	return _fin(img)
+
+
+func _i_petals(tones: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	for i in 5:
+		var c := Vector2(9 + _hash(i, 1, seed) * 14.0, 9 + _hash(i, 2, seed) * 14.0)
+		var a := _hash(i, 3, seed) * TAU
+		var d := Vector2(cos(a), sin(a))
+		var n := Vector2(-d.y, d.x)
+		_bevel(img, _mask_poly(PackedVector2Array([c - d * 6.0, c + n * 3.5, c + d * 6.0, c - n * 3.5])), tones)
+		_line(img, c - d * 3.0, c + d * 3.0, tones[1])
+	return _fin(img)
+
+
+func _i_pile(tones: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 24, 13, 9, [tones[1], tones[2], tones[3], tones[4]], 0.25, seed, 27)
+	_speck(img, _mask_ellipse(Vector2(16, 24), 12, 8), tones[0], 0.08, seed + 1)
+	_rect(img, 5, 27, 22, 1, tones[1])
+	return _fin(img)
+
+
+func _i_glowcap() -> Image:
+	var img := _new_image(T, T)
+	_mush(img, 12, 26, 1.5, GLOW5)
+	_mush(img, 20, 28, 2.1, GLOW5)
+	return _fin(img)
+
+
+func _i_scrap() -> Image:
+	var img := _new_image(T, T)
+	var rust := [Color8(70, 36, 24), Color8(116, 60, 34), Color8(160, 90, 50), Color8(196, 128, 76), Color8(220, 170, 120)]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(4, 18), Vector2(17, 13), Vector2(20, 24), Vector2(7, 28)])), rust)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12, 6), Vector2(26, 8), Vector2(25, 18), Vector2(14, 16)])), MAT["iron"])
+	_bevel(img, _mask_stroke(Vector2(18, 27), Vector2(28, 19), 1.6), MAT["iron"])
+	for p in [Vector2i(15, 9), Vector2i(23, 11), Vector2i(9, 21)]:
+		_px(img, p.x, p.y, C.outline)
+	return _fin(img)
+
+
+func _gear(img: Image, c: Vector2, r: float, tones: Array, teeth := 8) -> void:
+	var m := _mask_ellipse(c, r, r)
+	for i in teeth:
+		var a := TAU * i / teeth
+		m = _mask_add(m, _mask_stroke(c + Vector2(cos(a), sin(a)) * r, c + Vector2(cos(a), sin(a)) * (r + 2.5), 1.6))
+	_bevel(img, _mask_cut(m, _mask_ellipse(c, r * 0.35, r * 0.35)), tones)
+
+
+func _i_cog(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_gear(img, Vector2(16, 16), 9.0, tones, 9)
+	return _fin(img)
+
+
+func _i_wool() -> Image:
+	var img := _new_image(T, T)
+	for c in [Vector2(11, 20), Vector2(21, 20), Vector2(16, 13), Vector2(16, 22)]:
+		_blob(img, c.x, c.y, 7, 6, [WHITE5[1], WHITE5[2], WHITE5[3], WHITE5[4]], 0.3, 1040 + int(c.x))
+	return _fin(img)
+
+
+func _i_pelt(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	var pts := PackedVector2Array([Vector2(4, 9), Vector2(10, 6), Vector2(16, 8), Vector2(22, 6), Vector2(28, 9), Vector2(26, 16), Vector2(28, 24), Vector2(21, 27), Vector2(16, 24), Vector2(11, 27), Vector2(4, 24), Vector2(6, 16)])
+	var m := _mask_poly(pts)
+	_bevel(img, m, tones)
+	for i in 24:
+		var x := 7 + int(_hash(i, 7, 1050) * 19.0)
+		var y := 9 + int(_hash(i, 8, 1050) * 15.0)
+		_line(img, Vector2(x, y), Vector2(x + 1, y + 2), tones[1 + i % 3])
+	return _fin(img)
+
+
+func _i_sac(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 19, 10, 9, [tones[1], tones[2], tones[3], tones[4]], 0.08, 1060)
+	_bevel(img, _mask_stroke(Vector2(16, 10), Vector2(19, 4), 1.6), tones)
+	for i in 5:
+		_line(img, Vector2(10 + i * 3, 13 + i % 2), Vector2(9 + i * 3, 25), tones[1])
+	_px(img, 12, 14, tones[4])
+	return _fin(img)
+
+
+func _i_plate(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	var m := _mask_cut(_mask_ellipse(Vector2(16, 24), 13, 18), _mask_fn(func(p: Vector2) -> bool: return p.y > 27.0))
+	_bevel(img, m, tones)
+	for y in [12, 18, 23]:
+		for x in range(5, 28):
+			if m.has(Vector2i(x, y)):
+				_px(img, x, y, tones[1])
+				if m.has(Vector2i(x, y - 1)):
+					_px(img, x, y - 1, tones[3])
+	return _fin(img)
+
+
+func _i_scales(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	for row in 3:
+		for col in 3 - row % 2:
+			var c := Vector2(9 + col * 7 + (row % 2) * 3.5, 9 + row * 7)
+			_bevel(img, _mask_cut(_mask_ellipse(c, 4.5, 5.5), _mask_fn(func(p: Vector2) -> bool: return p.y < c.y - 2.0)), tones)
+	return _fin(img)
+
+
+func _i_shell() -> Image:
+	var img := _new_image(T, T)
+	var t := [Color8(140, 90, 80), Color8(200, 130, 110), Color8(236, 176, 150), Color8(248, 210, 186), Color8(255, 236, 220)]
+	var c := Vector2(16, 25)
+	var m := _mask_fn(func(p: Vector2) -> bool: return p.y <= c.y and p.distance_to(c) <= 13.0)
+	_bevel(img, m, t)
+	for i in 7:
+		var a := PI + PI * (i + 1) / 8.0
+		_line(img, c, c + Vector2(cos(a), sin(a)) * 12.0, t[1])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12, 24), Vector2(20, 24), Vector2(18, 29), Vector2(14, 29)])), t)
+	return _fin(img)
+
+
+func _i_feather() -> Image:
+	var img := _new_image(T, T)
+	var a := Vector2(7, 27)
+	var b := Vector2(25, 5)
+	var d := (b - a).normalized()
+	var n := Vector2(-d.y, d.x)
+	for i in 22:
+		var t := 0.2 + 0.8 * i / 21.0
+		var p := a.lerp(b, t)
+		var w := sin(t * PI) * 6.5 + 1.0
+		_line(img, p, p + n * w + d * 2.0, WHITE5[2 + i % 2] if i % 5 else BLUE5[3])
+		_line(img, p, p - n * w + d * 2.0, WHITE5[1 + i % 2])
+	_line(img, a, b, WHITE5[0])
+	return _fin(img)
+
+
+func _i_glass() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 6), Vector2(25, 4), Vector2(27, 26), Vector2(5, 28)])), GLASS5)
+	_line(img, Vector2(10, 21), Vector2(18, 9), GLASS5[4], 2)
+	_line(img, Vector2(15, 23), Vector2(21, 14), GLASS5[4])
+	return _fin(img)
+
+
+func _i_pot(jar: Array, goo: Array) -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_add(_mask_ellipse(Vector2(16, 20), 10, 8), _mask_poly(PackedVector2Array([Vector2(9, 11), Vector2(23, 11), Vector2(23, 16), Vector2(9, 16)]))), jar)
+	_bevel(img, _mask_ellipse(Vector2(16, 11), 8, 2.5), jar)
+	_bevel(img, _mask_ellipse(Vector2(16, 11), 6, 1.6), goo)
+	_bevel(img, _mask_stroke(Vector2(11, 12), Vector2(10, 18), 1.4), goo)
+	return _fin(img)
+
+
+func _i_fried_egg() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(_rough(Vector2(16, 17), 12.0, 10, 1070, 0.8)), WHITE5)
+	_blob(img, 15, 15, 4.5, 4.5, [SULF5[1], CARROT5[2], CARROT5[3], SULF5[4]], 0.0, 1071)
+	return _fin(img)
+
+
+func _i_candied_apple() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_stroke(Vector2(16, 4), Vector2(16, 14), 1.0), WOOD5)
+	_blob(img, 16, 20, 10, 9, [RED5[0], RED5[1], RED5[2], RED5[3]], 0.0, 1080)
+	_rect(img, 10, 14, 3, 3, RED5[4])
+	_px(img, 9, 17, Color(1, 1, 1))
+	_line(img, Vector2(7, 24), Vector2(25, 24), AMBER5[3])
+	return _fin(img)
+
+
+func _i_omelette() -> Image:
+	var img := _new_image(T, T)
+	var m := _mask_fn(func(p: Vector2) -> bool: return p.y >= 12.0 and pow((p.x - 16.0) / 13.0, 2) + pow((p.y - 12.0) / 14.0, 2) <= 1.0)
+	_bevel(img, m, [CARROT5[1], SULF5[1], SULF5[2], SULF5[3], SULF5[4]])
+	for p in [Vector2i(10, 16), Vector2i(18, 15), Vector2i(14, 20), Vector2i(21, 19)]:
+		_rect(img, p.x, p.y, 2, 1, LEAF5[3])
+	return _fin(img)
+
+
+func _i_pie(fill: Array) -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_ellipse(Vector2(16, 19), 14, 8), CRUST5)
+	_bevel(img, _mask_ellipse(Vector2(16, 18), 11, 5.5), fill)
+	for i in 4:
+		_line(img, Vector2(8 + i * 5, 13), Vector2(11 + i * 5, 23), CRUST5[3])
+	_line(img, Vector2(5, 17), Vector2(27, 17), CRUST5[4])
+	return _fin(img)
+
+
+func _i_cake() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 14), Vector2(27, 14), Vector2(27, 27), Vector2(5, 27)])), CRUST5)
+	_line(img, Vector2(6, 20), Vector2(26, 20), WHITE5[3], 2)
+	_bevel(img, _mask_ellipse(Vector2(16, 13), 11, 3), AMBER5)
+	for x in [8, 14, 21, 25]:
+		_line(img, Vector2(x, 14), Vector2(x, 16 + x % 4), AMBER5[2])
+	return _fin(img)
+
+
+func _i_poultice() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(_rough(Vector2(16, 18), 11.0, 8, 1090, 0.8)), LEAF5)
+	_line(img, Vector2(6, 18), Vector2(26, 18), WOOD5[3], 2)
+	_line(img, Vector2(16, 9), Vector2(16, 27), WOOD5[3])
+	_rect(img, 15, 17, 3, 3, WOOD5[1])
+	return _fin(img)
+
+
+func _i_bandage() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_ellipse(Vector2(13, 17), 8, 9), WHITE5)
+	for r in [5.5, 3.0]:
+		for s in 48:
+			var a := TAU * s / 48.0
+			_px(img, int(13 + cos(a) * r), int(17 + sin(a) * r * 1.1), WHITE5[1])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(16, 22), Vector2(28, 22), Vector2(28, 27), Vector2(16, 26)])), WHITE5)
+	_rect(img, 21, 23, 3, 1, RED5[2])
+	_rect(img, 22, 22, 1, 3, RED5[2])
+	return _fin(img)
+
+
+# ---- resource node sprites (32px, base around y 29)
+
+func _biome_nodes() -> Dictionary:
+	var n := {}
+	n["flint"] = _make_ore([Color8(30, 30, 38), Color8(70, 72, 84), Color8(150, 150, 162)], 5)
+	n["ore_tin"] = _make_ore([TIN5[2], TIN5[3], TIN5[4]], 6)
+	n["ore_silver"] = _make_ore([SILVER5[2], SILVER5[3], SILVER5[4]], 7)
+	n["ore_gold"] = _make_ore([GOLD5[2], GOLD5[3], GOLD5[4]], 8)
+	n["sulfur"] = _make_ore([SULF5[2], SULF5[3], SULF5[4]], 9)
+	n["saltpeter"] = _make_ore([WHITE5[2], WHITE5[3], WHITE5[4]], 10)
+	n["reeds"] = _n_stalks(LEAF5, HIDE5, 7, 22)
+	n["wheat"] = _n_stalks(WHEAT5, WHEAT5, 8, 18)
+	n["herb"] = _n_herb()
+	n["cotton"] = _n_shrub([WHITE5[1], WHITE5[2], WHITE5[3], WHITE5[4]], 3.2, 1110)
+	n["blueberry"] = _n_shrub(BLUE5, 2.2, 1120)
+	n["resin_stump"] = _n_stump()
+	n["beehive"] = _n_beehive()
+	n["apple_tree"] = _n_apple_tree()
+	n["carrot"] = _n_crop(func(img: Image, x: int) -> void:
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(x - 2, 24), Vector2(x + 2, 24), Vector2(x, 28)])), CARROT5)
+		for a in [-2.2, -1.6, -1.0]:
+			_leaf(img, Vector2(x, 24), a, 7.0, LEAF5))
+	n["potato"] = _n_crop(func(img: Image, x: int) -> void:
+		for a in [-2.5, -1.9, -1.2, -0.6]:
+			_leaf(img, Vector2(x, 25), a, 8.0, LEAF5)
+		_px(img, x, 17, WHITE5[4]))
+	n["flower"] = _n_flowers()
+	n["sand"] = _n_mound(SAND5, 1130)
+	n["nest"] = _n_nest()
+	n["rubble"] = _n_rubble()
+	n["quartz"] = _n_crystals(WHITE5)
+	n["obsidian"] = _n_crystals(OBSID5)
+	n["glowcap"] = _n_glowcaps()
+	n["cave_moss"] = _n_moss()
+	n["vines"] = _n_vines()
+	n["bone_pile"] = _n_bones()
+	n["scrap_heap"] = _n_scrap()
+	n["machine"] = _n_machine()
+	n["shadow_orchid"] = _n_orchid()
+	n["cobweb"] = _n_web()
+	return n
+
+
+func _n_stalks(stem: Array, head: Array, count: int, h: float) -> Image:
+	var img := _new_image(T, T)
+	for i in count:
+		var x := 6.0 + i * (20.0 / count) + _hash(i, 1, 1100) * 2.0
+		var top := Vector2(x + (_hash(i, 2, 1100) - 0.5) * 6.0, 29.0 - h * (0.75 + _hash(i, 3, 1100) * 0.3))
+		_line(img, Vector2(x, 29), top, stem[1 + i % 3])
+		if stem == head:
+			_bevel(img, _mask_ellipse(top, 1.8, 3.6), head)
+		else:
+			_bevel(img, _mask_stroke(top + Vector2(0, 1), top + Vector2(0, 6), 1.6), head)
+	return _fin(img)
+
+
+func _n_herb() -> Image:
+	var img := _new_image(T, T)
+	for i in 7:
+		var a := -PI + PI * (i + 0.5) / 7.0
+		_leaf(img, Vector2(16, 28), a, 10.0 + (i % 2) * 3.0, LEAF5)
+	for c in [Vector2(10, 18), Vector2(16, 14), Vector2(22, 18)]:
+		_line(img, Vector2(16, 27), c, LEAF5[1])
+		for d in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+			_px(img, int(c.x) + d.x, int(c.y) + d.y, WHITE5[4])
+		_px(img, int(c.x), int(c.y), SULF5[3])
+	return _fin(img)
+
+
+func _n_shrub(fruit: Array, r: float, seed: int) -> Image:
+	var img := _new_image(T, T)
+	var tones := [LEAF5[0], LEAF5[1], LEAF5[2], LEAF5[3]]
+	_blob(img, 16, 21, 13, 9, tones, 0.3, seed)
+	_blob(img, 12, 16, 7, 6, tones, 0.3, seed + 1)
+	_blob(img, 21, 16, 7, 6, tones, 0.3, seed + 2)
+	for i in 7:
+		var c := Vector2(7 + _hash(i, 1, seed) * 18.0, 13 + _hash(i, 2, seed) * 13.0)
+		if img.get_pixel(int(c.x), int(c.y)).a > 0.5:
+			_berry_dot(img, c, fruit if fruit.size() == 5 else [fruit[0], fruit[0], fruit[1], fruit[2], fruit[3]], r)
+	return _fin(img)
+
+
+func _n_stump() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 15), Vector2(27, 15), Vector2(29, 29), Vector2(3, 29)])), [C.bark_dark, C.bark_dark, C.bark, C.bark_light, C.bark_light])
+	for x in [9, 15, 22]:
+		_line(img, Vector2(x, 18), Vector2(x - 1, 28), C.bark_dark)
+	_bevel(img, _mask_ellipse(Vector2(16, 15), 11, 4.5), WOOD5)
+	for r in [3.0, 6.5]:
+		for s in 40:
+			var a := TAU * s / 40.0
+			_px(img, int(16 + cos(a) * r), int(15 + sin(a) * r * 0.4), WOOD5[2])
+	for d in [Vector2(8, 18), Vector2(21, 19)]:
+		_bevel(img, _mask_add(_mask_stroke(d, d + Vector2(0, 5), 1.3), _mask_ellipse(d + Vector2(0, 6), 2.0, 2.0)), AMBER5)
+	return _fin(img)
+
+
+func _n_beehive() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_stroke(Vector2(16, 29), Vector2(16, 20), 1.6), WOOD5)
+	var dome := _mask_cut(_mask_ellipse(Vector2(16, 17), 10, 12), _mask_fn(func(p: Vector2) -> bool: return p.y > 24.0))
+	_bevel(img, dome, WHEAT5)
+	for y in [10, 14, 18, 22]:
+		for x in range(4, 29):
+			if dome.has(Vector2i(x, y)):
+				_px(img, x, y, WHEAT5[1])
+	_bevel(img, _mask_ellipse(Vector2(16, 20), 2.5, 2.0), [C.outline, C.outline, Color8(50, 30, 20), Color8(50, 30, 20), Color8(70, 40, 24)])
+	for p in [Vector2i(5, 6), Vector2i(26, 9), Vector2i(23, 3)]:
+		_px(img, p.x, p.y, SULF5[3])
+		_px(img, p.x + 1, p.y, C.outline)
+	return _fin(img)
+
+
+func _n_apple_tree() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(13, 18), Vector2(19, 18), Vector2(20, 29), Vector2(12, 29)])), [C.bark_dark, C.bark_dark, C.bark, C.bark_light, C.bark_light])
+	var tones := [LEAF5[0], LEAF5[1], LEAF5[2], LEAF5[3], LEAF5[4]]
+	_blob(img, 16, 12, 14, 10, tones, 0.3, 1140)
+	_blob(img, 10, 15, 6, 5, tones, 0.3, 1141)
+	_blob(img, 22, 15, 6, 5, tones, 0.3, 1142)
+	for c in [Vector2(9, 10), Vector2(19, 7), Vector2(23, 15), Vector2(13, 17), Vector2(16, 12)]:
+		_berry_dot(img, c, RED5, 2.0)
+	return _fin(img)
+
+
+func _n_crop(plant: Callable) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 27, 13, 4, [SOIL5[1], SOIL5[2], SOIL5[3], SOIL5[4]], 0.25, 1150)
+	for x in [9, 16, 23]:
+		plant.call(img, x)
+	return _fin(img)
+
+
+func _n_flowers() -> Image:
+	var img := _new_image(T, T)
+	var cols := [PINK5, SULF5, BLUE5, WHITE5, PINK5]
+	for i in 5:
+		var base := Vector2(7 + i * 4.5, 29)
+		var head := base + Vector2((_hash(i, 1, 1160) - 0.5) * 4.0, -8.0 - _hash(i, 2, 1160) * 10.0)
+		_line(img, base, head, LEAF5[2])
+		_leaf(img, base.lerp(head, 0.4), -0.6 if i % 2 else -2.5, 5.0, LEAF5)
+		var t: Array = cols[i]
+		for d in [Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+			_bevel(img, _mask_ellipse(head + d, 1.6, 1.6), t)
+		_px(img, int(head.x), int(head.y), SULF5[3] if t != SULF5 else CARROT5[2])
+	return _fin(img)
+
+
+func _n_mound(tones: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 25, 14, 7, [tones[1], tones[2], tones[3], tones[4]], 0.25, seed, 30)
+	_speck(img, _mask_ellipse(Vector2(16, 25), 13, 6), tones[0], 0.07, seed + 1)
+	for i in 4:
+		_line(img, Vector2(7 + i * 5, 26), Vector2(10 + i * 5, 25), tones[1])
+	return _fin(img)
+
+
+func _n_nest() -> Image:
+	var img := _new_image(T, T)
+	var egg := [Color8(150, 170, 170), Color8(180, 210, 210), Color8(210, 236, 232), Color8(232, 248, 244), Color8(250, 255, 252)]
+	_bevel(img, _mask_ellipse(Vector2(16, 24), 12, 5.5), WOOD5)
+	for c in [Vector2(12, 21), Vector2(18, 20), Vector2(15, 23)]:
+		_blob(img, c.x, c.y, 3.2, 4.0, [egg[1], egg[2], egg[3], egg[4]], 0.0, 1170)
+	var ring := _mask_cut(_mask_ellipse(Vector2(16, 25), 13, 5.5), _mask_ellipse(Vector2(16, 22), 10, 3.5))
+	_bevel(img, ring, WOOD5)
+	for i in 14:
+		var a := TAU * i / 14.0
+		var p := Vector2(16 + cos(a) * 12.0, 25 + sin(a) * 4.5)
+		_line(img, p, p + Vector2(3, -1).rotated(a), WOOD5[1 + i % 3])
+	return _fin(img)
+
+
+func _n_rubble() -> Image:
+	var img := _new_image(T, T)
+	var tones := [C.rock_deep, C.rock_dark, C.rock, C.rock_light]
+	for r in [[9, 25, 6, 4.5], [22, 25, 6.5, 5], [15, 19, 7, 6], [26, 20, 3, 2.5], [5, 21, 3, 2.5]]:
+		_blob(img, r[0], r[1], r[2], r[3], tones, 0.18, 1180 + r[0])
+	return _fin(img)
+
+
+func _n_crystals(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 27, 12, 3.5, [C.rock_deep, C.rock_dark, C.rock, C.rock_light], 0.2, 1190)
+	_crystals(img, Vector2(16, 28), tones, 1.25)
+	_crystals(img, Vector2(7, 29), tones, 0.55)
+	_crystals(img, Vector2(26, 29), tones, 0.6)
+	return _fin(img)
+
+
+func _n_glowcaps() -> Image:
+	var img := _new_image(T, T)
+	_mush(img, 10, 27, 1.4, GLOW5)
+	_mush(img, 19, 29, 2.0, GLOW5)
+	_mush(img, 25, 26, 1.0, GLOW5)
+	_fin(img)
+	for p in [Vector2i(6, 12), Vector2i(14, 6), Vector2i(27, 14), Vector2i(22, 4)]:
+		_px(img, p.x, p.y, GLOW5[4])
+	return img
+
+
+func _n_moss() -> Image:
+	var img := _new_image(T, T)
+	var tones := [C.moss_dark, C.moss_dark, C.moss, C.moss_light]
+	_blob(img, 16, 26, 14, 4.5, tones, 0.5, 1200)
+	_blob(img, 11, 23, 6, 3, tones, 0.5, 1201)
+	_blob(img, 21, 23, 7, 3.5, tones, 0.5, 1202)
+	_speck(img, _mask_ellipse(Vector2(16, 25), 13, 5), LEAF5[4], 0.06, 1203)
+	return _fin(img)
+
+
+func _n_vines() -> Image:
+	var img := _new_image(T, T)
+	for i in 6:
+		var pts := []
+		var x := 4.0 + i * 4.8
+		for k in 6:
+			pts.append(Vector2(x + sin(k * 1.3 + i) * 3.0, 29.0 - k * (3.5 + _hash(i, k, 1210) * 1.5)))
+		for k in 5:
+			_line(img, pts[k], pts[k + 1], LEAF5[1 + (i + k) % 2], 2)
+			if (i + k) % 2 == 0:
+				_leaf(img, pts[k + 1], -PI * 0.5 + (0.9 if k % 2 else -0.9), 5.0, LEAF5)
+	return _fin(img)
+
+
+func _n_bones() -> Image:
+	var img := _new_image(T, T)
+	var bone: Array = MAT["bone"]
+	for l in [[Vector2(4, 27), Vector2(20, 22)], [Vector2(12, 21), Vector2(28, 28)], [Vector2(6, 21), Vector2(13, 28)]]:
+		_bevel(img, _mask_stroke(l[0], l[1], 1.4), bone)
+		for e in l:
+			_bevel(img, _mask_add(_mask_ellipse(e + Vector2(-1, -1), 1.8, 1.8), _mask_ellipse(e + Vector2(1, 1), 1.8, 1.8)), bone)
+	_bevel(img, _mask_add(_mask_ellipse(Vector2(18, 15), 6.5, 6), _mask_poly(PackedVector2Array([Vector2(14, 18), Vector2(22, 18), Vector2(21, 23), Vector2(15, 23)]))), bone)
+	for c in [Vector2i(15, 15), Vector2i(20, 15)]:
+		_rect(img, c.x, c.y, 2, 2, C.outline)
+	_px(img, 17, 18, C.outline)
+	for x in [16, 18, 20]:
+		_px(img, x, 22, bone[0])
+	return _fin(img)
+
+
+func _n_scrap() -> Image:
+	var img := _new_image(T, T)
+	var rust := [Color8(70, 36, 24), Color8(116, 60, 34), Color8(160, 90, 50), Color8(196, 128, 76), Color8(220, 170, 120)]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(3, 29), Vector2(9, 19), Vector2(17, 16), Vector2(25, 19), Vector2(29, 29)])), rust)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 20), Vector2(17, 12), Vector2(20, 17), Vector2(10, 24)])), MAT["iron"])
+	_gear(img, Vector2(22, 20), 4.0, MAT["iron"], 7)
+	_bevel(img, _mask_stroke(Vector2(5, 14), Vector2(14, 23), 1.3), MAT["iron"])
+	_speck(img, _mask_ellipse(Vector2(16, 25), 12, 5), rust[0], 0.1, 1220)
+	return _fin(img)
+
+
+func _n_machine() -> Image:
+	var img := _new_image(T, T)
+	var hull := [Color8(36, 44, 46), Color8(58, 70, 70), Color8(86, 100, 96), Color8(118, 132, 124), Color8(150, 164, 152)]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(4, 12), Vector2(28, 12), Vector2(28, 29), Vector2(4, 29)])), hull)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 7), Vector2(17, 7), Vector2(17, 12), Vector2(7, 12)])), hull)
+	_gear(img, Vector2(21, 19), 4.5, BRONZE5, 8)
+	_rect(img, 7, 16, 7, 4, C.outline)
+	_rect(img, 8, 17, 2, 2, Color8(220, 70, 50))
+	_rect(img, 11, 17, 2, 2, GLOW5[3])
+	for x in range(6, 27, 4):
+		_px(img, x, 27, hull[0])
+	_bevel(img, _mask_stroke(Vector2(19, 9), Vector2(27, 5), 1.3), MAT["iron"])
+	var moss := [C.moss_dark, C.moss_dark, C.moss, C.moss_light]
+	_blob(img, 8, 28, 5, 2.5, moss, 0.5, 1230)
+	_blob(img, 26, 13, 3, 2, moss, 0.5, 1231)
+	return _fin(img)
+
+
+func _n_orchid() -> Image:
+	var img := _new_image(T, T)
+	_line(img, Vector2(16, 29), Vector2(15, 12), Color8(30, 40, 34), 2)
+	_leaf(img, Vector2(16, 28), -2.6, 10.0, [Color8(16, 24, 20), Color8(26, 40, 32), Color8(40, 60, 46), Color8(60, 86, 64), Color8(90, 120, 90)])
+	_leaf(img, Vector2(16, 28), -0.5, 10.0, [Color8(16, 24, 20), Color8(26, 40, 32), Color8(40, 60, 46), Color8(60, 86, 64), Color8(90, 120, 90)])
+	for a in [-2.6, -1.57, -0.5, 0.6, 2.5]:
+		_leaf(img, Vector2(15, 11), a, 7.0, PURPLE5)
+	_bevel(img, _mask_ellipse(Vector2(15, 11), 2, 2), [GLOW5[1], GLOW5[2], GLOW5[3], GLOW5[4], GLOW5[4]])
+	return _fin(img)
+
+
+func _n_web() -> Image:
+	var img := _new_image(T, T)
+	var silk := Color(0.92, 0.92, 0.96, 0.8)
+	var c := Vector2(16, 17)
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.2
+		_line(img, c, c + Vector2(cos(a) * 14.0, sin(a) * 12.0), silk)
+	for r in [3.5, 7.0, 10.5]:
+		for i in 8:
+			var a0 := TAU * i / 8.0 + 0.2
+			var a1 := TAU * (i + 1) / 8.0 + 0.2
+			_line(img, c + Vector2(cos(a0) * r, sin(a0) * r * 0.86), c + Vector2(cos(a1) * r, sin(a1) * r * 0.86), Color(0.85, 0.85, 0.9, 0.6))
+	_blob(img, 21, 12, 2.5, 2.5, [Color8(20, 18, 24), Color8(40, 34, 44), Color8(60, 50, 64), Color8(90, 80, 96)], 0.0, 1240)
+	return img
+
+
+# ---- stations
+
+func _make_structure_m10(kind: String) -> Image:
+	var img := _new_image(T, T)
+	if kind == "loom":
+		for x in [4.5, 27.5]:
+			_bevel(img, _mask_stroke(Vector2(x, 4), Vector2(x, 30), 1.6), WOOD5)
+		for y in [5.5, 23.5]:
+			_bevel(img, _mask_stroke(Vector2(3, y), Vector2(29, y), 1.5), WOOD5)
+		for x in range(7, 26, 2):
+			_line(img, Vector2(x, 7), Vector2(x, 15), WHITE5[2])
+		var cloth := _mask_poly(PackedVector2Array([Vector2(7, 15), Vector2(26, 15), Vector2(26, 22), Vector2(7, 22)]))
+		_bevel(img, cloth, [RED5[0], RED5[1], RED5[2], RED5[3], RED5[4]])
+		for y in [17, 20]:
+			_line(img, Vector2(7, y), Vector2(25, y), SULF5[2])
+		_bevel(img, _mask_stroke(Vector2(9, 14.5), Vector2(24, 14.5), 1.0), WOOD5)
+		_bevel(img, _mask_ellipse(Vector2(25, 27), 3.5, 2.5), WHITE5)
+	else:
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(3, 15), Vector2(29, 15), Vector2(29, 19), Vector2(3, 19)])), WOOD5)
+		for x in [5, 25]:
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(x, 19), Vector2(x + 3, 19), Vector2(x + 3, 30), Vector2(x, 30)])), WOOD5)
+		_bevel(img, _mask_add(_mask_ellipse(Vector2(9, 11), 4.5, 4.5), _mask_stroke(Vector2(9, 3), Vector2(9, 8), 1.4)), GLASS5)
+		_blob(img, 9, 12, 3, 2.5, [SLIME5[1], SLIME5[2], SLIME5[3], SLIME5[4]], 0.0, 1250)
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(15, 4), Vector2(19, 4), Vector2(19, 8), Vector2(22, 15), Vector2(12, 15), Vector2(15, 8)])), GLASS5)
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(14, 11), Vector2(20, 11), Vector2(22, 15), Vector2(12, 15)])), VENOM5)
+		_bevel(img, _mask_add(_mask_ellipse(Vector2(25, 12), 3, 3), _mask_stroke(Vector2(25, 6), Vector2(25, 10), 1.1)), GLASS5)
+		_blob(img, 25, 13, 2, 1.5, [RED5[1], RED5[2], RED5[3], RED5[4]], 0.0, 1251)
+		_bevel(img, _mask_ellipse(Vector2(16, 24), 4, 2.5), MAT["stone"])
 	_outline(img, C.outline)
 	return img

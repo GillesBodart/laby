@@ -6,7 +6,7 @@ extends Control
 const SIZE := Vector2(480, 270)
 const PANEL := Rect2(90, 40, 300, 196)
 const WIDE := Rect2(30, 38, 420, 214)
-const ROW_H := 18.0
+const ROW_H := 17.0
 
 const INK := Color8(27, 20, 16)
 const GREEN_DARK := Color8(24, 38, 30)

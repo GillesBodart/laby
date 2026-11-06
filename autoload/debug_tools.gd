@@ -9,8 +9,9 @@ extends Node
 ##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
 ##     --menu=<page>            open the Esc menu (main, save, load, controls)
-##     --give [--panel]         sample items (and open the backpack)
+##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
+##     --spawn=<id>,<id>...     place creatures in a ring around the player
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -41,6 +42,8 @@ func _ready() -> void:
 		_press_skills.call_deferred()
 	if _args.has("give"):
 		_give.call_deferred()
+	if _args.has("spawn"):
+		_spawn.call_deferred(_args.spawn)
 	if _args.has("screenshot"):
 		_capture.call_deferred(_args.screenshot, int(_args.get("screenshot-frames", "30")))
 
@@ -51,11 +54,13 @@ func _give() -> void:
 	var p: Player = GameState.players.get(GameState.local_peer_id())
 	if p == null:
 		return
-	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry", "iron_helm", "copper_ring", "leather_boots", "anvil", "cooking_pot", "tanning_rack", "stonecutter", "mushroom", "raw_meat"]:
-		p.inventory.add(id, 1 if ItemCatalog.stack_size(id) == 1 else 7)
-	for id in ["iron_sword", "copper_armor", "bone_charm"]:
+	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry", "iron_helm", "copper_ring", "leather_boots", "anvil", "cooking_pot", "tanning_rack", "stonecutter", "mushroom", "raw_meat", "short_bow", "flint_arrow", "healing_potion", "wooden_shield", "loom", "alchemy_table"]:
+		p.inventory.add(id, mini(ItemCatalog.stack_size(id), 7))
+	for id in ["iron_sword", "copper_armor", "bone_charm", "iron_shield"]:
 		p.inventory.add(id, 1)
 		p.equipment.equip(p.inventory, id)
+	if _args.has("sort"):
+		p.inventory.sort()
 	if _args.has("station"):
 		EventBus.station_used.emit(_args.station)
 	elif _args.has("panel"):
@@ -63,6 +68,20 @@ func _give() -> void:
 		ev.action = "inventory"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+
+
+## --spawn: creatures in a ring 70px around the local player.
+func _spawn(list: String) -> void:
+	await get_tree().create_timer(0.5).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p == null:
+		return
+	var ids := Array(list.split(",", false)).filter(func(id): return EnemyCatalog.has(id))
+	for i in ids.size():
+		var e: Enemy = preload("res://scenes/world/props/enemy.tscn").instantiate()
+		e.setup(ids[i])
+		e.position = p.position + Vector2.RIGHT.rotated(TAU * i / ids.size()) * 70.0
+		p.get_parent().add_child(e)
 
 
 func _open_menu(page: String) -> void:

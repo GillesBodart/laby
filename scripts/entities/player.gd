@@ -44,6 +44,9 @@ var _swing: Tween
 var _tool_pivot: Node2D
 var _tool_arm: Node2D
 var _tool_sprite: Sprite2D
+## Status effects: name -> seconds left ("poison" drains health, "slow" hampers movement).
+var effects := {}
+var _poison_acc := 0.0
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -91,12 +94,14 @@ func _physics_process(delta: float) -> void:
 
 	if state == State.MOVE:
 		var speed := RUN_SPEED if input.run and survival.can_run() else WALK_SPEED
-		velocity = velocity.move_toward(move * speed * survival.speed_multiplier(), ACCELERATION * delta)
+		var slow := 0.55 if effects.has("slow") else 1.0
+		velocity = velocity.move_toward(move * speed * survival.speed_multiplier() * slow, ACCELERATION * delta)
 		facing = _cardinal(move)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	move_and_slide()
 	survival.tick(delta, state == State.MOVE, input.run)
+	_tick_effects(delta)
 	_update_visuals()
 	_gather_timer = maxf(_gather_timer - delta, 0.0)
 	var pressed := input.interact and not _interact_held
@@ -117,6 +122,88 @@ func _physics_process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if input.is_local() and event.is_action_pressed("eat"):
 		eat_best_food()
+	elif input.is_local() and event.is_action_pressed("drink"):
+		drink_best_potion()
+
+
+## Uses a consumable from the backpack (food, medicine, potion). Returns
+## whether it was consumed.
+func use_item(id: String) -> bool:
+	if not ItemCatalog.is_consumable(id) or inventory.count(id) == 0:
+		return false
+	var it: Dictionary = ItemCatalog.ITEMS[id]
+	var food: float = it.get("food", 0.0)
+	var heal: float = it.get("heal", 0.0)
+	var cures: bool = it.get("cure", false) and not effects.is_empty()
+	var stamina: float = it.get("stamina", 0.0)
+	var useful := cures or (heal > 0.0 and survival.health < survival.max_health()) \
+		or (food > 0.0 and survival.hunger < Survival.MAX_HUNGER - 0.5) \
+		or (stamina > 0.0 and survival.stamina < Survival.MAX_STAMINA)
+	if not useful:
+		EventBus.notify.emit("No need for %s now." % ItemCatalog.item_name(id))
+		return false
+	inventory.remove(id, 1)
+	if food > 0.0:
+		survival.eat(food)
+	if heal > 0.0:
+		survival.heal(heal)
+	if stamina > 0.0:
+		survival.restore_stamina(stamina)
+	if it.get("cure", false):
+		effects.clear()
+	EventBus.notify.emit("Used %s." % ItemCatalog.item_name(id))
+	return true
+
+
+## Drinks the best healing item, or an antidote when poisoned.
+func drink_best_potion() -> bool:
+	var best := ""
+	var best_score := 0.0
+	for s in inventory.slots:
+		if s.is_empty():
+			continue
+		var it: Dictionary = ItemCatalog.ITEMS[s.id]
+		if it.get("food", 0.0) > 0.0 and not it.has("cure") and it.get("heal", 0.0) < 12.0:
+			continue
+		var score: float = it.get("heal", 0.0)
+		if it.get("cure", false) and not effects.is_empty():
+			score += 200.0
+		if it.get("stamina", 0.0) > 0.0 and survival.stamina < 20.0:
+			score += 30.0
+		if score > best_score:
+			best_score = score
+			best = s.id
+	if best == "":
+		EventBus.notify.emit("No potion to drink.")
+		return false
+	return use_item(best)
+
+
+func apply_effect(effect: String, seconds: float) -> void:
+	if effect == "" or survival.is_dead():
+		return
+	if not effects.has(effect):
+		EventBus.notify.emit("You are %s!" % ("poisoned" if effect == "poison" else "slowed"))
+	effects[effect] = maxf(effects.get(effect, 0.0), seconds)
+
+
+func _tick_effects(delta: float) -> void:
+	for k in effects.keys():
+		effects[k] -= delta
+		if effects[k] <= 0.0:
+			effects.erase(k)
+	if effects.has("poison"):
+		_poison_acc += delta
+		if _poison_acc >= 1.0:
+			_poison_acc -= 1.0
+			survival.damage(2.0)
+	var tint := Color.WHITE
+	if effects.has("poison"):
+		tint = Color(0.75, 1.15, 0.7)
+	elif effects.has("slow"):
+		tint = Color(0.75, 0.85, 1.2)
+	if _hurt_timer <= 0.0:
+		sprite.modulate = tint
 
 
 ## Eats the most nourishing food in the backpack. Returns whether anything was eaten.
@@ -146,6 +233,7 @@ func gain_xp(amount: int) -> void:
 func _on_died() -> void:
 	EventBus.notify.emit("You collapsed... and wake up at the camp.")
 	survival.revive()
+	effects.clear()
 	velocity = Vector2.ZERO
 	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
 	if GameState.area != "clearing" or world == null:
@@ -191,8 +279,12 @@ func _on_equipment_changed() -> void:
 
 func _attack() -> void:
 	_attack_timer = ATTACK_COOLDOWN
+	var weapon := equipment.get_item("weapon")
+	var ranged := ItemCatalog.ranged_of(weapon)
+	if ranged != "" and _fire(ranged):
+		return
 	_slash_time = 0.12
-	swing(equipment.get_item("weapon"))
+	swing(weapon)
 	var center := global_position + Vector2(0, -8)
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
@@ -200,10 +292,39 @@ func _attack() -> void:
 			node.take_damage(weapon_damage(), self)
 
 
+## Shoots the ranged weapon toward the facing direction. Bows use the best
+## arrow in the backpack; returns false (melee bash instead) when out of arrows.
+func _fire(kind: String) -> bool:
+	var dmg := weapon_damage()
+	if kind == "arrow":
+		var best := ""
+		for s in inventory.slots:
+			if not s.is_empty() and ItemCatalog.arrow_of(s.id) > (ItemCatalog.arrow_of(best) if best != "" else 0):
+				best = s.id
+		if best == "":
+			EventBus.notify.emit("Out of arrows!")
+			return false
+		inventory.remove(best, 1)
+		dmg += ItemCatalog.arrow_of(best)
+	_attack_timer = ATTACK_COOLDOWN * 1.4
+	var from := global_position + Vector2(0, -10) + facing * 6.0
+	Projectile.fire(get_parent(), from, facing, kind, 260.0 if kind == "arrow" else 220.0, dmg, "player", self)
+	return true
+
+
+## % chance that the worn shield stops a hit completely.
+func block_chance() -> int:
+	return equipment.stat("block")
+
+
 func take_damage(amount: int, source: Node2D = null) -> void:
 	if _hurt_timer > 0.0 or survival.is_dead():
 		return
 	_hurt_timer = HURT_INVULNERABILITY
+	if block_chance() > 0 and randi() % 100 < block_chance():
+		HitChips.burst(get_parent(), global_position + Vector2(0, -10), [Color8(220, 224, 232), Color8(160, 114, 68)], 5)
+		EventBus.notify.emit("Blocked!")
+		return
 	survival.damage(maxi(amount - armor(), 1))
 	if source:
 		velocity = (global_position - source.global_position).normalized() * 160.0

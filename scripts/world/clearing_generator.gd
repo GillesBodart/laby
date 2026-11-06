@@ -18,6 +18,17 @@ const BUSH_TARGET := 28
 const GRASS_TARGET := 70
 const CLAY_TARGET := 16
 const MUSHROOM_TARGET := 14
+## Smaller forest resources: [type, count, min spacing in tiles].
+const EXTRA_NODES := [
+	["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0], ["mushroom", MUSHROOM_TARGET, 3.0],
+	["flint", 14, 4.0], ["reeds", 18, 2.0], ["herb", 16, 3.0], ["wheat", 18, 2.0], ["cotton", 14, 2.5],
+	["resin_stump", 10, 5.0], ["beehive", 6, 8.0], ["apple_tree", 10, 5.0], ["carrot", 12, 2.5],
+	["blueberry", 12, 3.0], ["flower", 20, 2.0], ["sand", 12, 3.0], ["nest", 8, 6.0], ["potato", 12, 2.5],
+]
+const CREATURE_TARGET := 46
+## Minimum distance (tiles) from the campfire per temperament: the camp stays safe.
+const CREATURE_MIN_DIST := {"passive": 8.0, "neutral": 12.0, "nocturnal": 18.0, "hostile": 24.0}
+const ELITE_MIN_DIST := 30.0
 
 const Id := TileCatalog.Id
 
@@ -224,7 +235,7 @@ func _place_props(center: Vector2i) -> void:
 		_layout.props.append({"type": "bush", "cell": cell})
 		bushes += 1
 
-	for extra in [["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0], ["mushroom", MUSHROOM_TARGET, 3.0]]:
+	for extra in EXTRA_NODES:
 		var placed := 0
 		for attempt in 2000:
 			if placed >= extra[1]:
@@ -237,6 +248,28 @@ func _place_props(center: Vector2i) -> void:
 			occupied[cell] = true
 			_layout.props.append({"type": extra[0], "cell": cell})
 			placed += 1
+	_place_creatures(center, inner, occupied)
+
+
+## Forest wildlife: gentle animals near the camp, predators further out.
+func _place_creatures(center: Vector2i, inner: Rect2i, occupied: Dictionary) -> void:
+	var placed := 0
+	for attempt in 3000:
+		if placed >= CREATURE_TARGET:
+			break
+		var cell := Vector2i(
+			_rng.randi_range(inner.position.x, inner.end.x - 1),
+			_rng.randi_range(inner.position.y, inner.end.y - 1))
+		if occupied.has(cell) or _is_solid(cell):
+			continue
+		var dist := Vector2(cell - center).length()
+		var type := EnemyCatalog.pick("forest", 0.0, _rng.randf(), func(d: Dictionary) -> bool:
+			return dist >= (ELITE_MIN_DIST if d.elite else CREATURE_MIN_DIST[d.temper]))
+		if type == "":
+			continue
+		occupied[cell] = true
+		_layout.enemy_spawns.append({"type": type, "cell": cell})
+		placed += 1
 
 
 func _is_free_for_prop(cell: Vector2i, center: Vector2i, gates: Array[Vector2i],

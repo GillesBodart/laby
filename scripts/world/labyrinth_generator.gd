@@ -11,8 +11,18 @@ const OPEN := 3
 const BORDER := 3
 const VESTIBULE_ROWS := 8
 const LOOP_CHANCE := 0.08
-const ENEMY_CHANCE := 0.09
-const ORE_CHANCE := 0.3
+const ENEMY_CHANCE := 0.14
+const RESOURCE_CHANCE := 0.55
+const SECOND_CHANCE := 0.2
+## Labyrinth resource table: [node type, weight, minimum depth].
+const RESOURCES := [
+	["rubble", 6.0, 0.0], ["ore_coal", 7.0, 0.0], ["ore_copper", 6.0, 0.0], ["ore_tin", 4.0, 0.1],
+	["ore_iron", 4.0, 0.4], ["ore_silver", 2.5, 0.55], ["ore_gold", 1.5, 0.75], ["ore_crystal", 1.2, 0.8],
+	["quartz", 2.0, 0.35], ["obsidian", 1.5, 0.85], ["sulfur", 2.0, 0.25], ["saltpeter", 2.0, 0.25],
+	["glowcap", 3.0, 0.2], ["cave_moss", 4.0, 0.0], ["vines", 3.5, 0.0], ["bone_pile", 3.0, 0.1],
+	["scrap_heap", 2.5, 0.3], ["machine", 1.2, 0.5], ["shadow_orchid", 0.8, 0.65], ["cobweb", 3.0, 0.15],
+	["grass", 2.0, 0.0], ["mushroom", 1.5, 0.0],
+]
 const SAFE_RADIUS := 4 # maze cells around the entrance with no enemies
 const SEED_SALT := 7919
 
@@ -79,8 +89,8 @@ func _place_enemies(entry: Vector2i) -> void:
 			_layout.enemy_spawns.append({"type": type, "cell": o + Vector2i(1, 1)})
 
 
-## Ore deposits sit in the corners of maze cells (never blocking passages);
-## richer ores lie deeper in the maze.
+## Resource nodes sit in the corners of maze cells (never blocking passages);
+## richer deposits lie deeper in the maze.
 func _place_resources(entry: Vector2i) -> void:
 	var max_dist := float(COLS + ROWS)
 	var corners := [Vector2i(0, 0), Vector2i(2, 0), Vector2i(0, 2), Vector2i(2, 2)]
@@ -89,23 +99,29 @@ func _place_resources(entry: Vector2i) -> void:
 			var mc := Vector2i(mx, my)
 			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
 			var depth := dist / max_dist * 1.4
-			var roll := _rng.randf()
-			var cell: Vector2i = cell_origin(mc) + corners[_rng.randi_range(0, 3)]
+			var first := _rng.randi_range(0, 3)
+			var rolls := [_rng.randf(), _rng.randf()]
 			if dist <= 1:
 				continue
-			if roll < ORE_CHANCE:
-				var kind := _rng.randf()
-				var type := "ore_coal" if kind < 0.5 else "ore_copper"
-				if depth > 0.8 and kind > 0.88:
-					type = "ore_crystal"
-				elif depth > 0.4 and kind > 0.6:
-					type = "ore_iron"
-				_layout.props.append({"type": type, "cell": cell})
-			elif roll < ORE_CHANCE + 0.12:
-				_layout.props.append({"type": "grass", "cell": cell})
-			elif roll < ORE_CHANCE + 0.18:
-				_layout.props.append({"type": "mushroom", "cell": cell})
+			for k in 2:
+				if rolls[k] > (RESOURCE_CHANCE if k == 0 else SECOND_CHANCE):
+					continue
+				var cell: Vector2i = cell_origin(mc) + corners[(first + k * 2) % 4]
+				_layout.props.append({"type": _pick_resource(depth), "cell": cell})
 
+
+func _pick_resource(depth: float) -> String:
+	var total := 0.0
+	for r in RESOURCES:
+		if depth >= r[2]:
+			total += r[1]
+	var x := _rng.randf() * total
+	for r in RESOURCES:
+		if depth >= r[2]:
+			x -= r[1]
+			if x <= 0.0:
+				return r[0]
+	return "rubble"
 
 func _carve(rect: Rect2i) -> void:
 	for y in range(rect.position.y, rect.end.y):

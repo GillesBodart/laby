@@ -19,7 +19,9 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M7 Minecraft-style content: 11 raw resources (grass, clay, coal, copper/iron ore, crystal in the labyrinth by depth), smelting at a furnace, 3 tool/armor tiers (ore needs a good enough pickaxe), 33 recipes, farm plots (E plants a berry, ripe in 4 min) | ✅ |
 | M8 Gear & stations: equipment doll (weapon, head, body, feet, ring, amulet; click to equip), chop/mine swing animation, 7 crafting stations each with its own recipe book (E on campfire, workbench, furnace, anvil, cooking pot, tanning rack, stonecutter), mushrooms + meat and 8 foods, 54 recipes | ✅ |
 | M9 Esc menu: pause, save / load in 3 slots (slot 1 = F5/F9 quick save), rebind every shortcut (swap on conflict, reset to defaults; stored in `user://settings.cfg`), quit | ✅ |
-| M10 | Next: taming |
+| M10 Biomes: 48 creatures (23 forest, 25 labyrinth) with distinct attacks (melee, charge, ranged projectiles, shields, poison/slow, packs), 40 gatherable resources (20 per biome), ~200 items and 161 recipes incl. loom + alchemy table, bows & arrows, shields (offhand slot, block), potions (**H** drink); item art partly from Dungeon Crawl Stone Soup (CC0, see [CREDITS](CREDITS.md)) | ✅ |
+| M10b Categorised items: tools, weapons, ammo, armor, accessories, medicine, food, stations, building, materials, creature parts, resources. Recipe books grouped by category with filter chips; backpack **SORT** button merges stacks and orders by category | ✅ |
+| M11 | Next: taming |
 
 ## Run
 
@@ -30,9 +32,9 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs
 ```
 
-Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, quit). Keys listed are defaults.
+Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls, category chips filter the book, SORT tidies the backpack) · **H** drink / use a potion · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, quit). Keys listed are defaults.
 
-Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--screenshot=out.png --screenshot-frames=60`.
+Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--give [--panel] [--sort] [--station=anvil]`, `--spawn=dusk_jackal,thicket_archer`, `--screenshot=out.png --screenshot-frames=60`.
 
 ## Architecture
 

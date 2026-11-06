@@ -89,6 +89,45 @@ func test_tool_tiers_weapons_and_armor() -> void:
 		check(slot == "" or slot in Equipment.SLOTS, "valid slot for %s" % id)
 
 
+func test_item_categories() -> void:
+	for id in ItemCatalog.ITEMS:
+		check(ItemCatalog.category_of(id) in ItemCatalog.CATEGORIES, "category for %s" % id)
+	check_eq(ItemCatalog.category_of("iron_pickaxe"), "tool", "pickaxe")
+	check_eq(ItemCatalog.category_of("iron_sword"), "weapon", "sword")
+	check_eq(ItemCatalog.category_of("short_bow"), "weapon", "bow")
+	check_eq(ItemCatalog.category_of("flint_arrow"), "ammo", "arrow")
+	check_eq(ItemCatalog.category_of("iron_helm"), "armor", "helm")
+	check_eq(ItemCatalog.category_of("wooden_shield"), "armor", "shield")
+	check_eq(ItemCatalog.category_of("copper_ring"), "accessory", "ring")
+	check_eq(ItemCatalog.category_of("healing_potion"), "medicine", "potion")
+	check_eq(ItemCatalog.category_of("anvil"), "station", "anvil")
+	check_eq(ItemCatalog.category_of("plank"), "material", "plank")
+	check_eq(ItemCatalog.category_of("wood"), "resource", "wood")
+	check_eq(ItemCatalog.category_of("raw_meat"), "food", "meat")
+
+
+func test_recipe_books_grouped_by_category() -> void:
+	for st in [""] + ItemCatalog.STATIONS.keys():
+		var last := -1
+		for i in ItemCatalog.recipes_at(st):
+			var c := ItemCatalog.CATEGORIES.find(ItemCatalog.category_of(ItemCatalog.RECIPES[i].id))
+			check(c >= last, "%s book ordered at %s" % [st, ItemCatalog.RECIPES[i].id])
+			last = c
+
+
+func test_inventory_sort_merges_and_orders() -> void:
+	var inv := Inventory.new(6)
+	inv.slots[0] = {"id": "wood", "count": 10}
+	inv.slots[2] = {"id": "iron_sword", "count": 1}
+	inv.slots[3] = {"id": "wood", "count": 5}
+	inv.slots[5] = {"id": "stone_pickaxe", "count": 1}
+	inv.sort()
+	check_eq(inv.slots[0].id, "stone_pickaxe", "tools first")
+	check_eq(inv.slots[1].id, "iron_sword", "weapons next")
+	check_eq(inv.slots[2], {"id": "wood", "count": 15}, "wood merged")
+	check(inv.slots[3].is_empty(), "empties at the end")
+
+
 func test_farming_stages() -> void:
 	check_eq(Farming.stage(Farming.NOT_PLANTED, 1000.0), Farming.EMPTY, "empty")
 	check_eq(Farming.stage(100.0, 200.0), Farming.GROWING, "growing")

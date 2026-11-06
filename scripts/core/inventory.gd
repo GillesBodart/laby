@@ -88,6 +88,27 @@ func tool_tier(kind: String) -> int:
 	return best
 
 
+## Merges partial stacks and orders slots by category (ItemCatalog.sorts_before).
+func sort() -> void:
+	var totals := {}
+	for s in slots:
+		if not s.is_empty():
+			totals[s.id] = totals.get(s.id, 0) + int(s.count)
+	var ids: Array = totals.keys()
+	ids.sort_custom(ItemCatalog.sorts_before)
+	var packed := []
+	for id in ids:
+		var left: int = totals[id]
+		var cap := ItemCatalog.stack_size(id)
+		while left > 0:
+			var n := mini(cap, left)
+			packed.append({"id": id, "count": n})
+			left -= n
+	for i in slots.size():
+		slots[i] = packed[i] if i < packed.size() else {}
+	changed.emit()
+
+
 func to_data() -> Array:
 	return slots.duplicate(true)
 
