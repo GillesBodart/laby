@@ -22,6 +22,8 @@ var portal_target := ""
 var return_cell: Vector2i
 ## Whether the player may build here (only the Clearing).
 var buildable := false
+## Whether unexplored cells are hidden on the map (the Labyrinth).
+var fogged := false
 
 
 func _init(map_size: Vector2i) -> void:

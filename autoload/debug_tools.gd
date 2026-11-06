@@ -6,6 +6,7 @@ extends Node
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
 ##     --area=<name>            start in an area (clearing, labyrinth)
+##     --map                    open the map overlay
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -28,6 +29,8 @@ func _ready() -> void:
 		TimeSystem.set_time_of_day.call_deferred(int(hm[0]) * 60 + (int(hm[1]) if hm.size() > 1 else 0))
 	if _args.has("at"):
 		_teleport_local_player.call_deferred(_args.at)
+	if _args.has("map"):
+		_press_map.call_deferred()
 	if _args.has("give"):
 		_give.call_deferred()
 	if _args.has("screenshot"):
@@ -47,6 +50,15 @@ func _give() -> void:
 		ev.action = "inventory"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+
+
+## --map: opens the map overlay after the world is built.
+func _press_map() -> void:
+	await get_tree().create_timer(0.8).timeout
+	var ev := InputEventAction.new()
+	ev.action = "map"
+	ev.pressed = true
+	Input.parse_input_event(ev)
 
 
 func _teleport_local_player(cell_text: String) -> void:

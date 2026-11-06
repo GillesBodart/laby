@@ -53,6 +53,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 
 	_layout.portal_rect = Rect2i(o.x, size.y - 5, OPEN, 2)
 	_layout.portal_target = "clearing"
+	_layout.fogged = true
 	_layout.return_cell = Vector2i(o.x + 1, o.y + OPEN + 1)
 	_layout.spawn_cell = _layout.return_cell
 	_layout.campfire_cell = _layout.return_cell

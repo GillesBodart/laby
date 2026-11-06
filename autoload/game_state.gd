@@ -23,6 +23,8 @@ var arriving := false
 var inventories: Dictionary = {}
 ## Per-peer survival stats kept while changing area (peer_id -> Survival data).
 var survivals: Dictionary = {}
+## Explored cells per area (area name -> FogMap), only for fogged areas.
+var fog: Dictionary = {}
 ## Harvested Clearing props (cell -> true), so they stay gone across areas.
 var depleted_cells: Dictionary = {}
 ## Player-built structures in the Clearing (cell -> {"type": String, "open": bool}).
@@ -47,9 +49,29 @@ func new_game(seed_value: int = 0) -> void:
 	arriving = false
 	inventories = {}
 	survivals = {}
+	fog = {}
 	depleted_cells = {}
 	structures = {}
 	stash = Inventory.new(STASH_SLOTS)
+
+
+func fog_for(area_name: String, size: Vector2i) -> FogMap:
+	if not fog.has(area_name) or fog[area_name].size != size:
+		fog[area_name] = FogMap.new(size)
+	return fog[area_name]
+
+
+func fog_to_data() -> Dictionary:
+	var out := {}
+	for k in fog:
+		out[k] = fog[k].to_data()
+	return out
+
+
+func fog_from_data(data: Dictionary) -> void:
+	fog = {}
+	for k in data:
+		fog[k] = FogMap.from_data(data[k])
 
 
 func area_scene() -> String:

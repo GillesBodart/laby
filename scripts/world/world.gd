@@ -8,13 +8,19 @@ const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
 @onready var clearing: ClearingWorld = $Clearing
 @onready var camera: GameCamera = $Camera
 
+const REVEAL_RADIUS := 5
+
 var layout: ClearingLayout
+var fog: FogMap
+var _last_cell := {}
 
 
 func _ready() -> void:
 	layout = make_layout()
 	clearing.build(layout)
 	camera.set_bounds(clearing.pixel_size())
+	if layout.fogged:
+		fog = GameState.fog_for(GameState.area, layout.size)
 
 	var arrival := layout.return_cell if GameState.arriving else layout.spawn_cell
 	GameState.arriving = false
@@ -38,6 +44,7 @@ func greet() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	_update_fog()
 	if layout.portal_target == "" or GameState.area == layout.portal_target:
 		return
 	for player in GameState.players.values():
@@ -46,6 +53,16 @@ func _physics_process(_delta: float) -> void:
 			EventBus.notify.emit(portal_message())
 			GameState.travel(layout.portal_target)
 			return
+
+
+func _update_fog() -> void:
+	if fog == null:
+		return
+	for id in GameState.players:
+		var cell := clearing.walls.local_to_map(clearing.walls.to_local(GameState.players[id].global_position))
+		if _last_cell.get(id) != cell:
+			_last_cell[id] = cell
+			fog.reveal(cell, REVEAL_RADIUS)
 
 
 func portal_message() -> String:
