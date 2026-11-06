@@ -11,6 +11,8 @@ const OPEN := 3
 const BORDER := 3
 const VESTIBULE_ROWS := 8
 const LOOP_CHANCE := 0.08
+const ENEMY_CHANCE := 0.09
+const SAFE_RADIUS := 4 # maze cells around the entrance with no enemies
 const SEED_SALT := 7919
 
 const Id := TileCatalog.Id
@@ -57,7 +59,22 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_layout.return_cell = Vector2i(o.x + 1, o.y + OPEN + 1)
 	_layout.spawn_cell = _layout.return_cell
 	_layout.campfire_cell = _layout.return_cell
+	_place_enemies(entry)
 	return _layout
+
+
+func _place_enemies(entry: Vector2i) -> void:
+	var max_dist := float(COLS + ROWS)
+	for my in ROWS:
+		for mx in COLS:
+			var mc := Vector2i(mx, my)
+			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
+			var roll := _rng.randf()
+			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE:
+				continue
+			var type := EnemyCatalog.type_for_depth(dist / max_dist * 1.4, _rng.randf())
+			var o := cell_origin(mc)
+			_layout.enemy_spawns.append({"type": type, "cell": o + Vector2i(1, 1)})
 
 
 func _carve(rect: Rect2i) -> void:

@@ -23,6 +23,10 @@ const ANIMATIONS := {
 const REACH := 36.0
 const STATION_RANGE := 112.0
 const GATHER_COOLDOWN := 0.4
+const ATTACK_COOLDOWN := 0.45
+const ATTACK_RANGE := 36.0
+const HURT_INVULNERABILITY := 0.6
+const BASE_DAMAGE := 8
 
 @export var peer_id: int = GameState.OFFLINE_PEER_ID
 
@@ -31,6 +35,9 @@ var facing := Vector2.DOWN
 var inventory := Inventory.new()
 var survival := Survival.new()
 var _gather_timer := 0.0
+var _attack_timer := 0.0
+var _hurt_timer := 0.0
+var _slash_time := 0.0
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -82,6 +89,13 @@ func _physics_process(delta: float) -> void:
 	_gather_timer = maxf(_gather_timer - delta, 0.0)
 	if input.interact and _gather_timer == 0.0:
 		_try_gather()
+	_attack_timer = maxf(_attack_timer - delta, 0.0)
+	_hurt_timer = maxf(_hurt_timer - delta, 0.0)
+	if _slash_time > 0.0:
+		_slash_time = maxf(_slash_time - delta, 0.0)
+		queue_redraw()
+	if input.attack and _attack_timer == 0.0 and not survival.is_dead():
+		_attack()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -124,6 +138,45 @@ func _on_died() -> void:
 		GameState.travel("clearing")
 	else:
 		global_position = ClearingWorld.cell_center(world.layout.spawn_cell)
+
+
+## Damage dealt per hit: tools double as weapons.
+func weapon_damage() -> int:
+	if inventory.has_tool("axe"):
+		return BASE_DAMAGE + 6
+	if inventory.has_tool("pickaxe"):
+		return BASE_DAMAGE + 4
+	return BASE_DAMAGE
+
+
+func _attack() -> void:
+	_attack_timer = ATTACK_COOLDOWN
+	_slash_time = 0.12
+	var center := global_position + Vector2(0, -8)
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
+		if offset.length() <= ATTACK_RANGE and (offset.length() < 12.0 or offset.normalized().dot(facing) > 0.25):
+			node.take_damage(weapon_damage(), self)
+
+
+func take_damage(amount: int, source: Node2D = null) -> void:
+	if _hurt_timer > 0.0 or survival.is_dead():
+		return
+	_hurt_timer = HURT_INVULNERABILITY
+	survival.damage(amount)
+	if source:
+		velocity = (global_position - source.global_position).normalized() * 160.0
+	var tw := create_tween()
+	sprite.modulate = Color(1.6, 0.5, 0.5)
+	tw.tween_property(sprite, "modulate", Color.WHITE, 0.25)
+
+
+func _draw() -> void:
+	if _slash_time <= 0.0:
+		return
+	var a := facing.angle()
+	draw_arc(Vector2(0, -8), 24.0, a - 0.9, a + 0.9, 10, Color(1, 1, 1, 0.9), 3.0)
+	draw_arc(Vector2(0, -8), 20.0, a - 0.7, a + 0.7, 8, Color(0.8, 0.9, 1, 0.6), 2.0)
 
 
 func _try_gather() -> void:

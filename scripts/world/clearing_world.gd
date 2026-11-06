@@ -9,6 +9,7 @@ const PROP_SCENES := {
 	"campfire": preload("res://scenes/world/props/campfire.tscn"),
 }
 
+const ENEMY_SCENE := preload("res://scenes/world/props/enemy.tscn")
 const VARIANT_COUNT := 10
 ## type -> Array[Texture2D], filled in _ready from assets/sprites/<type>s/.
 var _prop_variants := {}
@@ -61,6 +62,11 @@ func build(new_layout: ClearingLayout) -> void:
 			node.cell = prop.cell
 			node.depleted.connect(_on_depleted)
 		entities.add_child(node)
+	for spawn in layout.enemy_spawns:
+		var enemy: Enemy = ENEMY_SCENE.instantiate()
+		enemy.setup(spawn.type)
+		enemy.position = cell_center(spawn.cell) + Vector2(0, 12)
+		entities.add_child(enemy)
 	gates.setup(walls, layout.gates)
 	_spawn_structures()
 

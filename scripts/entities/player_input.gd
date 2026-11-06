@@ -7,6 +7,7 @@ var peer_id: int = GameState.OFFLINE_PEER_ID
 var move_vector := Vector2.ZERO
 var run := false
 var interact := false
+var attack := false
 
 
 func is_local() -> bool:
@@ -19,3 +20,4 @@ func _physics_process(_delta: float) -> void:
 	move_vector = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	run = Input.is_action_pressed("run")
 	interact = Input.is_action_pressed("interact")
+	attack = Input.is_action_pressed("attack")

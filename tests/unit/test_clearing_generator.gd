@@ -34,7 +34,7 @@ func test_big_clearing_and_prop_variants() -> void:
 	check(layout.clearing_rect.size.x >= 90 and layout.clearing_rect.size.y >= 60, "big glade")
 	var seen := {}
 	for prop in layout.props:
-		if prop.type != "campfire":
+		if prop.type in ["tree", "rock"]:
 			seen["%s_%d" % [prop.type, prop.variant]] = true
 	check_eq(seen.size(), 20, "all 10 tree and 10 rock variants used")
 

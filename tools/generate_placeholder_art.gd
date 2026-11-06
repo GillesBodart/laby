@@ -90,7 +90,7 @@ var rng := RandomNumberGenerator.new()
 
 
 func _init() -> void:
-	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/items"]:
+	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/items", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_save(_make_tileset(), Catalog.TEXTURE_PATH)
 	_save(_make_player(), "res://assets/sprites/player.png")
@@ -106,6 +106,8 @@ func _init() -> void:
 	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
 	_make_item_icons()
 	_save(_make_bush(), "res://assets/sprites/bush.png")
+	for e in ["grub", "stalker", "warden"]:
+		_save(_make_enemy(e), "res://assets/sprites/enemies/%s.png" % e)
 	print("Art generated.")
 	quit()
 
@@ -1136,3 +1138,28 @@ func _fill_poly(img: Image, pts: PackedVector2Array, tones: Array) -> void:
 				var t := ((x - rect.position.x) / maxf(rect.size.x, 1.0) * 0.45 + (y - rect.position.y) / maxf(rect.size.y, 1.0) * 0.55)
 				t = clampf(1.0 - t + (_hash(x, y, 321) - 0.5) * 0.3, 0.0, 0.999)
 				_px(img, x, y, tones[int(t * tones.size())])
+
+
+## 32x32 creature sprites, feet at the bottom centre.
+func _make_enemy(kind: String) -> Image:
+	var img := _new_image(32, 32)
+	var eye := Color(1.0, 0.85, 0.2)
+	match kind:
+		"grub":
+			_blob(img, 16, 22, 10, 6, [Color(0.18, 0.28, 0.12), Color(0.3, 0.45, 0.2), Color(0.45, 0.62, 0.3), Color(0.6, 0.75, 0.4)], 0.15, 3)
+			_blob(img, 22, 19, 5, 4, [Color(0.22, 0.34, 0.14), Color(0.36, 0.5, 0.22), Color(0.5, 0.66, 0.32)], 0.1, 4)
+			_rect(img, 23, 18, 2, 2, eye)
+		"stalker":
+			_blob(img, 15, 18, 9, 5, [Color(0.12, 0.1, 0.16), Color(0.2, 0.17, 0.26), Color(0.3, 0.26, 0.38), Color(0.42, 0.36, 0.5)], 0.12, 5)
+			_blob(img, 23, 15, 4, 3, [Color(0.16, 0.13, 0.2), Color(0.26, 0.22, 0.32), Color(0.38, 0.32, 0.46)], 0.1, 6)
+			for lx in [8, 12, 17, 21]:
+				_line(img, Vector2(lx, 21), Vector2(lx + (lx - 15) / 3, 27), Color(0.2, 0.17, 0.26))
+			_rect(img, 24, 14, 2, 2, Color(1.0, 0.3, 0.25))
+		_:
+			_blob(img, 16, 18, 11, 10, [Color(0.22, 0.22, 0.24), Color(0.36, 0.37, 0.38), Color(0.5, 0.5, 0.5), Color(0.64, 0.65, 0.62)], 0.2, 7)
+			_blob(img, 12, 14, 5, 4, [Color(0.2, 0.34, 0.16), Color(0.3, 0.46, 0.22)], 0.2, 8)
+			_blob(img, 17, 10, 5, 4, [Color(0.3, 0.3, 0.32), Color(0.46, 0.46, 0.46), Color(0.6, 0.6, 0.58)], 0.12, 9)
+			_rect(img, 15, 10, 2, 2, Color(0.4, 0.9, 1.0))
+			_rect(img, 19, 10, 2, 2, Color(0.4, 0.9, 1.0))
+	_outline(img, Color(0.05, 0.05, 0.07))
+	return img

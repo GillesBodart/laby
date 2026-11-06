@@ -13,6 +13,8 @@ var walls: PackedInt32Array
 var gates: Array[Dictionary] = []
 ## Array of {"type": String, "cell": Vector2i}.
 var props: Array[Dictionary] = []
+## Array of {"type": String (EnemyCatalog id), "cell": Vector2i}.
+var enemy_spawns: Array[Dictionary] = []
 var spawn_cell: Vector2i
 var campfire_cell: Vector2i
 ## Area transition: entering portal_rect (cells) travels to portal_target;

@@ -62,7 +62,8 @@ func _press_map() -> void:
 
 
 func _teleport_local_player(cell_text: String) -> void:
-	await get_tree().process_frame
+	for i in 5:
+		await get_tree().process_frame
 	var player = GameState.players.get(GameState.local_peer_id())
 	if player:
 		var xy := cell_text.split(",")
