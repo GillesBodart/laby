@@ -18,7 +18,8 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M5b Skills (**K** screen: Vigor, Might, Fleet foot, Endurance, 3 ranks each, spend level-up points, saved) | ✅ |
 | M7 Minecraft-style content: 11 raw resources (grass, clay, coal, copper/iron ore, crystal in the labyrinth by depth), smelting at a furnace, 3 tool/armor tiers (ore needs a good enough pickaxe), 33 recipes, farm plots (E plants a berry, ripe in 4 min) | ✅ |
 | M8 Gear & stations: equipment doll (weapon, head, body, feet, ring, amulet; click to equip), chop/mine swing animation, 7 crafting stations each with its own recipe book (E on campfire, workbench, furnace, anvil, cooking pot, tanning rack, stonecutter), mushrooms + meat and 8 foods, 54 recipes | ✅ |
-| M8 | Next: taming |
+| M9 Esc menu: pause, save / load in 3 slots (slot 1 = F5/F9 quick save), rebind every shortcut (swap on conflict, reset to defaults; stored in `user://settings.cfg`), quit | ✅ |
+| M10 | Next: taming |
 
 ## Run
 
@@ -29,14 +30,14 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs
 ```
 
-Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30).
+Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, quit). Keys listed are defaults.
 
 Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--screenshot=out.png --screenshot-frames=60`.
 
 ## Architecture
 
 ```
-autoload/   EventBus (signals) · GameState (seed, players by peer id) · TimeSystem · SaveSystem · DebugTools
+autoload/   EventBus (signals) · GameState (seed, players by peer id) · TimeSystem · SaveSystem · KeyBindings (rebindable shortcuts) · DebugTools
 scripts/core      DayClock (pure time logic) · SpriteFramesBuilder
 scripts/world     TileCatalog (tile ids/atlas/collision) · TileSetFactory · ClearingGenerator -> ClearingLayout (pure data)
                   ClearingWorld (renders layout) · ClearingGates · LightingCurve · GameCamera · world.gd

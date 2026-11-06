@@ -8,6 +8,7 @@ extends Node
 ##     --area=<name>            start in an area (clearing, labyrinth)
 ##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
+##     --menu=<page>            open the Esc menu (main, save, load, controls)
 ##     --give [--panel]         sample items (and open the backpack)
 ##     --station=<group>        with --give: open that station's recipe book
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
@@ -34,6 +35,8 @@ func _ready() -> void:
 		_teleport_local_player.call_deferred(_args.at)
 	if _args.has("map"):
 		_press_map.call_deferred()
+	if _args.has("menu"):
+		_open_menu.call_deferred(_args.menu)
 	if _args.has("skills"):
 		_press_skills.call_deferred()
 	if _args.has("give"):
@@ -60,6 +63,13 @@ func _give() -> void:
 		ev.action = "inventory"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+
+
+func _open_menu(page: String) -> void:
+	await get_tree().create_timer(0.4).timeout
+	var menu := get_tree().get_first_node_in_group("settings_menu")
+	if menu:
+		menu.open(page if page != "" else "main")
 
 
 ## --map: opens the map overlay after the world is built.

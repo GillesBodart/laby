@@ -21,6 +21,7 @@ EventBus="*res://autoload/event_bus.gd"
 GameState="*res://autoload/game_state.gd"
 TimeSystem="*res://autoload/time_system.gd"
 SaveSystem="*res://autoload/save_system.gd"
+KeyBindings="*res://autoload/key_bindings.gd"
 DebugTools="*res://autoload/debug_tools.gd"
 
 [display]

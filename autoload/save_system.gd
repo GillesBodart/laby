@@ -4,6 +4,8 @@ extends Node
 
 const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
+## Slot 0 is the quick save (F5/F9); the settings menu offers all of them.
+const SLOTS := 3
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -25,6 +27,7 @@ func collect() -> Dictionary:
 		nodes[node.get_save_key()] = node.get_save_data()
 	return {
 		"version": SAVE_VERSION,
+		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"seed": GameState.world_seed,
 		"area": GameState.area,
 		"stash": GameState.stash.to_data(),
@@ -47,6 +50,19 @@ func save_game(slot: int = 0) -> Error:
 func has_save(slot: int = 0) -> bool:
 	return FileAccess.file_exists(slot_path(slot))
 
+
+## Short description of a slot for menus ("" = empty or unreadable).
+func slot_summary(slot: int) -> String:
+	if not has_save(slot):
+		return ""
+	var data = JSON.parse_string(FileAccess.get_file_as_string(slot_path(slot)))
+	if typeof(data) != TYPE_DICTIONARY:
+		return ""
+	var minutes := float(data.get("time", {}).get("total_minutes", 0.0))
+	var clock := DayClock.new()
+	clock.total_minutes = minutes
+	var area := String(data.get("area", "clearing")).capitalize()
+	return "Day %d  %s  %s" % [clock.day(), area, String(data.get("saved_at", "")).substr(0, 16)]
 
 ## Loads the save and rebuilds the world from its seed; node data is applied
 ## by the world scene once it is ready (see apply_to_tree).

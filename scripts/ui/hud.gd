@@ -41,6 +41,10 @@ func _ready() -> void:
 	var stash_panel := PanelContainer.new()
 	stash_panel.set_script(preload("res://scripts/ui/stash_panel.gd"))
 	add_child(stash_panel)
+	# Added last so it sees Esc after panels had the chance to close themselves.
+	var menu := Control.new()
+	menu.set_script(preload("res://scripts/ui/settings_menu.gd"))
+	add_child(menu)
 	_on_minute_changed(TimeSystem.clock.day(), int(TimeSystem.minute_of_day()))
 
 
