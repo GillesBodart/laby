@@ -28,8 +28,25 @@ func _ready() -> void:
 		TimeSystem.set_time_of_day.call_deferred(int(hm[0]) * 60 + (int(hm[1]) if hm.size() > 1 else 0))
 	if _args.has("at"):
 		_teleport_local_player.call_deferred(_args.at)
+	if _args.has("give"):
+		_give.call_deferred()
 	if _args.has("screenshot"):
 		_capture.call_deferred(_args.screenshot, int(_args.get("screenshot-frames", "30")))
+
+
+## --give: fills the backpack with sample items; with --panel also opens it.
+func _give() -> void:
+	await get_tree().create_timer(0.3).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p == null:
+		return
+	for id in ["wood", "stone", "plank", "stick", "stone_axe", "workbench"]:
+		p.inventory.add(id, 1 if ItemCatalog.tool_of(id) != "" else 7)
+	if _args.has("panel"):
+		var ev := InputEventAction.new()
+		ev.action = "inventory"
+		ev.pressed = true
+		Input.parse_input_event(ev)
 
 
 func _teleport_local_player(cell_text: String) -> void:
