@@ -14,10 +14,10 @@ const VARIANTS := 10
 const C := {
 	"outline": Color8(24, 22, 32),
 	"void": Color8(14, 16, 22),
-	"grass": Color8(84, 146, 60),
-	"grass_dark": Color8(70, 130, 54),
-	"grass_deep": Color8(44, 90, 42),
-	"grass_light": Color8(98, 160, 68),
+	"grass": Color8(100, 160, 68),
+	"grass_dark": Color8(84, 144, 62),
+	"grass_deep": Color8(54, 106, 50),
+	"grass_light": Color8(132, 184, 84),
 	"flower_y": Color8(244, 212, 92),
 	"flower_w": Color8(240, 236, 220),
 	"flower_r": Color8(214, 84, 76),
@@ -280,6 +280,7 @@ func _make_tileset() -> Image:
 		Catalog.Id.WALL_FACE_LOW: _paint_wall_face.bind(true, false),
 		Catalog.Id.WALL_FACE_LOW_VINES: _paint_wall_face.bind(true, true),
 		Catalog.Id.GATE_CLOSED: _paint_gate_closed,
+		Catalog.Id.WATER: func(_img: Image) -> void: pass, # invisible collider; ponds are overlays
 	}
 	for id in painters:
 		var origin: Vector2i = Catalog.atlas_coords(id) * T
@@ -287,6 +288,90 @@ func _make_tileset() -> Image:
 		rng.seed = 1000 + id
 		painters[id].call(tile)
 		img.blit_rect(tile, Rect2i(0, 0, T, T), origin)
+	# Large seamless grass: one shared base, so the three variants join without seams.
+	for v in 3:
+		var id: int = [Catalog.Id.GRASS, Catalog.Id.GRASS_ALT, Catalog.Id.GRASS_FLOWERS][v]
+		var macro := _paint_grass_macro(v)
+		img.blit_rect(macro, Rect2i(0, 0, macro.get_width(), macro.get_height()), Catalog.DEFS[id].macro * T)
+		img.blit_rect(macro, Rect2i(0, 0, T, T), Catalog.atlas_coords(id) * T)
+	return img
+
+
+## Soft grass, 7 close tones: wide gentle light/shade patches under dense small
+## tufts of blades, no hard dark blobs. Tileable with period MACRO tiles.
+const GRASS7 := [Color8(66, 122, 56), Color8(78, 136, 60), Color8(92, 150, 64), Color8(106, 162, 70),
+	Color8(120, 174, 76), Color8(138, 188, 86), Color8(162, 204, 104)]
+
+
+func _pnoise(x: float, y: float, cs: float, s: int, period: int) -> float:
+	var n := int(period / cs)
+	var fx := x / cs
+	var fy := y / cs
+	var x0 := int(floor(fx))
+	var y0 := int(floor(fy))
+	var tx := fx - x0
+	var ty := fy - y0
+	tx = tx * tx * (3.0 - 2.0 * tx)
+	ty = ty * ty * (3.0 - 2.0 * ty)
+	return lerpf(lerpf(_hash(posmod(x0, n), posmod(y0, n), s), _hash(posmod(x0 + 1, n), posmod(y0, n), s), tx),
+		lerpf(_hash(posmod(x0, n), posmod(y0 + 1, n), s), _hash(posmod(x0 + 1, n), posmod(y0 + 1, n), s), tx), ty)
+
+
+func _paint_grass_macro(variant: int) -> Image:
+	var P := T * Catalog.MACRO
+	var img := _new_image(P, P)
+	var level := PackedFloat32Array()
+	level.resize(P * P)
+	for y in P:
+		for x in P:
+			var n := _pnoise(x, y, 64, 31, P) * 0.55 + _pnoise(x, y, 32, 32, P) * 0.3 + _pnoise(x, y, 16, 33, P) * 0.15
+			# Tones 2..4 for the base; a soft 2x2 checker dither blends the band edges.
+			var t := clampf((n - 0.28) / 0.44, 0.0, 1.0) * 2.0 + 2.0
+			var dither := 0.25 if (x + y) % 2 == 0 else -0.25
+			level[y * P + x] = t
+			img.set_pixel(x, y, GRASS7[clampi(int(t + dither * 0.5), 2, 4)])
+	# Tufts: a darker root and 2-3 leaning blades a step lighter than the ground.
+	var r := RandomNumberGenerator.new()
+	r.seed = 4242
+	for i in 2600:
+		var x := r.randi_range(0, P - 1)
+		var y := r.randi_range(0, P - 1)
+		var base := int(level[y * P + x])
+		var light := clampi(base + 1 + (1 if r.randf() < 0.18 else 0), 0, 6)
+		_wpx(img, x, y, GRASS7[base - 1])
+		_wpx(img, x + 1, y, GRASS7[base - 1])
+		for b in r.randi_range(2, 3):
+			var lean := r.randi_range(-1, 1)
+			var hgt := r.randi_range(2, 4)
+			for k in hgt:
+				var col: Color = GRASS7[light] if k > 0 else GRASS7[base]
+				_wpx(img, x + b + (lean if k >= hgt - 1 else 0), y - k - 1, col)
+	# Sparse shade curls give depth without blotches.
+	for i in 500:
+		var x := r.randi_range(0, P - 1)
+		var y := r.randi_range(0, P - 1)
+		var base := int(level[y * P + x])
+		_wpx(img, x, y, GRASS7[maxi(base - 2, 0)])
+		_wpx(img, x + 1, y - 1, GRASS7[maxi(base - 1, 0)])
+	if variant == 1:
+		# Clover patches.
+		for i in 70:
+			var c := Vector2i(r.randi_range(0, P - 1), r.randi_range(0, P - 1))
+			for leaf in [Vector2i(0, -1), Vector2i(-1, 1), Vector2i(1, 1)]:
+				var q: Vector2i = c + leaf * 2
+				_wpx(img, q.x, q.y, GRASS7[5])
+				_wpx(img, q.x + 1, q.y, GRASS7[6])
+				_wpx(img, q.x, q.y + 1, GRASS7[3])
+				_wpx(img, q.x + 1, q.y + 1, GRASS7[5])
+	elif variant == 2:
+		for i in 90:
+			var x := r.randi_range(0, P - 1)
+			var y := r.randi_range(0, P - 1)
+			var petal: Color = [C.flower_y, C.flower_w, C.flower_r, Color8(196, 170, 236)][i % 4]
+			_wpx(img, x, y + 1, GRASS7[1])
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				_wpx(img, x + d.x, y + d.y, petal)
+			_wpx(img, x, y, C.flower_y if i % 4 != 0 else Color8(200, 120, 40))
 	return img
 
 
@@ -1989,11 +2074,55 @@ func _import_creatures() -> void:
 		return
 	for f in dir.get_files():
 		if f.ends_with(".png"):
-			_save(_dcss("monsters/" + f.get_basename()), "res://assets/sprites/enemies/" + f)
+			var id := f.get_basename()
+			_save(_fit_creature(_dcss("monsters/" + id, false), EnemyCatalogScript.size_of(id)), "res://assets/sprites/enemies/" + f)
+
+
+const EnemyCatalogScript := preload("res://scripts/core/enemy_catalog.gd")
+
+
+## Crops a creature to its pixels and rescales it so its longest side is `size`:
+## scale2x first keeps edges crisp, then a filtered resize, hard alpha and our outline.
+func _fit_creature(src: Image, size: int) -> Image:
+	var used := src.get_used_rect()
+	var body := src.get_region(used)
+	var big := _scale2x(body)
+	var k := float(size - 2) / maxf(used.size.x, used.size.y)
+	var w := maxi(int(round(used.size.x * k)), 1)
+	var h := maxi(int(round(used.size.y * k)), 1)
+	big.resize(w, h, Image.INTERPOLATE_LANCZOS)
+	var img := _new_image(w + 2, h + 2)
+	for y in h:
+		for x in w:
+			var c := big.get_pixel(x, y)
+			if c.a >= 0.5:
+				img.set_pixel(x + 1, y + 1, Color(c.r, c.g, c.b, 1.0))
+	_outline(img, C.outline)
+	return img
+
+
+## EPX / Scale2x: doubles pixel art while keeping diagonal edges smooth.
+func _scale2x(src: Image) -> Image:
+	var w := src.get_width()
+	var h := src.get_height()
+	var out := Image.create(w * 2, h * 2, false, Image.FORMAT_RGBA8)
+	var g := func(x: int, y: int) -> Color: return src.get_pixel(clampi(x, 0, w - 1), clampi(y, 0, h - 1))
+	for y in h:
+		for x in w:
+			var p: Color = g.call(x, y)
+			var a: Color = g.call(x, y - 1)
+			var b: Color = g.call(x + 1, y)
+			var c: Color = g.call(x - 1, y)
+			var d: Color = g.call(x, y + 1)
+			out.set_pixel(x * 2, y * 2, a if c == a and c != d and a != b else p)
+			out.set_pixel(x * 2 + 1, y * 2, b if a == b and a != c and b != d else p)
+			out.set_pixel(x * 2, y * 2 + 1, c if d == c and d != b and c != a else p)
+			out.set_pixel(x * 2 + 1, y * 2 + 1, d if b == d and b != a and d != c else p)
+	return out
 
 
 ## Loads a vendored 32px tile, hardens its alpha and adds our dark outline.
-func _dcss(rel: String) -> Image:
+func _dcss(rel: String, outline := true) -> Image:
 	var img := Image.load_from_file(ProjectSettings.globalize_path("%s/%s.png" % [DCSS, rel]))
 	if img == null:
 		push_error("Missing DCSS tile " + rel)
@@ -2005,7 +2134,8 @@ func _dcss(rel: String) -> Image:
 		for x in T:
 			var c := img.get_pixel(x, y)
 			img.set_pixel(x, y, Color(0, 0, 0, 0) if c.a < 0.5 else Color(c.r, c.g, c.b, 1.0))
-	_outline(img, C.outline)
+	if outline:
+		_outline(img, C.outline)
 	return img
 
 

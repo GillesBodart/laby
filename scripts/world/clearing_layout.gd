@@ -15,6 +15,8 @@ var gates: Array[Dictionary] = []
 var props: Array[Dictionary] = []
 ## Array of {"type": String (EnemyCatalog id), "cell": Vector2i}.
 var enemy_spawns: Array[Dictionary] = []
+## Array of {"blobs": [{c, r}] (cells, see Pond), "seed": int}; their cells are WATER.
+var ponds: Array[Dictionary] = []
 var spawn_cell: Vector2i
 var campfire_cell: Vector2i
 ## Area transition: entering portal_rect (cells) travels to portal_target;
@@ -81,4 +83,5 @@ func prop_cells() -> Dictionary:
 
 ## Walkable with gates open and props treated as obstacles.
 func is_walkable(cell: Vector2i, blocked: Dictionary = {}) -> bool:
-	return in_bounds(cell) and not is_wall(cell) and not blocked.has(cell)
+	return in_bounds(cell) and not is_wall(cell) and not blocked.has(cell) \
+		and get_ground(cell) != TileCatalog.Id.WATER

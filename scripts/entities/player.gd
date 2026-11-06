@@ -506,9 +506,10 @@ func swing(item_id: String, on_impact := Callable()) -> void:
 		_tool_pivot.scale = Vector2(-1, 1)
 		_tool_pivot.position = Vector2(-4, -11)
 	elif facing == Vector2.DOWN:
-		raise = -45.0
-		strike = 130.0
-		_tool_pivot.position = Vector2(5, -10)
+		# From beside the right shoulder, sweeping down across the front of the body.
+		raise = -25.0
+		strike = 140.0
+		_tool_pivot.position = Vector2(6, -8)
 	elif facing == Vector2.UP:
 		raise = 110.0
 		strike = -40.0

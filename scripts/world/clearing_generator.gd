@@ -21,10 +21,13 @@ const MUSHROOM_TARGET := 14
 ## Smaller forest resources: [type, count, min spacing in tiles].
 const EXTRA_NODES := [
 	["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0], ["mushroom", MUSHROOM_TARGET, 3.0],
-	["flint", 14, 4.0], ["reeds", 18, 2.0], ["herb", 16, 3.0], ["wheat", 18, 2.0], ["cotton", 14, 2.5],
+	["flint", 14, 4.0], ["herb", 16, 3.0], ["wheat", 18, 2.0], ["cotton", 14, 2.5],
 	["resin_stump", 10, 5.0], ["beehive", 6, 8.0], ["apple_tree", 10, 5.0], ["carrot", 12, 2.5],
 	["blueberry", 12, 3.0], ["flower", 20, 2.0], ["sand", 12, 3.0], ["nest", 8, 6.0], ["potato", 12, 2.5],
 ]
+const POND_TARGET := 5
+## Reeds only grow on pond banks.
+const REEDS_PER_POND := 6
 const CREATURE_TARGET := 46
 ## Minimum distance (tiles) from the campfire per temperament: the camp stays safe.
 const CREATURE_MIN_DIST := {"passive": 8.0, "neutral": 12.0, "nocturnal": 18.0, "hostile": 24.0}
@@ -194,6 +197,8 @@ func _place_props(center: Vector2i) -> void:
 	for gate in _layout.gates:
 		gate_approaches.append(gate.cells[gate.cells.size() / 2])
 
+	_place_ponds(center, gate_approaches, occupied)
+
 	var trees := 0
 	for attempt in 3000:
 		if trees >= TREE_TARGET:
@@ -249,6 +254,61 @@ func _place_props(center: Vector2i) -> void:
 			_layout.props.append({"type": extra[0], "cell": cell})
 			placed += 1
 	_place_creatures(center, inner, occupied)
+
+
+## Ponds away from the camp and paths; their water cells block movement and
+## reeds grow on the muddy banks.
+func _place_ponds(center: Vector2i, gates: Array[Vector2i], occupied: Dictionary) -> void:
+	var area := CLEARING_RECT.grow(-6)
+	for attempt in 200:
+		if _layout.ponds.size() >= POND_TARGET:
+			break
+		var c := Vector2(_rng.randf_range(area.position.x, area.end.x), _rng.randf_range(area.position.y, area.end.y))
+		var blobs := []
+		for i in _rng.randi_range(2, 4):
+			var off := Vector2.from_angle(_rng.randf() * TAU) * (0.0 if i == 0 else _rng.randf_range(1.2, 2.6))
+			blobs.append({"c": c + off, "r": Vector2(_rng.randf_range(1.4, 2.6), _rng.randf_range(1.1, 2.0))})
+		var box := Pond.bounds(blobs)
+		var cells := Rect2i(Vector2i(box.position.floor()), Vector2i(box.size.ceil()) + Vector2i.ONE)
+		if not area.encloses(cells) or Vector2(center).distance_to(c) < 14.0:
+			continue
+		var ok := true
+		for g in gates:
+			if Vector2(g).distance_to(c) < 10.0:
+				ok = false
+		for p in _layout.ponds:
+			if Pond.bounds(p.blobs).grow(2.0).intersects(box):
+				ok = false
+		for y in range(cells.position.y, cells.end.y):
+			for x in range(cells.position.x, cells.end.x):
+				if _layout.get_ground(Vector2i(x, y)) == Id.DIRT:
+					ok = false
+		if not ok:
+			continue
+		var shore: Array[Vector2i] = []
+		for y in range(cells.position.y, cells.end.y):
+			for x in range(cells.position.x, cells.end.x):
+				var cell := Vector2i(x, y)
+				var f := Pond.field(blobs, Vector2(cell) + Vector2(0.5, 0.5))
+				if f >= Pond.SOLID:
+					_layout.set_ground(cell, Id.WATER)
+					occupied[cell] = true
+				elif f >= Pond.SHORE:
+					shore.append(cell)
+		_layout.ponds.append({"blobs": blobs, "seed": _rng.randi()})
+		var reeds := 0
+		for i in shore.size() * 2:
+			if reeds >= REEDS_PER_POND:
+				break
+			var cell: Vector2i = shore[_rng.randi_range(0, shore.size() - 1)]
+			if not _is_free_for_prop(cell, center, gates, occupied, 1.4):
+				continue
+			occupied[cell] = true
+			_layout.props.append({"type": "reeds", "cell": cell})
+			reeds += 1
+		# Keep the rest of the bank clear so the shoreline stays readable.
+		for cell in shore:
+			occupied[cell] = true
 
 
 ## Forest wildlife: gentle animals near the camp, predators further out.

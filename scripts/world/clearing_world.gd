@@ -50,9 +50,22 @@ func build(new_layout: ClearingLayout) -> void:
 	for y in layout.size.y:
 		for x in layout.size.x:
 			var cell := Vector2i(x, y)
-			ground.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(layout.get_ground(cell)))
+			var id := layout.get_ground(cell)
+			if id == TileCatalog.Id.DIRT:
+				# The dirt overlay paints soft borders over grass.
+				ground.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(TileCatalog.Id.GRASS, cell))
+				continue
+			if id == TileCatalog.Id.WATER:
+				# Grass underneath; the pond overlay paints the water, an invisible
+				# solid tile on the wall layer stops walkers.
+				ground.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(TileCatalog.Id.GRASS, cell))
+				walls.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(id))
+				continue
+			ground.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(id, cell))
 			if layout.is_wall(cell):
 				walls.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(layout.get_wall(cell)))
+	_build_dirt()
+	_build_ponds()
 	for prop in layout.props:
 		# Only the Clearing remembers harvested props; the Labyrinth regrows them.
 		if layout.buildable and GameState.depleted_cells.has(prop.cell):
@@ -63,7 +76,8 @@ func build(new_layout: ClearingLayout) -> void:
 		if node is Gatherable:
 			node.cell = prop.cell
 			node.depleted.connect(_on_depleted)
-		entities.add_child(node)
+		# Flat patches (clay, sand...) lie on the ground under every walker.
+		(_floors if ResourceCatalog.is_flat(prop.type) else entities).add_child(node)
 	for spawn in layout.enemy_spawns:
 		var enemy: Enemy = ENEMY_SCENE.instantiate()
 		enemy.setup(spawn.type)
@@ -71,6 +85,33 @@ func build(new_layout: ClearingLayout) -> void:
 		entities.add_child(enemy)
 	gates.setup(walls, layout.gates)
 	_spawn_structures()
+
+
+func _build_dirt() -> void:
+	for node in get_tree().get_nodes_in_group("dirt_overlay"):
+		node.free()
+	for chunk in DirtOverlay.build(layout, TileCatalog.TILE_SIZE, GameState.world_seed):
+		var sprite := Sprite2D.new()
+		sprite.add_to_group("dirt_overlay")
+		sprite.centered = false
+		sprite.texture = ImageTexture.create_from_image(chunk.image)
+		sprite.position = chunk.pos
+		_floors.add_child(sprite)
+		_floors.move_child(sprite, 0)
+
+
+func _build_ponds() -> void:
+	for node in get_tree().get_nodes_in_group("ponds"):
+		node.free()
+	var tile := TileCatalog.TILE_SIZE
+	for pond in layout.ponds:
+		var sprite := Sprite2D.new()
+		sprite.add_to_group("ponds")
+		sprite.centered = false
+		sprite.texture = ImageTexture.create_from_image(Pond.paint(pond.blobs, tile, pond.seed))
+		sprite.position = Pond.bounds(pond.blobs).position * tile
+		_floors.add_child(sprite)
+		_floors.move_child(sprite, 0)
 
 
 func _make_prop(type: String) -> Node2D:
@@ -127,6 +168,8 @@ func build_blocker(cell: Vector2i, type: String) -> String:
 		return "Can only build inside the Clearing"
 	if GameState.structures.has(cell) or layout.is_wall(cell):
 		return "Occupied"
+	if layout.get_ground(cell) == TileCatalog.Id.WATER:
+		return "Cannot build on water"
 	if cell == layout.campfire_cell:
 		return "Occupied"
 	for prop in layout.props:

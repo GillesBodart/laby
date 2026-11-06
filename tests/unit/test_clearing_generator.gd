@@ -106,3 +106,54 @@ func _flood(layout: ClearingLayout, start: Vector2i, blocked: Dictionary) -> Dic
 				seen[n] = true
 				queue.append(n)
 	return seen
+
+
+func test_ponds_block_and_reeds_grow_on_banks() -> void:
+	var layout := ClearingGenerator.generate(5)
+	check(layout.ponds.size() > 0, "ponds generated")
+	var water := 0
+	for y in layout.size.y:
+		for x in layout.size.x:
+			if layout.get_ground(Vector2i(x, y)) == TileCatalog.Id.WATER:
+				water += 1
+				check(not layout.is_walkable(Vector2i(x, y)), "water not walkable")
+	check(water > 0, "water cells")
+	for prop in layout.props:
+		if prop.type != "reeds":
+			continue
+		var near := false
+		for dy in range(-2, 3):
+			for dx in range(-2, 3):
+				var n: Vector2i = prop.cell + Vector2i(dx, dy)
+				if layout.in_bounds(n) and layout.get_ground(n) == TileCatalog.Id.WATER:
+					near = true
+		check(near, "reeds at %s beside water" % prop.cell)
+
+
+func test_dirt_overlay_rounds_outer_corners() -> void:
+	var layout := ClearingGenerator.generate(5)
+	var tile := TileCatalog.TILE_SIZE
+	var chunks := DirtOverlay.build(layout, tile, 5)
+	check(chunks.size() > 0, "dirt chunks painted")
+	var pixel := func(p: Vector2i) -> Color:
+		for chunk in chunks:
+			var local: Vector2i = p - Vector2i(chunk.pos)
+			if Rect2i(Vector2i.ZERO, chunk.image.get_size()).has_point(local):
+				return chunk.image.get_pixelv(local)
+		return Color(0, 0, 0, 0)
+	var corners := 0
+	for y in range(1, layout.size.y - 1):
+		for x in range(1, layout.size.x - 1):
+			var c := Vector2i(x, y)
+			if layout.get_ground(c) != TileCatalog.Id.DIRT:
+				continue
+			var dirt := func(d: Vector2i) -> bool: return layout.get_ground(c + d) == TileCatalog.Id.DIRT
+			var grass := func(d: Vector2i) -> bool: return layout.get_ground(c + d) in [TileCatalog.Id.GRASS, TileCatalog.Id.GRASS_ALT, TileCatalog.Id.GRASS_FLOWERS]
+			if not (grass.call(Vector2i(-1, 0)) and grass.call(Vector2i(0, -1)) and grass.call(Vector2i(-1, -1))):
+				continue
+			if not (dirt.call(Vector2i(1, 0)) and dirt.call(Vector2i(0, 1)) and dirt.call(Vector2i(1, 1))):
+				continue
+			corners += 1
+			check(pixel.call(c * tile).a < 0.5, "corner %s rounded off" % c)
+			check(pixel.call(c * tile + Vector2i(tile - 2, tile - 2)).a == 1.0, "inner side of %s is dirt" % c)
+	check(corners > 0, "found outer corners")

@@ -40,6 +40,7 @@ var _dash_hit := false
 var _action := ""
 var _guard := Vector2.DOWN
 var _bar := 0.0
+var _sprite_y := -14.0
 var _flee_from := Vector2.ZERO
 var _summons: Array = []
 var _regen_acc := 0.0
@@ -60,6 +61,13 @@ func _ready() -> void:
 		setup(type_id)
 	add_to_group("enemies")
 	sprite.texture = load(EnemyCatalog.sprite_path(type_id))
+	# Feet on the node origin whatever the creature's size; shadow follows its width.
+	var tex_size := sprite.texture.get_size()
+	_sprite_y = 2.0 - tex_size.y / 2.0
+	sprite.position.y = _sprite_y
+	var shadow := get_node_or_null("Shadow") as Sprite2D
+	if shadow:
+		shadow.scale = Vector2.ONE * clampf(tex_size.x / 26.0, 0.5, 1.8)
 	var shape := CircleShape2D.new()
 	shape.radius = _def.radius
 	collision.shape = shape
@@ -462,7 +470,7 @@ func _update_look(desired: Vector2) -> void:
 	var bob := 0.0
 	if velocity.length() > 5.0 and _state != S.ACTION:
 		bob = -absf(sin(Time.get_ticks_msec() * 0.012)) * 1.5
-	sprite.position.y = -14.0 + round(bob)
+	sprite.position.y = _sprite_y + round(bob)
 
 
 func _draw() -> void:
@@ -471,7 +479,7 @@ func _draw() -> void:
 		draw_arc(Vector2(0, -8), _def.radius + 5.0, a - 0.7, a + 0.7, 6, Color(0.85, 0.88, 0.95, 0.55), 2.0)
 	if (_bar > 0.0 or _def.elite) and _state != S.HIDDEN and hp < max_hp:
 		var w := 20.0 if not _def.elite else 28.0
-		var r := Rect2(-w / 2.0, -34.0, w, 3.0)
+		var r := Rect2(-w / 2.0, _sprite_y * 2.0 - 6.0, w, 3.0)
 		draw_rect(r, Color8(27, 20, 16))
 		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(float(hp) / max_hp, 0.0, 1.0), 1.0)),
 			Color8(206, 62, 62) if not _def.elite else Color8(232, 170, 60))

@@ -27,11 +27,11 @@ static func clearing_tileset() -> TileSet:
 	var h := size / 2.0
 	var square := PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
 	for id in TileCatalog.DEFS:
-		var coords := TileCatalog.atlas_coords(id)
-		source.create_tile(coords)
-		if TileCatalog.is_solid(id):
-			var data := source.get_tile_data(coords, 0)
-			data.add_collision_polygon(0)
-			data.set_collision_polygon_points(0, 0, square)
+		for coords in TileCatalog.all_atlas_coords(id):
+			source.create_tile(coords)
+			if TileCatalog.is_solid(id):
+				var data := source.get_tile_data(coords, 0)
+				data.add_collision_polygon(0)
+				data.set_collision_polygon_points(0, 0, square)
 	_cache = tile_set
 	return tile_set

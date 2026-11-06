@@ -54,6 +54,14 @@ const LABYRINTH := ["rubble", "ore_coal", "ore_copper", "ore_tin", "ore_iron", "
 	"scrap_heap", "machine", "shadow_orchid", "cobweb"]
 
 
+## Patches lying flat on the ground: drawn under walkers instead of y-sorted.
+const FLAT := ["clay", "sand", "flint", "cave_moss"]
+
+
+static func is_flat(type: String) -> bool:
+	return type in FLAT
+
+
 static func has(type: String) -> bool:
 	return NODES.has(type)
 

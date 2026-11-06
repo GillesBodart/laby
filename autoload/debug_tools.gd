@@ -12,6 +12,8 @@ extends Node
 ##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
 ##     --spawn=<id>,<id>...     place creatures in a ring around the player
+##     --swing=<dir>[,<item>[,<sec>]]  swing a tool facing up/down/left/right;
+##                              with <sec>, freeze the pose that many seconds in
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -44,6 +46,8 @@ func _ready() -> void:
 		_give.call_deferred()
 	if _args.has("spawn"):
 		_spawn.call_deferred(_args.spawn)
+	if _args.has("swing"):
+		_swing_loop.call_deferred(_args.swing)
 	if _args.has("screenshot"):
 		_capture.call_deferred(_args.screenshot, int(_args.get("screenshot-frames", "30")))
 
@@ -68,6 +72,24 @@ func _give() -> void:
 		ev.action = "inventory"
 		ev.pressed = true
 		Input.parse_input_event(ev)
+
+
+## --swing: repeats the tool swing (for checking the animation in screenshots).
+func _swing_loop(spec: String) -> void:
+	var parts := spec.split(",")
+	var dirs := {"up": Vector2.UP, "down": Vector2.DOWN, "left": Vector2.LEFT, "right": Vector2.RIGHT}
+	var item := parts[1] if parts.size() > 1 else "iron_pickaxe"
+	while is_inside_tree():
+		await get_tree().create_timer(0.1).timeout
+		var p: Player = GameState.players.get(GameState.local_peer_id())
+		if p != null:
+			p.facing = dirs.get(parts[0], Vector2.DOWN)
+			p.swing(item)
+			if parts.size() > 2:
+				p._swing.pause()
+				p._swing.custom_step(float(parts[2]))
+				return
+			await get_tree().create_timer(0.35).timeout
 
 
 ## --spawn: creatures in a ring 70px around the local player.

@@ -231,6 +231,26 @@ static func def(id: String) -> Dictionary:
 	return _cache[id]
 
 
+## Sprite size in pixels (longest side) next to the ~28px tall survivor: critters
+## are small, beasts and bosses tower over the player. Used by the art generator.
+const SIZES := {
+	"hare": 14, "woolback": 22, "glimmerwing": 14, "lantern_fly": 12, "shell_crawler": 16,
+	"tusk_boar": 24, "bramble_bear": 36, "horned_yak": 36, "bumbler": 14, "mossback": 24,
+	"bark_gecko": 18, "dusk_jackal": 22, "shadow_wolf": 28, "grass_adder": 20, "leaping_spider": 16,
+	"ember_wasp": 14, "spitting_toad": 16, "carrion_crow": 18, "puffcap": 18, "thicket_archer": 26,
+	"thicket_warden": 30, "thicket_druid": 28, "elder_treant": 48,
+	"cave_rat": 14, "grub": 16, "dart_bat": 16, "stalker": 28, "vine_stalker": 30, "maze_spider": 22,
+	"broodmother": 42, "acid_blob": 18, "ooze": 24, "centipede": 22, "tunnel_beetle": 22,
+	"bone_guard": 28, "bone_slinger": 26, "scrap_raider": 28, "gargoyle": 30, "spark_wisp": 14,
+	"sentinel_orb": 20, "arc_servitor": 28, "watcher_eye": 18, "wraith": 28, "echo_phantom": 28,
+	"rust_golem": 38, "warden": 34, "minotaur": 44, "gate_guardian": 48,
+}
+
+
+static func size_of(id: String) -> int:
+	return SIZES.get(id, 24)
+
+
 static func sprite_path(id: String) -> String:
 	return "res://assets/sprites/enemies/%s.png" % id
 

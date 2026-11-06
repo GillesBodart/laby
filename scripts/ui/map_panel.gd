@@ -14,7 +14,8 @@ const REFRESH := 0.25
 
 const WALL := Color8(58, 64, 60)
 const FLOOR_MAZE := Color8(150, 156, 148)
-const GRASS := Color8(70, 130, 54)
+const GRASS := Color8(96, 156, 66)
+const WATER := Color8(62, 134, 142)
 const DIRT := Color8(140, 108, 70)
 const GATE := Color8(242, 210, 92)
 const TREE := Color8(40, 90, 42)
@@ -100,6 +101,8 @@ func _cell_color(world: World, cell: Vector2i, props: Dictionary) -> Color:
 			return GATE
 		TileCatalog.Id.MAZE_FLOOR, TileCatalog.Id.MAZE_FLOOR_MOSS:
 			return FLOOR_MAZE
+		TileCatalog.Id.WATER:
+			return WATER
 	return GRASS
 
 
