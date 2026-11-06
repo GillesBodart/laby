@@ -36,6 +36,7 @@ var inventory := Inventory.new()
 var equipment := Equipment.new()
 var survival := Survival.new()
 var _gather_timer := 0.0
+var _interact_held := false
 var _attack_timer := 0.0
 var _hurt_timer := 0.0
 var _slash_time := 0.0
@@ -98,8 +99,12 @@ func _physics_process(delta: float) -> void:
 	survival.tick(delta, state == State.MOVE, input.run)
 	_update_visuals()
 	_gather_timer = maxf(_gather_timer - delta, 0.0)
-	if input.interact and _gather_timer == 0.0:
-		_try_gather()
+	var pressed := input.interact and not _interact_held
+	_interact_held = input.interact
+	if pressed and input.is_local() and _ui_open():
+		EventBus.station_used.emit("")
+	elif input.interact and _gather_timer == 0.0 and not (input.is_local() and _ui_open()):
+		_try_gather(pressed)
 	_attack_timer = maxf(_attack_timer - delta, 0.0)
 	_hurt_timer = maxf(_hurt_timer - delta, 0.0)
 	if _slash_time > 0.0:
@@ -215,7 +220,7 @@ func _draw() -> void:
 	draw_arc(Vector2(0, -8), 20.0, a - 0.7, a + 0.7, 8, Color(0.8, 0.9, 1, 0.6), 2.0)
 
 
-func _try_gather() -> void:
+func _try_gather(pressed := false) -> void:
 	var target := find_gatherable()
 	if target:
 		_gather_timer = GATHER_COOLDOWN
@@ -227,6 +232,33 @@ func _try_gather() -> void:
 	if plot:
 		_gather_timer = 0.6
 		plot.farm_interact(self)
+		return
+	var station := find_station()
+	if station != "" and pressed and input.is_local():
+		EventBus.station_used.emit(station)
+
+
+func _ui_open() -> bool:
+	for p in get_tree().get_nodes_in_group("ui_panels"):
+		if p.visible:
+			return true
+	return false
+
+
+## Crafting station group of the nearest station in reach ("" = none).
+func find_station() -> String:
+	var probe := global_position + Vector2(0, -8) + facing * 16.0
+	var best := ""
+	var best_d := REACH
+	for group in ItemCatalog.STATIONS:
+		if group == "":
+			continue
+		for node in get_tree().get_nodes_in_group(group):
+			var d := probe.distance_to(node.global_position)
+			if d < best_d:
+				best_d = d
+				best = group
+	return best
 
 
 func _find_farm_plot() -> Structure:
@@ -257,7 +289,9 @@ func find_gatherable() -> Gatherable:
 ## Crafting stations available near the player.
 func nearby_stations() -> Array:
 	var found: Array = []
-	for group in ["campfire", "workbench", "furnace"]:
+	for group in ItemCatalog.STATIONS:
+		if group == "":
+			continue
 		for node in get_tree().get_nodes_in_group(group):
 			if global_position.distance_to(node.global_position) <= STATION_RANGE:
 				found.append(group)

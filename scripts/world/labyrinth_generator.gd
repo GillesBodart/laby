@@ -103,6 +103,8 @@ func _place_resources(entry: Vector2i) -> void:
 				_layout.props.append({"type": type, "cell": cell})
 			elif roll < ORE_CHANCE + 0.12:
 				_layout.props.append({"type": "grass", "cell": cell})
+			elif roll < ORE_CHANCE + 0.18:
+				_layout.props.append({"type": "mushroom", "cell": cell})
 
 
 func _carve(rect: Rect2i) -> void:

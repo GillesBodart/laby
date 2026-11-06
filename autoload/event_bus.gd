@@ -17,3 +17,5 @@ signal player_despawned(peer_id: int)
 
 # UI
 signal notify(text: String)
+## E on a crafting station: opens its recipe book ("" = close the book).
+signal station_used(station: String)

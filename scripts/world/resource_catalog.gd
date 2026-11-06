@@ -6,6 +6,7 @@ extends RefCounted
 
 const NODES := {
 	"grass": {"item": "fiber", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
+	"mushroom": {"item": "mushroom", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
 	"clay": {"item": "clay", "amount": 3, "hits": 2, "tool": "hands", "tier": 0, "xp": 2},
 	"ore_coal": {"item": "coal", "amount": 2, "hits": 4, "tool": "pickaxe", "tier": 1, "xp": 5},
 	"ore_copper": {"item": "copper_ore", "amount": 2, "hits": 5, "tool": "pickaxe", "tier": 1, "xp": 7},

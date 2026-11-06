@@ -13,7 +13,7 @@ const TYPES := {
 	"stalker": {
 		"name": "Stalker", "hp": 34, "damage": 10, "speed": 92.0, "aggro": 150.0,
 		"attack_range": 20.0, "cooldown": 0.9, "xp": 12,
-		"drop": "stone", "drop_min": 1, "drop_max": 3, "radius": 8.0,
+		"drop": "raw_meat", "drop_min": 1, "drop_max": 2, "radius": 8.0,
 		"loot": {"id": "bone", "chance": 0.6, "max": 2},
 	},
 	"warden": {

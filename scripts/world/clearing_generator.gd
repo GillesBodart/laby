@@ -17,6 +17,7 @@ const ROCK_TARGET := 45
 const BUSH_TARGET := 28
 const GRASS_TARGET := 70
 const CLAY_TARGET := 16
+const MUSHROOM_TARGET := 14
 
 const Id := TileCatalog.Id
 
@@ -223,7 +224,7 @@ func _place_props(center: Vector2i) -> void:
 		_layout.props.append({"type": "bush", "cell": cell})
 		bushes += 1
 
-	for extra in [["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0]]:
+	for extra in [["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0], ["mushroom", MUSHROOM_TARGET, 3.0]]:
 		var placed := 0
 		for attempt in 2000:
 			if placed >= extra[1]:

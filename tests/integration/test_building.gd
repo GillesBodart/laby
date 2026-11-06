@@ -69,3 +69,34 @@ func test_structures_and_stash_survive_save_load() -> void:
 	check(restored.structure_at(cell) != null, "structure restored")
 	check_eq(GameState.stash.count("stone"), 7, "stash restored")
 	world.free()
+
+
+func test_station_recipe_books() -> void:
+	var total := 0
+	for s in ItemCatalog.STATIONS:
+		var book := ItemCatalog.recipes_at(s)
+		check(book.size() > 0, "%s has recipes" % s)
+		total += book.size()
+		if s != "" and s != "campfire":
+			check(BuildCatalog.TYPES.has(s) and BuildCatalog.TYPES[s].group == s, "%s is a placeable station" % s)
+	check_eq(total, ItemCatalog.RECIPES.size(), "every recipe belongs to a known station")
+	check(ItemCatalog.recipes_at("anvil").has(ItemCatalog.RECIPES.find(ItemCatalog.RECIPES.filter(func(r): return r.id == "iron_sword")[0])), "swords at the anvil")
+
+
+func test_e_on_a_station_opens_its_book() -> void:
+	var world: Node = await _start()
+	var clearing: ClearingWorld = world.get_node("Clearing")
+	var cell := _free_cell(clearing)
+	check(clearing.place_structure(cell, "anvil"), "anvil placed")
+	var player: Player = GameState.players.get(GameState.local_peer_id())
+	player.global_position = ClearingWorld.cell_center(cell + Vector2i(0, 1)) + Vector2(0, 8)
+	player.facing = Vector2.UP
+	check_eq(player.find_station(), "anvil", "anvil found in front")
+	var opened := []
+	var on_used := func(s: String) -> void: opened.append(s)
+	EventBus.station_used.connect(on_used)
+	player._try_gather(true)
+	EventBus.station_used.disconnect(on_used)
+	check_eq(opened, ["anvil"], "E opens the anvil book")
+	check(player.nearby_stations().has("anvil"), "anvil counts for crafting")
+	world.free()

@@ -1,7 +1,8 @@
 extends PanelContainer
 ## Backpack / crafting screen (I). Two tabs (Tab key or click): the backpack with a
 ## paper doll of worn gear (click to equip / unequip) and an item note card, and a
-## recipe book (click a recipe to craft, wheel to scroll).
+## recipe book (click a recipe to craft, wheel to scroll). Opened with I the book
+## holds hand recipes; E on a station (workbench, anvil...) opens that station's book.
 
 const SIZE := Vector2(480, 270)
 const COLS := 5
@@ -43,11 +44,15 @@ var _font: Font
 var _hover := -1
 var _hover_slot := ""
 var _scroll := 0
+## Station whose recipe book is shown ("" = handcraft).
+var station := ""
 
 
 func _ready() -> void:
-	if OS.get_cmdline_user_args().has("--tab=1"):
-		tab = 1
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--tab=1":
+			tab = 1
+	EventBus.station_used.connect(_on_station_used)
 	add_to_group("ui_panels")
 	visible = false
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -76,6 +81,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if p != self:
 				p.visible = false
 		visible = not visible
+		if visible:
+			station = ""
+			_scroll = 0
 		get_viewport().set_input_as_handled()
 	elif not visible:
 		return
@@ -105,8 +113,26 @@ func _unhandled_input(event: InputEvent) -> void:
 			equip_slot(_hover)
 
 
+func _on_station_used(group: String) -> void:
+	if group == "":
+		visible = false
+		return
+	for p in get_tree().get_nodes_in_group("ui_panels"):
+		if p != self:
+			p.visible = false
+	station = group
+	tab = 1
+	_scroll = 0
+	visible = true
+
+
+## Recipe indices shown in the book for the current station.
+func _book() -> Array:
+	return ItemCatalog.recipes_at(station)
+
+
 func _scroll_by(d: int) -> void:
-	var rows := ceili(ItemCatalog.RECIPES.size() / float(GRID_COLS))
+	var rows := ceili(_book().size() / float(GRID_COLS))
 	_scroll = clampi(_scroll + d, 0, maxi(rows - GRID_ROWS, 0))
 
 
@@ -159,15 +185,15 @@ func _slot_center(i: int) -> Vector2:
 	return origin + Vector2((i % COLS) * PITCH.x, (i / COLS) * PITCH.y)
 
 
-func _recipe_rect(i: int) -> Rect2:
-	var slot := i - _scroll * GRID_COLS
+func _recipe_rect(pos: int) -> Rect2:
+	var slot := pos - _scroll * GRID_COLS
 	var origin := PANEL.position + Vector2((PANEL.size.x - GRID_COLS * SLOT.x) / 2.0, 30)
 	return Rect2(origin + Vector2((slot % GRID_COLS) * SLOT.x, (slot / GRID_COLS) * SLOT.y), SLOT - Vector2(2, 2))
 
 
 func _visible_recipes() -> Array:
 	var first := _scroll * GRID_COLS
-	var last := mini(first + GRID_COLS * GRID_ROWS, ItemCatalog.RECIPES.size())
+	var last := mini(first + GRID_COLS * GRID_ROWS, _book().size())
 	return range(first, last)
 
 
@@ -185,9 +211,10 @@ func _hover_index(m: Vector2) -> int:
 			if d.x + d.y <= DIAMOND:
 				return i
 	else:
-		for i in _visible_recipes():
-			if _recipe_rect(i).has_point(m):
-				return i
+		var book := _book()
+		for pos in _visible_recipes():
+			if _recipe_rect(pos).has_point(m):
+				return book[pos]
 	return -1
 
 
@@ -261,7 +288,7 @@ func _draw() -> void:
 	var title := Rect2(PANEL.position.x + PANEL.size.x / 2.0 - 70, 8, 140, 24)
 	_box(title, CREAM, BROWN, 3)
 	draw_rect(Rect2(title.position + Vector2(3, 3), title.size - Vector2(6, 6)), Color(0, 0, 0, 0), false)
-	_text_center(title.get_center().x, 26, TABS[tab], TEXT_DARK)
+	_text_center(title.get_center().x, 26, TABS[tab] if tab == 0 else String(ItemCatalog.STATIONS[station]).to_upper(), TEXT_DARK)
 
 	# Side tabs.
 	for i in TABS.size():
@@ -309,7 +336,7 @@ func _draw() -> void:
 			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
 			detail_extra = _recipe_text(rec, player)
 	_draw_card(detail_id, detail_extra)
-	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [Click] equip / craft", TEXT_LIGHT)
+	_text_center(PANEL.get_center().x, 247, "[I] close  [Tab] switch  [Click] equip / craft  [E] station", TEXT_LIGHT)
 
 
 func _draw_backpack(player: Player) -> String:
@@ -370,10 +397,12 @@ func _draw_doll(player: Player) -> String:
 func _draw_crafting(player: Player) -> String:
 	var inv := player.inventory
 	var stations := player.nearby_stations()
-	for i in _visible_recipes():
+	var book := _book()
+	for pos in _visible_recipes():
+		var i: int = book[pos]
 		var rec: Dictionary = ItemCatalog.RECIPES[i]
 		var ok := Crafting.can_craft(inv, rec, stations)
-		var r := _recipe_rect(i)
+		var r := _recipe_rect(pos)
 		_box(r, CREAM if ok else TAN, GOLD if i == _hover else BROWN, 3)
 		_icon(r.get_center() + Vector2(0, -1), rec.id, 7)
 		if rec.out > 1:
@@ -383,6 +412,14 @@ func _draw_crafting(player: Player) -> String:
 			_text(p, t, TEXT_LIGHT)
 		if not ok:
 			draw_rect(r.grow(-1), Color(0.35, 0.28, 0.2, 0.45))
+	if station == "":
+		var hint := "E at a campfire, workbench, furnace, anvil... for more."
+		var w := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_string(_font, Vector2(PANEL.get_center().x - w / 2.0, PANEL.end.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+	elif station not in stations:
+		var warn := "Too far from the %s!" % ItemCatalog.STATIONS[station]
+		var w := _font.get_string_size(warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_string(_font, Vector2(PANEL.get_center().x - w / 2.0, PANEL.end.y - 14), warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD)
 	return ItemCatalog.RECIPES[_hover].id if _hover >= 0 else ""
 
 
@@ -391,7 +428,7 @@ func _recipe_text(rec: Dictionary, player: Player) -> String:
 	var lines := PackedStringArray()
 	for k in rec["in"]:
 		lines.append("%s %d/%d" % [ItemCatalog.item_name(k), player.inventory.count(k), rec["in"][k]])
-	lines.append("At %s" % rec.station if rec.station != "" else "Anywhere")
+	lines.append("At %s" % ItemCatalog.STATIONS[rec.station] if rec.station != "" else "By hand")
 	return "\n".join(lines)
 
 

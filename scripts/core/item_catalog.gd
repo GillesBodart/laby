@@ -59,10 +59,21 @@ const ITEMS := {
 	"bone_charm": {"name": "Bone Charm", "stack": 1, "color": Color8(232, 224, 200), "slot": "amulet", "hp": 20, "desc": "Amulet. +20 max health."},
 	"crystal_amulet": {"name": "Crystal Amulet", "stack": 1, "color": Color8(120, 220, 240), "slot": "amulet", "hp": 40, "armor": 1, "desc": "Amulet. +40 max health, absorbs 1."},
 	# --- food
-	"berry_jam": {"name": "Berry Jam", "stack": 20, "color": Color8(150, 30, 70), "food": 45.0, "desc": "Thick and sweet. R eats it (+45 food)."},
+	"mushroom": {"name": "Mushroom", "stack": 40, "color": Color8(172, 88, 52), "food": 5.0, "desc": "Earthy cap from the forest floor. Better cooked (+5 food)."},
+	"raw_meat": {"name": "Raw Meat", "stack": 40, "color": Color8(200, 70, 72), "food": 6.0, "desc": "From maze creatures. Cook it! (+6 food)"},
+	"cooked_meat": {"name": "Cooked Meat", "stack": 20, "color": Color8(160, 94, 50), "food": 35.0, "desc": "Roasted over the fire (+35 food)."},
+	"roasted_mushroom": {"name": "Mushroom Skewer", "stack": 20, "color": Color8(124, 58, 38), "food": 18.0, "desc": "Smoky and filling (+18 food)."},
+	"berry_jam": {"name": "Berry Jam", "stack": 20, "color": Color8(150, 30, 70), "food": 45.0, "desc": "Thick and sweet (+45 food)."},
+	"mushroom_soup": {"name": "Mushroom Soup", "stack": 10, "color": Color8(226, 196, 150), "food": 50.0, "desc": "Warm and creamy (+50 food)."},
+	"forest_salad": {"name": "Forest Salad", "stack": 10, "color": Color8(100, 162, 68), "food": 40.0, "desc": "Leaves, berries and caps (+40 food)."},
+	"meat_stew": {"name": "Meat Stew", "stack": 10, "color": Color8(170, 100, 56), "food": 85.0, "desc": "A survivor's feast (+85 food)."},
 	# --- buildings
-	"workbench": {"name": "Workbench", "stack": 5, "color": Color8(166, 120, 72), "desc": "Place with B. Unlocks crafting."},
-	"furnace": {"name": "Furnace", "stack": 5, "color": Color8(120, 120, 124), "desc": "Place with B. Smelts ore, fires bricks."},
+	"workbench": {"name": "Workbench", "stack": 5, "color": Color8(166, 120, 72), "desc": "Place with B, E to use. Woodwork and new stations."},
+	"furnace": {"name": "Furnace", "stack": 5, "color": Color8(120, 120, 124), "desc": "Place with B, E to use. Smelts ore, fires clay."},
+	"anvil": {"name": "Anvil", "stack": 5, "color": Color8(96, 100, 108), "desc": "Place with B, E to use. Forges metal tools, weapons, armor, jewels."},
+	"cooking_pot": {"name": "Cooking Pot", "stack": 5, "color": Color8(66, 70, 80), "desc": "Place with B, E to use. Soups, stews and meals."},
+	"tanning_rack": {"name": "Tanning Rack", "stack": 5, "color": Color8(168, 118, 78), "desc": "Place with B, E to use. Leather and leather gear."},
+	"stonecutter": {"name": "Stonecutter", "stack": 5, "color": Color8(128, 132, 130), "desc": "Place with B, E to use. Stone and brick blocks."},
 	"chest": {"name": "Chest", "stack": 5, "color": Color8(150, 104, 60), "desc": "Place with B. Opens the Stash (G)."},
 	"wooden_wall": {"name": "Wooden Wall", "stack": 40, "color": Color8(150, 106, 64), "desc": "Place with B. Blocks the way."},
 	"wooden_floor": {"name": "Wooden Floor", "stack": 40, "color": Color8(190, 146, 92), "desc": "Place with B. Walkable."},
@@ -75,6 +86,7 @@ const ITEMS := {
 
 ## station: "" = craftable anywhere, otherwise a node group that must be near.
 const RECIPES := [
+	# --- by hand (I)
 	{"id": "plank", "out": 2, "in": {"wood": 1}, "station": ""},
 	{"id": "stick", "out": 3, "in": {"wood": 1}, "station": ""},
 	{"id": "rope", "out": 1, "in": {"fiber": 3}, "station": ""},
@@ -83,41 +95,73 @@ const RECIPES := [
 	{"id": "stone_pickaxe", "out": 1, "in": {"stick": 2, "stone": 3}, "station": ""},
 	{"id": "stone_sword", "out": 1, "in": {"stick": 1, "stone": 2}, "station": ""},
 	{"id": "bone_sword", "out": 1, "in": {"bone": 3, "rope": 1}, "station": ""},
+	{"id": "bone_charm", "out": 1, "in": {"bone": 3, "rope": 1}, "station": ""},
 	{"id": "farm_plot", "out": 1, "in": {"plank": 2, "stick": 1}, "station": ""},
+	{"id": "forest_salad", "out": 1, "in": {"fiber": 2, "berry": 3, "mushroom": 1}, "station": ""},
+	# --- campfire
 	{"id": "workbench", "out": 1, "in": {"plank": 8, "stone": 4}, "station": "campfire"},
-	{"id": "berry_jam", "out": 1, "in": {"berry": 4}, "station": "campfire"},
-	{"id": "furnace", "out": 1, "in": {"stone": 10, "clay": 4}, "station": "workbench"},
+	{"id": "cooked_meat", "out": 1, "in": {"raw_meat": 1}, "station": "campfire"},
+	{"id": "roasted_mushroom", "out": 1, "in": {"mushroom": 2, "stick": 1}, "station": "campfire"},
+	# --- workbench: woodwork and new stations
 	{"id": "chest", "out": 1, "in": {"plank": 6, "stick": 2}, "station": "workbench"},
 	{"id": "wooden_wall", "out": 2, "in": {"plank": 3, "stick": 1}, "station": "workbench"},
 	{"id": "wooden_floor", "out": 4, "in": {"plank": 2}, "station": "workbench"},
 	{"id": "wooden_door", "out": 1, "in": {"plank": 4, "stick": 2}, "station": "workbench"},
-	{"id": "stone_wall", "out": 2, "in": {"stone": 4}, "station": "workbench"},
-	{"id": "stone_floor", "out": 4, "in": {"stone": 2}, "station": "workbench"},
-	{"id": "brick", "out": 2, "in": {"clay": 2, "coal": 1}, "station": "furnace"},
-	{"id": "brick_wall", "out": 2, "in": {"brick": 4}, "station": "workbench"},
+	{"id": "furnace", "out": 1, "in": {"stone": 10, "clay": 4}, "station": "workbench"},
+	{"id": "tanning_rack", "out": 1, "in": {"stick": 6, "rope": 3}, "station": "workbench"},
+	{"id": "stonecutter", "out": 1, "in": {"stone": 8, "plank": 4}, "station": "workbench"},
+	{"id": "anvil", "out": 1, "in": {"copper_ingot": 6, "wood": 2}, "station": "workbench"},
+	# --- furnace: smelting and firing
 	{"id": "copper_ingot", "out": 2, "in": {"copper_ore": 2, "coal": 1}, "station": "furnace"},
 	{"id": "iron_ingot", "out": 1, "in": {"iron_ore": 2, "coal": 1}, "station": "furnace"},
-	{"id": "leather", "out": 1, "in": {"hide": 2}, "station": "workbench"},
-	{"id": "copper_axe", "out": 1, "in": {"stick": 2, "copper_ingot": 3}, "station": "workbench"},
-	{"id": "copper_pickaxe", "out": 1, "in": {"stick": 2, "copper_ingot": 3}, "station": "workbench"},
-	{"id": "copper_sword", "out": 1, "in": {"stick": 1, "copper_ingot": 2}, "station": "workbench"},
-	{"id": "iron_axe", "out": 1, "in": {"stick": 2, "iron_ingot": 3}, "station": "workbench"},
-	{"id": "iron_pickaxe", "out": 1, "in": {"stick": 2, "iron_ingot": 3}, "station": "workbench"},
-	{"id": "iron_sword", "out": 1, "in": {"stick": 1, "iron_ingot": 2}, "station": "workbench"},
-	{"id": "crystal_blade", "out": 1, "in": {"stick": 1, "crystal": 3, "iron_ingot": 2}, "station": "workbench"},
-	{"id": "leather_armor", "out": 1, "in": {"leather": 5, "rope": 2}, "station": "workbench"},
-	{"id": "copper_armor", "out": 1, "in": {"copper_ingot": 8, "leather": 2}, "station": "workbench"},
-	{"id": "iron_armor", "out": 1, "in": {"iron_ingot": 8, "leather": 3}, "station": "workbench"},
-	{"id": "leather_cap", "out": 1, "in": {"leather": 3}, "station": "workbench"},
-	{"id": "copper_helm", "out": 1, "in": {"copper_ingot": 4, "leather": 1}, "station": "workbench"},
-	{"id": "iron_helm", "out": 1, "in": {"iron_ingot": 4, "leather": 1}, "station": "workbench"},
-	{"id": "leather_boots", "out": 1, "in": {"leather": 2, "rope": 1}, "station": "workbench"},
-	{"id": "copper_boots", "out": 1, "in": {"copper_ingot": 3, "leather": 1}, "station": "workbench"},
-	{"id": "iron_boots", "out": 1, "in": {"iron_ingot": 3, "leather": 1}, "station": "workbench"},
-	{"id": "bone_charm", "out": 1, "in": {"bone": 3, "rope": 1}, "station": ""},
-	{"id": "copper_ring", "out": 1, "in": {"copper_ingot": 2}, "station": "furnace"},
-	{"id": "crystal_ring", "out": 1, "in": {"crystal": 2, "iron_ingot": 1}, "station": "furnace"},
-	{"id": "crystal_amulet", "out": 1, "in": {"crystal": 3, "copper_ingot": 2, "rope": 1}, "station": "workbench"},]
+	{"id": "brick", "out": 2, "in": {"clay": 2, "coal": 1}, "station": "furnace"},
+	{"id": "cooking_pot", "out": 1, "in": {"clay": 6, "rope": 1}, "station": "furnace"},
+	# --- stonecutter: masonry
+	{"id": "stone_wall", "out": 2, "in": {"stone": 4}, "station": "stonecutter"},
+	{"id": "stone_floor", "out": 4, "in": {"stone": 2}, "station": "stonecutter"},
+	{"id": "brick_wall", "out": 2, "in": {"brick": 4}, "station": "stonecutter"},
+	# --- tanning rack: leather goods
+	{"id": "leather", "out": 1, "in": {"hide": 2}, "station": "tanning_rack"},
+	{"id": "leather_armor", "out": 1, "in": {"leather": 5, "rope": 2}, "station": "tanning_rack"},
+	{"id": "leather_cap", "out": 1, "in": {"leather": 3}, "station": "tanning_rack"},
+	{"id": "leather_boots", "out": 1, "in": {"leather": 2, "rope": 1}, "station": "tanning_rack"},
+	# --- anvil: metal tools, weapons, armor and jewellery
+	{"id": "copper_axe", "out": 1, "in": {"stick": 2, "copper_ingot": 3}, "station": "anvil"},
+	{"id": "copper_pickaxe", "out": 1, "in": {"stick": 2, "copper_ingot": 3}, "station": "anvil"},
+	{"id": "copper_sword", "out": 1, "in": {"stick": 1, "copper_ingot": 2}, "station": "anvil"},
+	{"id": "copper_helm", "out": 1, "in": {"copper_ingot": 4, "leather": 1}, "station": "anvil"},
+	{"id": "copper_armor", "out": 1, "in": {"copper_ingot": 8, "leather": 2}, "station": "anvil"},
+	{"id": "copper_boots", "out": 1, "in": {"copper_ingot": 3, "leather": 1}, "station": "anvil"},
+	{"id": "copper_ring", "out": 1, "in": {"copper_ingot": 2}, "station": "anvil"},
+	{"id": "iron_axe", "out": 1, "in": {"stick": 2, "iron_ingot": 3}, "station": "anvil"},
+	{"id": "iron_pickaxe", "out": 1, "in": {"stick": 2, "iron_ingot": 3}, "station": "anvil"},
+	{"id": "iron_sword", "out": 1, "in": {"stick": 1, "iron_ingot": 2}, "station": "anvil"},
+	{"id": "iron_helm", "out": 1, "in": {"iron_ingot": 4, "leather": 1}, "station": "anvil"},
+	{"id": "iron_armor", "out": 1, "in": {"iron_ingot": 8, "leather": 3}, "station": "anvil"},
+	{"id": "iron_boots", "out": 1, "in": {"iron_ingot": 3, "leather": 1}, "station": "anvil"},
+	{"id": "crystal_blade", "out": 1, "in": {"stick": 1, "crystal": 3, "iron_ingot": 2}, "station": "anvil"},
+	{"id": "crystal_ring", "out": 1, "in": {"crystal": 2, "iron_ingot": 1}, "station": "anvil"},
+	{"id": "crystal_amulet", "out": 1, "in": {"crystal": 3, "copper_ingot": 2, "rope": 1}, "station": "anvil"},
+	# --- cooking pot: meals
+	{"id": "berry_jam", "out": 1, "in": {"berry": 4}, "station": "cooking_pot"},
+	{"id": "mushroom_soup", "out": 1, "in": {"mushroom": 3, "berry": 1}, "station": "cooking_pot"},
+	{"id": "meat_stew", "out": 1, "in": {"cooked_meat": 1, "mushroom": 2, "berry": 2}, "station": "cooking_pot"},
+]
+
+## Crafting stations (node groups) with display names; "" means by hand.
+const STATIONS := {
+	"": "Handcraft", "campfire": "Campfire", "workbench": "Workbench", "furnace": "Furnace",
+	"anvil": "Anvil", "cooking_pot": "Cooking Pot", "tanning_rack": "Tanning Rack", "stonecutter": "Stonecutter",
+}
+
+
+## Indices into RECIPES made at a given station ("" = by hand).
+static func recipes_at(station: String) -> Array:
+	var out := []
+	for i in RECIPES.size():
+		if RECIPES[i].station == station:
+			out.append(i)
+	return out
 
 
 static func description(id: String) -> String:

@@ -8,6 +8,8 @@ extends Node
 ##     --area=<name>            start in an area (clearing, labyrinth)
 ##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
+##     --give [--panel]         sample items (and open the backpack)
+##     --station=<group>        with --give: open that station's recipe book
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -46,12 +48,14 @@ func _give() -> void:
 	var p: Player = GameState.players.get(GameState.local_peer_id())
 	if p == null:
 		return
-	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry", "iron_helm", "copper_ring", "leather_boots"]:
+	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry", "iron_helm", "copper_ring", "leather_boots", "anvil", "cooking_pot", "tanning_rack", "stonecutter", "mushroom", "raw_meat"]:
 		p.inventory.add(id, 1 if ItemCatalog.stack_size(id) == 1 else 7)
 	for id in ["iron_sword", "copper_armor", "bone_charm"]:
 		p.inventory.add(id, 1)
 		p.equipment.equip(p.inventory, id)
-	if _args.has("panel"):
+	if _args.has("station"):
+		EventBus.station_used.emit(_args.station)
+	elif _args.has("panel"):
 		var ev := InputEventAction.new()
 		ev.action = "inventory"
 		ev.pressed = true

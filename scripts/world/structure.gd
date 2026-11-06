@@ -1,6 +1,6 @@
 class_name Structure
 extends StaticBody2D
-## A player-built tile structure (wall, floor, door, workbench, chest).
+## A player-built tile structure (wall, floor, door, chest, crafting station).
 
 var type := ""
 var cell := Vector2i.ZERO

@@ -100,7 +100,7 @@ func _init() -> void:
 	_save(_make_tree(0), "res://assets/sprites/tree.png")
 	_save(_make_rock(0), "res://assets/sprites/rock.png")
 	_save(_make_campfire(), "res://assets/sprites/campfire.png")
-	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace", "stone_wall", "brick_wall", "stone_floor", "farm_plot_0", "farm_plot_1", "farm_plot_2"]:
+	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace", "stone_wall", "brick_wall", "stone_floor", "farm_plot_0", "farm_plot_1", "farm_plot_2", "anvil", "cooking_pot", "tanning_rack", "stonecutter"]:
 		_save(_make_structure(s), "res://assets/sprites/structures/%s.png" % s)
 	_save(_make_shadow(), "res://assets/sprites/shadow.png")
 	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
@@ -108,6 +108,7 @@ func _init() -> void:
 	_save(_make_bush(), "res://assets/sprites/bush.png")
 	_save(_make_grass_tuft(), "res://assets/sprites/resources/grass.png")
 	_save(_make_clay(), "res://assets/sprites/resources/clay.png")
+	_save(_make_mushrooms(), "res://assets/sprites/resources/mushroom.png")
 	_save(_make_ore([Color8(20, 20, 26), Color8(52, 52, 60), Color8(80, 80, 92)], 1), "res://assets/sprites/resources/ore_coal.png")
 	_save(_make_ore([MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 2), "res://assets/sprites/resources/ore_copper.png")
 	_save(_make_ore([Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 3), "res://assets/sprites/resources/ore_iron.png")
@@ -1026,6 +1027,14 @@ func _make_structure(kind: String) -> Image:
 						base = C.rock_light
 					_px(img, x, y, base)
 			return img
+		"anvil":
+			return _st_anvil()
+		"cooking_pot":
+			return _st_cooking_pot()
+		"tanning_rack":
+			return _st_tanning_rack()
+		"stonecutter":
+			return _st_stonecutter()
 		"farm_plot_0":
 			return _make_farm_plot(0)
 		"farm_plot_1":
@@ -1110,6 +1119,15 @@ func _make_item_icons() -> void:
 	icons["crystal_ring"] = _ic_ring(MAT["iron"], MAT["crystal"])
 	icons["bone_charm"] = _ic_amulet("bone")
 	icons["crystal_amulet"] = _ic_amulet("crystal")
+	for id in ["anvil", "cooking_pot", "tanning_rack", "stonecutter"]:
+		icons[id] = _make_structure(id)
+	icons["mushroom"] = _ic_mushroom()
+	icons["raw_meat"] = _ic_raw_meat()
+	icons["cooked_meat"] = _ic_cooked_meat()
+	icons["roasted_mushroom"] = _ic_roasted_mushroom()
+	icons["mushroom_soup"] = _ic_bowl([Color8(226, 196, 150), Color8(196, 160, 112)], [CAP5[2], CAP5[3], LEAF5[3]], true)
+	icons["meat_stew"] = _ic_bowl([Color8(170, 100, 56), Color8(132, 72, 40)], [COOK5[0], Color8(232, 150, 60), LEAF5[3]], true)
+	icons["forest_salad"] = _ic_bowl([LEAF5[3], LEAF5[2]], [BERRY[2], LEAF5[4], CAP5[3], BERRY[1]], false)
 	for id in icons:
 		var big: Image = icons[id]
 		_save(big, "res://assets/ui/items/%s.png" % id)
@@ -1722,5 +1740,182 @@ func _ic_coal() -> Image:
 	_line(img, Vector2(16, 18), Vector2(24, 16), t[3])
 	for p in [Vector2i(12, 11), Vector2i(20, 12), Vector2i(14, 21), Vector2i(22, 20)]:
 		_px(img, p.x, p.y, t[4])
+	_outline(img, C.outline)
+	return img
+
+
+# ---------------------------------------------------------------- stations & food
+
+const HIDE5 := [Color8(80, 50, 34), Color8(124, 84, 56), Color8(168, 118, 78), Color8(200, 154, 106), Color8(226, 190, 140)]
+const CAP5 := [Color8(72, 36, 28), Color8(124, 58, 38), Color8(172, 88, 52), Color8(212, 134, 86), Color8(240, 192, 146)]
+const RAW5 := [Color8(90, 20, 28), Color8(150, 36, 44), Color8(200, 70, 72), Color8(232, 120, 116), Color8(250, 190, 180)]
+const COOK5 := [Color8(70, 36, 22), Color8(118, 62, 34), Color8(160, 94, 50), Color8(196, 132, 72), Color8(230, 180, 110)]
+const LEAF5 := [Color8(30, 70, 40), Color8(40, 90, 46), Color8(62, 122, 54), Color8(100, 162, 68), Color8(150, 198, 96)]
+
+
+## Blacksmith's anvil on a tree stump, hammer resting on top.
+func _st_anvil() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(9, 21), Vector2(23, 21), Vector2(25, 31), Vector2(7, 31)])), WOOD5)
+	for y in [24, 28]:
+		_line(img, Vector2(10, y), Vector2(22, y), WOOD5[1])
+	var body := _mask_poly(PackedVector2Array([
+		Vector2(1, 9), Vector2(27, 9), Vector2(27, 14), Vector2(21, 15), Vector2(20, 18),
+		Vector2(24, 22), Vector2(8, 22), Vector2(12, 18), Vector2(11, 15), Vector2(6, 14)]))
+	_bevel(img, body, MAT["iron"])
+	_line(img, Vector2(3, 10), Vector2(26, 10), MAT["iron"][4])
+	_line(img, Vector2(12, 21), Vector2(21, 21), MAT["iron"][0])
+	_bevel(img, _mask_stroke(Vector2(14, 7.5), Vector2(28, 3.5), 1.2), WOOD5)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(10, 3), Vector2(16, 3), Vector2(16, 9), Vector2(10, 9)])), MAT["iron"])
+	_outline(img, C.outline)
+	return img
+
+
+## Iron cauldron over a small fire, bubbling stew and steam.
+func _st_cooking_pot() -> Image:
+	var img := _new_image(T, T)
+	for l in [[Vector2(5, 29), Vector2(15, 26)], [Vector2(27, 29), Vector2(17, 26)]]:
+		_bevel(img, _mask_stroke(l[0], l[1], 1.4), WOOD5)
+	_rect(img, 12, 25, 8, 4, C.fire_out)
+	_rect(img, 13, 24, 6, 3, C.fire_mid)
+	_rect(img, 15, 24, 2, 2, C.fire_core)
+	var pot := _mask_cut(_mask_ellipse(Vector2(16, 17), 11, 9), _mask_fn(func(p: Vector2) -> bool: return p.y < 12.0))
+	_bevel(img, pot, [Color8(28, 28, 34), Color8(44, 46, 54), Color8(66, 70, 80), Color8(98, 104, 116), Color8(140, 148, 160)])
+	_bevel(img, _mask_ellipse(Vector2(16, 12), 12, 3.2), MAT["iron"])
+	var soup := _mask_ellipse(Vector2(16, 12), 9, 1.8)
+	for p in soup:
+		_px(img, p.x, p.y, COOK5[3] if p.y < 12 else COOK5[2])
+	for b in [Vector2i(12, 12), Vector2i(19, 11), Vector2i(16, 13)]:
+		_px(img, b.x, b.y, COOK5[4])
+	for s in [[11, 7], [16, 4], [21, 6]]:
+		_px(img, s[0], s[1], Color(1, 1, 1, 0.55))
+		_px(img, s[0] + 1, s[1] - 1, Color(1, 1, 1, 0.4))
+		_px(img, s[0], s[1] - 2, Color(1, 1, 1, 0.3))
+	_outline(img, C.outline)
+	return img
+
+
+## Wooden frame with a hide laced inside to cure.
+func _st_tanning_rack() -> Image:
+	var img := _new_image(T, T)
+	var hide := _mask_poly(PackedVector2Array([
+		Vector2(9, 8), Vector2(16, 9), Vector2(23, 8), Vector2(24, 15), Vector2(23, 23),
+		Vector2(16, 22), Vector2(9, 23), Vector2(8, 15)]))
+	for l in [[Vector2(6, 9), Vector2(9, 9)], [Vector2(26, 9), Vector2(23, 9)], [Vector2(6, 22), Vector2(9, 22)],
+			[Vector2(26, 22), Vector2(23, 22)], [Vector2(16, 6), Vector2(16, 9)], [Vector2(6, 15), Vector2(8, 15)], [Vector2(26, 15), Vector2(24, 15)]]:
+		_line(img, l[0], l[1], Color8(206, 180, 120))
+	for x in [5.5, 26.5]:
+		_bevel(img, _mask_stroke(Vector2(x, 3), Vector2(x, 30), 1.6), WOOD5)
+	for y in [5.5, 24.5]:
+		_bevel(img, _mask_stroke(Vector2(3, y), Vector2(29, y), 1.4), WOOD5)
+	_bevel(img, hide, HIDE5)
+	for p in hide:
+		if _hash(p.x, p.y, 917) > 0.9:
+			_px(img, p.x, p.y, HIDE5[1])
+	_outline(img, C.outline)
+	return img
+
+
+## Stone bench with a toothed saw wheel and a fresh-cut block.
+func _st_stonecutter() -> Image:
+	var img := _new_image(T, T)
+	for x in [5, 22]:
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(x, 17), Vector2(x + 6, 17), Vector2(x + 6, 31), Vector2(x, 31)])), MAT["stone"])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(2, 14), Vector2(30, 14), Vector2(30, 19), Vector2(2, 19)])), WOOD5)
+	var blade := _mask_ellipse(Vector2(13, 9), 7.5, 7.5)
+	_bevel(img, blade, MAT["iron"])
+	for i in 12:
+		var a := TAU * i / 12.0
+		_px(img, int(13 + cos(a) * 8.2), int(9 + sin(a) * 8.2), MAT["iron"][3])
+	for p in _mask_ellipse(Vector2(13, 9), 2.2, 2.2):
+		_px(img, p.x, p.y, MAT["iron"][0])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(21, 7), Vector2(29, 7), Vector2(29, 14), Vector2(21, 14)])), MAT["stone"])
+	_outline(img, C.outline)
+	return img
+
+
+func _mushroom(img: Image, cx: float, base_y: float, s: float) -> void:
+	_bevel(img, _mask_stroke(Vector2(cx, base_y), Vector2(cx, base_y - 4.0 * s), 1.3 * s), MAT["bone"])
+	var cap := _mask_cut(_mask_ellipse(Vector2(cx, base_y - 4.0 * s), 4.2 * s, 3.0 * s),
+		_mask_fn(func(p: Vector2) -> bool: return p.y > base_y - 4.0 * s + 0.6 * s))
+	_bevel(img, cap, CAP5)
+	for d in [Vector2(-1.6, -1.6), Vector2(1.4, -2.2), Vector2(2.6, -0.6)]:
+		_px(img, int(cx + d.x * s), int(base_y - 4.0 * s + d.y * s), CAP5[4])
+
+
+## Mushroom cluster growing on the ground (resource node).
+func _make_mushrooms() -> Image:
+	var img := _new_image(T, T)
+	_mushroom(img, 11, 27, 1.5)
+	_mushroom(img, 20, 28, 1.9)
+	_mushroom(img, 15, 29, 1.0)
+	for x in [7, 9, 24, 26]:
+		_line(img, Vector2(x, 29), Vector2(x + 1, 25), LEAF5[2 + x % 2])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_mushroom() -> Image:
+	var img := _new_image(T, T)
+	_mushroom(img, 12, 26, 1.5)
+	_mushroom(img, 19, 28, 2.2)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_raw_meat() -> Image:
+	var img := _new_image(T, T)
+	var meat := _mask_poly(PackedVector2Array([Vector2(4, 13), Vector2(12, 7), Vector2(23, 8), Vector2(27, 15), Vector2(23, 24), Vector2(11, 26), Vector2(5, 21)]))
+	_bevel(img, meat, RAW5)
+	_line(img, Vector2(8, 14), Vector2(20, 11), RAW5[4])
+	_line(img, Vector2(9, 20), Vector2(22, 18), RAW5[3])
+	_bevel(img, _mask_ellipse(Vector2(18, 16), 2.6, 2.6), MAT["bone"])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_cooked_meat() -> Image:
+	var img := _new_image(T, T)
+	_bevel(img, _mask_stroke(Vector2(17, 17), Vector2(26, 26), 1.6), MAT["bone"])
+	_bevel(img, _mask_add(_mask_ellipse(Vector2(25, 28), 2, 2), _mask_ellipse(Vector2(28, 25), 2, 2)), MAT["bone"])
+	_bevel(img, _mask_ellipse(Vector2(13, 13), 9, 8), COOK5)
+	for p in [Vector2i(9, 10), Vector2i(14, 8), Vector2i(10, 15), Vector2i(16, 13)]:
+		_px(img, p.x, p.y, COOK5[4])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_roasted_mushroom() -> Image:
+	var img := _new_image(T, T)
+	_handle(img, Vector2(4.5, 28.5), Vector2(27.5, 5.5))
+	for c in [Vector2(10, 22), Vector2(16, 16), Vector2(22, 10)]:
+		_bevel(img, _mask_ellipse(c + Vector2(1, 2), 2.2, 2.2), MAT["bone"])
+		_bevel(img, _mask_ellipse(c, 5, 3.6), [COOK5[0], CAP5[1], CAP5[2], CAP5[3], CAP5[4]])
+		_px(img, int(c.x) - 2, int(c.y) - 1, COOK5[0])
+		_px(img, int(c.x) + 1, int(c.y), COOK5[0])
+	_outline(img, C.outline)
+	return img
+
+
+## Wooden bowl of food: surface tones, coloured chunks and optional steam.
+func _ic_bowl(surface: Array, bits: Array, hot: bool) -> Image:
+	var img := _new_image(T, T)
+	var bowl := _mask_cut(_mask_ellipse(Vector2(16, 18), 13, 10), _mask_fn(func(p: Vector2) -> bool: return p.y < 17.0))
+	_bevel(img, bowl, WOOD5)
+	_rect(img, 11, 28, 10, 2, WOOD5[1])
+	_bevel(img, _mask_ellipse(Vector2(16, 17), 13, 4), WOOD5)
+	var top := _mask_ellipse(Vector2(16, 17), 10.5, 2.6)
+	for p in top:
+		_px(img, p.x, p.y, surface[1] if p.y >= 17 else surface[0])
+	for i in 7:
+		var x := 9 + int(_hash(i, 1, 940) * 14.0)
+		var y := 15 + int(_hash(i, 2, 940) * 4.0)
+		if top.has(Vector2i(x, y)) and top.has(Vector2i(x + 1, y)):
+			_rect(img, x, y, 2, 1, bits[i % bits.size()])
+	if hot:
+		for s in [[11, 10], [16, 7], [21, 9]]:
+			_px(img, s[0], s[1], Color(1, 1, 1, 0.6))
+			_px(img, s[0] + 1, s[1] - 2, Color(1, 1, 1, 0.45))
+			_px(img, s[0], s[1] - 4, Color(1, 1, 1, 0.3))
 	_outline(img, C.outline)
 	return img
