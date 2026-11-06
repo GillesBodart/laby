@@ -1,47 +1,56 @@
 extends PanelContainer
-## Backpack + crafting screen (I). Pixel-RPG layout: item grid on the left,
-## recipe list on the right. Press 1-0 to craft the listed recipe.
+## Backpack / crafting screen (I). Two tabs (Tab key or click): a diamond-slot
+## backpack with an item note card, and the crafting list (1-0 or click).
 
 const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
+const SIZE := Vector2(480, 270)
 const COLS := 5
-const SLOT := 24
-const GAP := 2
-const SIZE := Vector2(460, 238)
+const PITCH := Vector2(52, 40)
+const DIAMOND := 18
+const PANEL := Rect2(44, 36, 320, 196)
+const CARD := Rect2(372, 56, 100, 150)
+const TABS := ["INVENTORY", "CRAFTING"]
 
 const INK := Color8(27, 20, 16)
-const FRAME := Color8(122, 84, 50)
-const FRAME_LIGHT := Color8(166, 120, 72)
-const FRAME_DARK := Color8(78, 52, 32)
-const PARCHMENT := Color8(52, 40, 34)
-const SLOT_BG := Color8(33, 26, 24)
-const TEXT := Color8(238, 226, 196)
-const DIM := Color8(150, 136, 118)
+const GREEN_DARK := Color8(24, 38, 30)
+const GREEN := Color8(50, 76, 58)
+const GREEN_LINE := Color8(108, 148, 116)
+const CREAM := Color8(236, 222, 186)
+const TAN := Color8(214, 176, 124)
+const BROWN := Color8(96, 72, 48)
+const TEXT_DARK := Color8(58, 42, 30)
+const TEXT_LIGHT := Color8(238, 226, 196)
+const FADED := Color8(150, 126, 98)
 const GOLD := Color8(242, 210, 92)
-const OK := Color8(140, 210, 100)
+const OK := Color8(46, 110, 50)
 
+var tab := 0
 var _font: Font
+var _hover := -1
 
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--tab=1"):
+		tab = 1
 	add_to_group("ui_panels")
 	visible = false
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	custom_minimum_size = SIZE
 	size = SIZE
-	position = ((Vector2(480, 270) - SIZE) / 2.0).floor()
+	position = Vector2.ZERO
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_font = ThemeDB.fallback_font
-	var inv := _inventory()
-	if inv:
-		inv.changed.connect(queue_redraw)
 
 
 func _player() -> Player:
 	return GameState.players.get(GameState.local_peer_id())
 
 
-func _inventory() -> Inventory:
-	var p := _player()
-	return p.inventory if p else null
+func _process(_delta: float) -> void:
+	if not visible:
+		return
+	_hover = _hover_index(get_local_mouse_position())
+	queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -50,15 +59,26 @@ func _unhandled_input(event: InputEvent) -> void:
 			if p != self:
 				p.visible = false
 		visible = not visible
-		queue_redraw()
 		get_viewport().set_input_as_handled()
-	elif visible and event is InputEventKey and event.pressed and not event.echo:
+	elif not visible:
+		return
+	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
 			visible = false
-			return
-		var idx := KEYS.find(event.physical_keycode)
-		if idx >= 0 and idx < ItemCatalog.RECIPES.size():
-			craft(idx)
+		elif event.physical_keycode == KEY_TAB:
+			tab = (tab + 1) % TABS.size()
+		else:
+			var idx := KEYS.find(event.physical_keycode)
+			if idx >= 0 and idx < ItemCatalog.RECIPES.size():
+				craft(idx)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var m := get_local_mouse_position()
+		for i in TABS.size():
+			if _tab_rect(i).has_point(m):
+				tab = i
+				return
+		if tab == 1 and _hover >= 0:
+			craft(_hover)
 
 
 func craft(index: int) -> bool:
@@ -69,121 +89,196 @@ func craft(index: int) -> bool:
 	var ok := Crafting.craft(player.inventory, recipe, player.nearby_stations())
 	var item := ItemCatalog.item_name(recipe.id)
 	EventBus.notify.emit(("Crafted %s" % item) if ok else ("Cannot craft %s" % item))
-	queue_redraw()
 	return ok
+
+
+# ------------------------------------------------------------- layout
+
+func _tab_rect(i: int) -> Rect2:
+	return Rect2(14, 60 + i * 30, 24, 24)
+
+
+func _slot_center(i: int) -> Vector2:
+	var origin := PANEL.position + Vector2((PANEL.size.x - COLS * PITCH.x) / 2.0 + PITCH.x / 2.0, 30)
+	return origin + Vector2((i % COLS) * PITCH.x, (i / COLS) * PITCH.y)
+
+
+func _row_rect(i: int) -> Rect2:
+	return Rect2(PANEL.position.x + 14, PANEL.position.y + 10 + i * 18, PANEL.size.x - 28, 17)
+
+
+func _hover_index(m: Vector2) -> int:
+	if tab == 0:
+		for i in Inventory.DEFAULT_SLOTS:
+			var d := (m - _slot_center(i)).abs()
+			if d.x + d.y <= DIAMOND:
+				return i
+	else:
+		for i in ItemCatalog.RECIPES.size():
+			if _row_rect(i).has_point(m):
+				return i
+	return -1
 
 
 # ------------------------------------------------------------- drawing
 
-func _text(pos: Vector2, s: String, col: Color, fsize := 16) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
+func _text(pos: Vector2, s: String, col: Color) -> void:
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
 
 
-func _bevel_box(r: Rect2, fill: Color, light: Color, dark: Color) -> void:
-	draw_rect(r, fill)
-	draw_rect(Rect2(r.position, Vector2(r.size.x, 1)), light)
-	draw_rect(Rect2(r.position, Vector2(1, r.size.y)), light)
-	draw_rect(Rect2(r.position + Vector2(0, r.size.y - 1), Vector2(r.size.x, 1)), dark)
-	draw_rect(Rect2(r.position + Vector2(r.size.x - 1, 0), Vector2(1, r.size.y)), dark)
+func _text_center(cx: float, y: float, s: String, col: Color) -> void:
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	_text(Vector2(cx - w / 2.0, y), s, col)
 
 
-func _draw_item_icon(r: Rect2, id: String) -> void:
+func _box(r: Rect2, fill: Color, border: Color, radius := 4) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.border_color = border
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(radius)
+	draw_style_box(sb, r)
+
+
+func _diamond(c: Vector2, r: float, fill: Color, border: Color) -> void:
+	var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0)])
+	draw_colored_polygon(pts, fill)
+	pts.append(pts[0])
+	draw_polyline(pts, border, 1.0)
+
+
+func _icon(c: Vector2, id: String, half := 6) -> void:
 	var col: Color = ItemCatalog.ITEMS[id].color
-	var c := r.get_center().floor()
-	var h := 5
 	if ItemCatalog.tool_of(id) != "":
-		# Tool: handle plus head.
-		draw_line(c + Vector2(-5, 6), c + Vector2(5, -4), Color8(120, 84, 52), 2.0)
-		draw_rect(Rect2(c + Vector2(1, -7), Vector2(7, 4)), col)
-		draw_rect(Rect2(c + Vector2(1, -7), Vector2(7, 4)), INK, false)
+		draw_line(c + Vector2(-half, half), c + Vector2(half, -half + 2), Color8(120, 84, 52), 2.0)
+		var head := Rect2(c + Vector2(1, -half - 1), Vector2(half + 1, 5))
+		draw_rect(head, col)
+		draw_rect(head, INK, false)
 		return
-	draw_rect(Rect2(c - Vector2(h, h), Vector2(h * 2, h * 2)), col)
-	draw_rect(Rect2(c - Vector2(h, h), Vector2(h * 2, 2)), col.lightened(0.3))
-	draw_rect(Rect2(c + Vector2(-h, h - 2), Vector2(h * 2, 2)), col.darkened(0.3))
-	draw_rect(Rect2(c - Vector2(h, h), Vector2(h * 2, h * 2)), INK, false)
+	var r := Rect2(c - Vector2(half, half), Vector2(half * 2, half * 2))
+	draw_rect(r, col)
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 2)), col.lightened(0.3))
+	draw_rect(Rect2(r.position + Vector2(0, r.size.y - 2), Vector2(r.size.x, 2)), col.darkened(0.3))
+	draw_rect(r, INK, false)
 
 
 func _draw() -> void:
 	var player := _player()
 	if player == null:
 		return
-	# Frame.
-	draw_rect(Rect2(Vector2.ZERO, SIZE), INK)
-	_bevel_box(Rect2(Vector2(1, 1), SIZE - Vector2(2, 2)), FRAME, FRAME_LIGHT, FRAME_DARK)
-	_bevel_box(Rect2(Vector2(5, 5), SIZE - Vector2(10, 10)), PARCHMENT, FRAME_DARK, FRAME_LIGHT)
-	# Corner studs.
-	for p in [Vector2(3, 3), Vector2(SIZE.x - 5, 3), Vector2(3, SIZE.y - 5), Vector2(SIZE.x - 5, SIZE.y - 5)]:
-		draw_rect(Rect2(p, Vector2(2, 2)), GOLD)
+	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.03, 0.05, 0.08, 0.72))
 
-	# --- Backpack (left).
-	var gx := 14.0
-	_text(Vector2(gx, 24), "BACKPACK", GOLD)
-	draw_rect(Rect2(gx, 28, COLS * (SLOT + GAP) - GAP, 1), FRAME_LIGHT)
+	# Title plaque.
+	var title := Rect2(PANEL.position.x + PANEL.size.x / 2.0 - 70, 8, 140, 24)
+	_box(title, CREAM, BROWN, 3)
+	draw_rect(Rect2(title.position + Vector2(3, 3), title.size - Vector2(6, 6)), Color(0, 0, 0, 0), false)
+	_text_center(title.get_center().x, 26, TABS[tab], TEXT_DARK)
+
+	# Side tabs.
+	for i in TABS.size():
+		var r := _tab_rect(i)
+		_box(r, CREAM if tab == i else TAN, GOLD if tab == i else BROWN, 3)
+		if i == 0:
+			var c := r.get_center()
+			draw_rect(Rect2(c + Vector2(-6, -3), Vector2(12, 9)), BROWN)
+			draw_rect(Rect2(c + Vector2(-3, -6), Vector2(6, 3)), BROWN)
+			draw_rect(Rect2(c + Vector2(-6, 0), Vector2(12, 1)), CREAM)
+		else:
+			var c := r.get_center()
+			draw_line(c + Vector2(-5, 5), c + Vector2(4, -4), BROWN, 2.0)
+			draw_rect(Rect2(c + Vector2(0, -7), Vector2(7, 4)), BROWN)
+
+	# Green panel with dashed inner frame.
+	_box(PANEL, GREEN_DARK, INK, 8)
+	var inner := PANEL.grow(-5)
+	_box(inner, GREEN, GREEN_DARK, 6)
+	var f := inner.grow(-4)
+	var x := f.position.x
+	while x < f.end.x:
+		draw_rect(Rect2(x, f.position.y, 3, 1), GREEN_LINE)
+		draw_rect(Rect2(x, f.end.y - 1, 3, 1), GREEN_LINE)
+		x += 6
+	var y := f.position.y
+	while y < f.end.y:
+		draw_rect(Rect2(f.position.x, y, 1, 3), GREEN_LINE)
+		draw_rect(Rect2(f.end.x - 1, y, 1, 3), GREEN_LINE)
+		y += 6
+
+	var detail_id := ""
+	var detail_extra := ""
+	if tab == 0:
+		detail_id = _draw_backpack(player)
+	else:
+		detail_id = _draw_crafting(player)
+		if _hover >= 0:
+			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
+			detail_extra = "At %s" % rec.station if rec.station != "" else "Craft anywhere"
+	_draw_card(detail_id, detail_extra)
+	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [1-0] craft", TEXT_LIGHT)
+
+
+func _draw_backpack(player: Player) -> String:
 	var inv := player.inventory
-	var hover_name := ""
+	var hovered := ""
 	for i in inv.slots.size():
-		var col := i % COLS
-		var row := i / COLS
-		var r := Rect2(gx + col * (SLOT + GAP), 34 + row * (SLOT + GAP), SLOT, SLOT)
-		_bevel_box(r, SLOT_BG, INK, FRAME_DARK)
+		var c := _slot_center(i)
 		var s: Dictionary = inv.slots[i]
+		var selected := i == _hover
+		_diamond(c, DIAMOND, CREAM, GOLD if selected else BROWN)
+		_diamond(c, DIAMOND - 4, Color8(240, 200, 140) if selected else TAN, BROWN)
 		if s.is_empty():
 			continue
-		_draw_item_icon(r, s.id)
+		_icon(c + Vector2(0, -3), s.id)
+		if selected:
+			hovered = s.id
 		if s.count > 1:
-			var t := str(s.count)
-			var w := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			_text(r.position + Vector2(SLOT - w - 1, SLOT - 2) + Vector2(1, 1), t, INK)
-			_text(r.position + Vector2(SLOT - w - 1, SLOT - 2), t, TEXT)
-	# Item name list under the grid.
-	var ly := 34 + ((inv.slots.size() + COLS - 1) / COLS) * (SLOT + GAP) + 14.0
-	var names: Dictionary = {}
-	for s in inv.slots:
-		if not s.is_empty():
-			names[s.id] = int(names.get(s.id, 0)) + s.count
-	if names.is_empty():
-		_text(Vector2(gx, ly), "Empty", DIM)
-	else:
-		for id in names:
-			_text(Vector2(gx, ly), "%s x%d" % [ItemCatalog.item_name(id), names[id]], TEXT)
-			ly += 13.0
-			if ly > SIZE.y - 24:
-				break
+			var t := "%d" % s.count
+			var p := c + Vector2(-_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x / 2.0, 12)
+			_text(p + Vector2(1, 1), t, INK)
+			_text(p, t, TEXT_LIGHT)
+	return hovered
 
-	# --- Crafting (right).
-	var cx := 160.0
-	draw_rect(Rect2(cx - 8, 12, 1, SIZE.y - 38), FRAME_DARK)
-	_text(Vector2(cx, 24), "CRAFTING", GOLD)
+
+func _draw_crafting(player: Player) -> String:
+	var inv := player.inventory
 	var stations := player.nearby_stations()
-	var near := "Near: " + (", ".join(stations) if not stations.is_empty() else "nothing")
-	var nw := _font.get_string_size(near, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	_text(Vector2(SIZE.x - 14 - nw, 24), near, DIM)
-	draw_rect(Rect2(cx, 28, SIZE.x - cx - 14, 1), FRAME_LIGHT)
 	for i in ItemCatalog.RECIPES.size():
 		var rec: Dictionary = ItemCatalog.RECIPES[i]
-		var y := 34.0 + i * 18.0
 		var ok := Crafting.can_craft(inv, rec, stations)
-		var row_r := Rect2(cx, y, SIZE.x - cx - 14, 17)
-		_bevel_box(row_r, Color8(64, 50, 42) if ok else SLOT_BG, INK, FRAME_DARK)
-		_draw_item_icon(Rect2(cx + 1, y + 1, 15, 15), rec.id)
-		_text(Vector2(cx + 20, y + 13), "%d" % ((i + 1) % 10), GOLD if ok else DIM)
+		var r := _row_rect(i)
+		_box(r, CREAM if ok else TAN, GOLD if i == _hover else BROWN, 3)
+		_icon(r.position + Vector2(10, 8.5), rec.id, 5)
+		_text(r.position + Vector2(20, 13), "%d" % ((i + 1) % 10), BROWN)
 		var label := ItemCatalog.item_name(rec.id)
 		if rec.out > 1:
 			label += " x%d" % rec.out
-		_text(Vector2(cx + 32, y + 13), label, TEXT if ok else DIM)
-		var cx_end := row_r.end.x - 4
+		_text(r.position + Vector2(32, 13), label, TEXT_DARK if ok else FADED)
+		var ex := r.end.x - 5
 		for k in rec["in"].keys():
 			var amount := "%d" % rec["in"][k]
 			var aw := _font.get_string_size(amount, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			_text(Vector2(cx_end - aw, y + 13), amount, OK if ok else DIM)
-			var ir := Rect2(cx_end - aw - 9, y + 5, 8, 8)
-			var icol: Color = ItemCatalog.ITEMS[k].color
-			draw_rect(ir, icol)
-			draw_rect(ir, INK, false)
-			cx_end -= aw + 14
+			_text(Vector2(ex - aw, r.position.y + 13), amount, OK if ok else FADED)
+			_icon(Vector2(ex - aw - 6, r.position.y + 8.5), k, 3)
+			ex -= aw + 16
 		if rec.station != "":
 			var tag := "bench" if rec.station == "workbench" else "fire"
 			var tw := _font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			_text(Vector2(cx_end - tw - 2, y + 13), tag, GOLD if ok else DIM)
+			_text(Vector2(ex - tw, r.position.y + 13), tag, BROWN if ok else FADED)
+	return ItemCatalog.RECIPES[_hover].id if _hover >= 0 else ""
 
-	_text(Vector2(14, SIZE.y - 11), "[I] close   [1-0] craft", DIM)
+
+func _draw_card(id: String, extra: String) -> void:
+	_box(CARD, CREAM, BROWN, 2)
+	var ly := CARD.position.y + 44
+	while ly < CARD.end.y - 6:
+		draw_rect(Rect2(CARD.position.x + 6, ly, CARD.size.x - 12, 1), TAN)
+		ly += 13
+	if id == "":
+		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 16, -1, FADED)
+		return
+	_text_center(CARD.get_center().x, CARD.position.y + 16, ItemCatalog.item_name(id), TEXT_DARK)
+	draw_rect(Rect2(CARD.position.x + 8, CARD.position.y + 21, CARD.size.x - 16, 1), BROWN)
+	var body := ItemCatalog.description(id)
+	if extra != "":
+		body += "\n" + extra
+	draw_multiline_string(_font, CARD.position + Vector2(8, 38), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 16, -1, TEXT_DARK)

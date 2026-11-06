@@ -32,6 +32,26 @@ const RECIPES := [
 ]
 
 
+const DESC := {
+	"wood": "Rough logs from the Clearing's trees.",
+	"stone": "Grey stone. Good for tools and benches.",
+	"plank": "Cut planks. Used for all building.",
+	"stick": "Sturdy sticks for handles.",
+	"torch": "Lights the way in the dark.",
+	"stone_axe": "Chops trees faster.",
+	"stone_pickaxe": "Mines rocks faster.",
+	"wooden_wall": "Place with B. Blocks the way.",
+	"wooden_floor": "Place with B. Walkable.",
+	"workbench": "Place with B. Unlocks crafting.",
+	"chest": "Place with B. Opens the Stash (G).",
+	"wooden_door": "Place with B. F opens/closes.",
+}
+
+
+static func description(id: String) -> String:
+	return DESC.get(id, "")
+
+
 static func item_name(id: String) -> String:
 	return ITEMS[id].name
 
