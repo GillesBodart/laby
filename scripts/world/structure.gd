@@ -26,7 +26,7 @@ func _ready() -> void:
 	if def.group != "":
 		add_to_group(def.group)
 	var shape := RectangleShape2D.new()
-	shape.size = Vector2(16, 16)
+	shape.size = Vector2(32, 32)
 	_collision.shape = shape
 	add_child(_collision)
 	add_child(_sprite)

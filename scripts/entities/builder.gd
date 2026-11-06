@@ -3,7 +3,7 @@ extends Node2D
 ## Local build mode: B toggles, Q cycles the structure, F places (or toggles a
 ## door), X removes the targeted structure and refunds its item.
 
-const REACH := 14.0
+const REACH := 28.0
 
 var player: Player
 var active := false
@@ -40,7 +40,7 @@ func selected_item() -> String:
 
 
 func target_cell() -> Vector2i:
-	var probe := player.global_position + Vector2(0, -4) + player.facing * REACH
+	var probe := player.global_position + Vector2(0, -8) + player.facing * REACH
 	return Vector2i(floori(probe.x / TileCatalog.TILE_SIZE), floori(probe.y / TileCatalog.TILE_SIZE))
 
 

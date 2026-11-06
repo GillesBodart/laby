@@ -5,7 +5,7 @@ extends RefCounted
 ## TileSet factory and the world generator.
 
 const TEXTURE_PATH := "res://assets/tilesets/clearing_tiles.png"
-const TILE_SIZE := 16
+const TILE_SIZE := 32
 const ATLAS_COLUMNS := 8
 const ATLAS_ROWS := 2
 

@@ -14,6 +14,11 @@ var _notice_tween: Tween
 
 
 func _ready() -> void:
+	# UI is laid out for 480x270 and drawn at 2x on the 960x540 viewport.
+	scale = Vector2(2, 2)
+	notice.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	notice.position = Vector2(40, 246)
+	notice.size = Vector2(400, 16)
 	_sun.atlas = ICONS
 	_sun.region = Rect2(0, 0, 9, 9)
 	_moon.atlas = ICONS

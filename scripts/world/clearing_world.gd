@@ -180,7 +180,7 @@ func pixel_size() -> Vector2i:
 ## World position of the bottom-center "feet" point of a cell (y-sort anchor).
 static func cell_to_feet(cell: Vector2i) -> Vector2:
 	var t := TileCatalog.TILE_SIZE
-	return Vector2(cell.x * t + t / 2.0, cell.y * t + t - 2.0)
+	return Vector2(cell.x * t + t / 2.0, cell.y * t + t - 4.0)
 
 
 static func cell_center(cell: Vector2i) -> Vector2:

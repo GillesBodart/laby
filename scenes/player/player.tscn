@@ -6,7 +6,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/light_banded.tres" id="4_light"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_feet"]
-size = Vector2(8, 5)
+size = Vector2(16, 10)
 
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 2
@@ -14,22 +14,22 @@ motion_mode = 1
 script = ExtResource("1_player")
 
 [node name="Shadow" type="Sprite2D" parent="."]
-position = Vector2(0, -1)
+position = Vector2(0, -2)
 texture = ExtResource("3_shadow")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="."]
-position = Vector2(0, -8)
+position = Vector2(0, -16)
 
 [node name="Collision" type="CollisionShape2D" parent="."]
-position = Vector2(0, -2)
+position = Vector2(0, -4)
 shape = SubResource("RectangleShape2D_feet")
 
 [node name="Light" type="PointLight2D" parent="."]
-position = Vector2(0, -6)
+position = Vector2(0, -12)
 color = Color(0.78, 0.84, 1, 1)
 energy = 0.0
 texture = ExtResource("4_light")
-texture_scale = 0.9
+texture_scale = 1.8
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource("2_input")

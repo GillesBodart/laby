@@ -2,7 +2,7 @@ extends PanelContainer
 ## Stash chest panel (G near a chest). 1 = deposit materials, 2 = withdraw all.
 ## Tools and placeable items are kept in the backpack when depositing.
 
-const REACH := 40.0
+const REACH := 80.0
 
 var _label := Label.new()
 

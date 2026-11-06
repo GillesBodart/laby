@@ -25,13 +25,13 @@ DebugTools="*res://autoload/debug_tools.gd"
 
 [display]
 
-window/size/viewport_width=480
-window/size/viewport_height=270
+window/size/viewport_width=960
+window/size/viewport_height=540
 window/size/window_width_override=1440
 window/size/window_height_override=810
 window/stretch/mode="viewport"
 window/stretch/aspect="keep"
-window/stretch/scale_mode="integer"
+window/stretch/scale_mode="fractional"
 
 [gui]
 

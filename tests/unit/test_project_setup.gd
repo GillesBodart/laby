@@ -9,9 +9,9 @@ func test_input_actions_exist() -> void:
 
 
 func test_pixel_perfect_settings() -> void:
-	check_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 480, "viewport width")
-	check_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 270, "viewport height")
-	check_eq(ProjectSettings.get_setting("display/window/stretch/scale_mode"), "integer", "integer scaling")
+	check_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 960, "viewport width")
+	check_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 540, "viewport height")
+	check_eq(ProjectSettings.get_setting("display/window/stretch/scale_mode"), "fractional", "fractional scaling")
 	check_eq(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter"), 0, "nearest filter")
 
 

@@ -13,7 +13,7 @@ var _time := 0.0
 
 func _ready() -> void:
 	add_to_group("campfire")
-	sprite.sprite_frames = SpriteFramesBuilder.build(SHEET, Vector2i(16, 16), {
+	sprite.sprite_frames = SpriteFramesBuilder.build(SHEET, Vector2i(32, 32), {
 		"burn": {"row": 0, "frames": [0, 1, 2], "fps": 7.0},
 	})
 	sprite.play("burn")

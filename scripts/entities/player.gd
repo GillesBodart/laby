@@ -5,12 +5,12 @@ extends CharacterBody2D
 
 enum State { IDLE, MOVE }
 
-const WALK_SPEED := 72.0
-const RUN_SPEED := 115.0
-const ACCELERATION := 900.0
-const FRICTION := 1200.0
+const WALK_SPEED := 144.0
+const RUN_SPEED := 230.0
+const ACCELERATION := 1800.0
+const FRICTION := 2400.0
 const SHEET := preload("res://assets/sprites/player.png")
-const FRAME_SIZE := Vector2i(16, 16)
+const FRAME_SIZE := Vector2i(32, 32)
 const ANIMATIONS := {
 	"idle_down": {"row": 0, "frames": [0], "fps": 1.0},
 	"walk_down": {"row": 0, "frames": [1, 0, 2, 0], "fps": 8.0},
@@ -20,8 +20,8 @@ const ANIMATIONS := {
 	"walk_side": {"row": 2, "frames": [1, 0, 2, 0], "fps": 8.0},
 }
 
-const REACH := 18.0
-const STATION_RANGE := 56.0
+const REACH := 36.0
+const STATION_RANGE := 112.0
 const GATHER_COOLDOWN := 0.4
 
 @export var peer_id: int = GameState.OFFLINE_PEER_ID
@@ -87,11 +87,11 @@ func _try_gather() -> void:
 
 ## Nearest harvestable prop within reach in front of the player.
 func find_gatherable() -> Gatherable:
-	var probe := global_position + Vector2(0, -4) + facing * 8.0
+	var probe := global_position + Vector2(0, -8) + facing * 16.0
 	var best: Gatherable = null
 	var best_d := REACH
 	for node in get_tree().get_nodes_in_group("gatherable"):
-		var d := probe.distance_to(node.global_position + Vector2(0, -3))
+		var d := probe.distance_to(node.global_position + Vector2(0, -6))
 		if d < best_d:
 			best_d = d
 			best = node
