@@ -298,7 +298,7 @@ func _attack() -> void:
 			node.take_damage(weapon_damage(), self)
 
 
-## Shoots the ranged weapon toward the facing direction. Bows use the best
+## Shoots the ranged weapon toward the mouse (or the facing direction). Bows use the best
 ## arrow in the backpack; returns false (melee bash instead) when out of arrows.
 func _fire(kind: String) -> bool:
 	var dmg := weapon_damage()
@@ -313,8 +313,10 @@ func _fire(kind: String) -> bool:
 		inventory.remove(best, 1)
 		dmg += ItemCatalog.arrow_of(best)
 	_attack_timer = ATTACK_COOLDOWN * 1.4
-	var from := global_position + Vector2(0, -10) + facing * 6.0
-	Projectile.fire(get_parent(), from, facing, kind, 260.0 if kind == "arrow" else 220.0, dmg, "player", self)
+	var dir := input.aim_dir if input.aim_dir != Vector2.ZERO else facing
+	facing = _cardinal(dir)
+	var from := global_position + Vector2(0, -10) + dir * 6.0
+	Projectile.fire(get_parent(), from, dir, kind, 260.0 if kind == "arrow" else 220.0, dmg, "player", self)
 	return true
 
 

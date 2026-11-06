@@ -8,6 +8,10 @@ var move_vector := Vector2.ZERO
 var run := false
 var interact := false
 var attack := false
+## Direction from the player towards the mouse (ZERO until the mouse is used,
+## then shots follow the cursor instead of the facing direction).
+var aim_dir := Vector2.ZERO
+var _mouse_used := false
 
 
 func is_local() -> bool:
@@ -21,3 +25,11 @@ func _physics_process(_delta: float) -> void:
 	run = Input.is_action_pressed("run")
 	interact = Input.is_action_pressed("interact")
 	attack = Input.is_action_pressed("attack")
+	var body := get_parent() as Node2D
+	if _mouse_used and body:
+		aim_dir = (body.get_global_mouse_position() - body.global_position - Vector2(0, -10)).normalized()
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and is_local():
+		_mouse_used = true

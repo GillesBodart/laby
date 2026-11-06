@@ -174,3 +174,21 @@ func test_player_kills_enemy_and_enemy_hurts_player() -> void:
 	check(not is_instance_valid(enemy) or enemy.is_queued_for_deletion(), "enemy killed")
 	check(player.survival.xp > xp_before or player.survival.level > 1, "xp gained")
 	world.free()
+
+
+func test_bow_shoots_toward_the_aim() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	player.inventory.add("short_bow", 1)
+	player.equipment.equip(player.inventory, "short_bow")
+	player.inventory.add("flint_arrow", 2)
+	player.facing = Vector2.UP
+	player.input.aim_dir = Vector2(3, 1).normalized()
+	check(player._fire("arrow"), "arrow fired")
+	var shot: Projectile = null
+	for n in player.get_parent().get_children():
+		if n is Projectile:
+			shot = n
+	check(shot != null and shot.velocity.normalized().is_equal_approx(Vector2(3, 1).normalized()), "flies toward the mouse")
+	check_eq(player.facing, Vector2.RIGHT, "player turns toward the shot")
+	world.free()
