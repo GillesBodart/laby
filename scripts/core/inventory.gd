@@ -4,7 +4,7 @@ extends RefCounted
 
 signal changed
 
-const DEFAULT_SLOTS := 20
+const DEFAULT_SLOTS := 30
 
 var slots: Array = [] # each: {} or {"id": String, "count": int}
 

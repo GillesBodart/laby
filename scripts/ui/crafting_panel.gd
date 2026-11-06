@@ -3,8 +3,8 @@ extends PanelContainer
 ## backpack with an item note card, and a recipe book (click a recipe to craft, wheel to scroll).
 
 const SIZE := Vector2(480, 270)
-const COLS := 5
-const PITCH := Vector2(52, 40)
+const COLS := 6
+const PITCH := Vector2(50, 34)
 const DIAMOND := 18
 const PANEL := Rect2(44, 36, 320, 196)
 const CARD := Rect2(372, 56, 100, 150)
