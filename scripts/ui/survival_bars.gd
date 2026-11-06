@@ -47,6 +47,23 @@ func _draw() -> void:
 	var y := PANEL.position.y + 4.0 + 3 * 14.0
 	draw_string(_font, Vector2(PANEL.position.x + 4, y + 9), "Lv%d" % s.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT)
 	_bar(Vector2(PANEL.position.x + BAR_X, y + 2), float(s.xp) / Survival.xp_for_level(s.level), Color8(118, 150, 230))
+	_draw_prompt(player)
+
+
+## "[E] Recover your remains" above the notices when something usable is in reach.
+func _draw_prompt(player: Player) -> void:
+	for p in get_tree().get_nodes_in_group("ui_panels"):
+		if p.visible:
+			return
+	var thing := player.find_interactable()
+	if thing == null or not thing.has_method("interact_hint"):
+		return
+	var text := "[%s] %s" % [KeyBindings.key_label(KeyBindings.key_of("interact")), thing.interact_hint()]
+	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0
+	var r := Rect2(240.0 - w / 2.0, 222, w, 15)
+	draw_rect(r, BG)
+	draw_rect(r, EDGE, false)
+	draw_string(_font, Vector2(r.position.x + 5, r.position.y + 11), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT)
 
 
 func _bar(pos: Vector2, fraction: float, color: Color) -> void:

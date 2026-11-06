@@ -33,6 +33,7 @@ func collect() -> Dictionary:
 		"stash": GameState.stash.to_data(),
 		"fog": GameState.fog_to_data(),
 		"time": TimeSystem.get_save_data(),
+		"meta": GameState.meta_to_data(),
 		"nodes": nodes,
 	}
 
@@ -80,6 +81,7 @@ func load_game(slot: int = 0) -> bool:
 	GameState.structures = {}
 	GameState.stash.load_data(data.get("stash", []))
 	GameState.fog_from_data(data.get("fog", {}))
+	GameState.meta_from_data(data.get("meta", {}))
 	GameState.pending_save = data
 	TimeSystem.load_save_data(data.time)
 	get_tree().change_scene_to_file(GameState.area_scene())

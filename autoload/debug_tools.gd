@@ -14,6 +14,7 @@ extends Node
 ##     --spawn=<id>,<id>...     place creatures in a ring around the player
 ##     --swing=<dir>[,<item>[,<sec>]]  swing a tool facing up/down/left/right;
 ##                              with <sec>, freeze the pose that many seconds in
+##     --die                    die with a full pack, then stand at the remains
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -48,6 +49,8 @@ func _ready() -> void:
 		_spawn.call_deferred(_args.spawn)
 	if _args.has("farm"):
 		_farm.call_deferred(_args.farm)
+	if _args.has("die"):
+		_die.call_deferred()
 	if _args.has("swing"):
 		_swing_loop.call_deferred(_args.swing)
 	if _args.has("screenshot"):
@@ -110,6 +113,23 @@ func _farm(list: String) -> void:
 			for s in get_tree().get_nodes_in_group("farm_plot"):
 				if s.cell == cell:
 					s.farm_interact(p)
+
+
+## --die: the player falls with a full pack, then faces the remains.
+func _die() -> void:
+	await get_tree().create_timer(0.4).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p == null:
+		return
+	for id in ["wood", "stone", "berry", "fiber", "stone_axe"]:
+		p.inventory.add(id, 5)
+	p.global_position += Vector2(48, 0)
+	p.survival.damage(9999.0)
+	await get_tree().create_timer(0.3).timeout
+	var piles := get_tree().get_nodes_in_group("remains")
+	if not piles.is_empty():
+		p.global_position = piles[0].global_position + Vector2(0, 30)
+		p.facing = Vector2.UP
 
 
 ## --swing: repeats the tool swing (for checking the animation in screenshots).

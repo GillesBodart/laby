@@ -15,6 +15,7 @@ extends RefCounted
 ##   ranged - projectile fired by a weapon ("arrow" uses arrows from the backpack, "bolt" is free)
 ##   arrow  - bonus damage of an arrow (ammunition, not equippable)
 ##   block  - % chance for a shield (offhand) to stop a hit completely
+##   bound  - never lost on death (Keys, Relics)
 
 const ITEMS := {
 	# --- raw resources
@@ -620,6 +621,11 @@ static func ranged_of(id: String) -> String:
 ## Bonus damage of an arrow (0 = not ammunition).
 static func arrow_of(id: String) -> int:
 	return ITEMS.get(id, {}).get("arrow", 0)
+
+
+## Bound items (Keys, Relics) are never lost on death.
+static func is_bound(id: String) -> bool:
+	return ITEMS.get(id, {}).get("bound", false)
 
 
 ## Equipment slot the item goes into ("" = not equippable).

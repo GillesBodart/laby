@@ -237,7 +237,15 @@ func gain_xp(amount: int) -> void:
 
 
 func _on_died() -> void:
-	EventBus.notify.emit("You collapsed... and wake up at the camp.")
+	var lost := inventory.strip_for_death(survival.insured_slots())
+	if lost.is_empty():
+		EventBus.notify.emit("You collapsed... and wake up at the camp.")
+	else:
+		var entry := GameState.add_remains(GameState.area, global_position, lost)
+		var here := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+		if here != null and GameState.area == "clearing":
+			here.spawn_remains(entry)
+		EventBus.notify.emit("You collapsed... your pack lies where you fell.")
 	survival.revive()
 	effects.clear()
 	velocity = Vector2.ZERO
@@ -350,6 +358,11 @@ func _draw() -> void:
 
 
 func _try_gather(pressed := false) -> void:
+	var thing := find_interactable() if pressed else null
+	if thing:
+		_gather_timer = 0.3
+		thing.interact(self)
+		return
 	var target := find_gatherable()
 	if target:
 		_gather_timer = GATHER_COOLDOWN
@@ -389,6 +402,21 @@ func find_station() -> String:
 			if d < best_d:
 				best_d = d
 				best = group
+	return best
+
+
+## Nearest node of the "interactable" group in reach (remains, wells, NPCs...).
+func find_interactable() -> Node2D:
+	var probe := global_position + Vector2(0, -6) + facing * PROBE
+	var best: Node2D = null
+	var best_d := REACH
+	for node in get_tree().get_nodes_in_group("interactable"):
+		if node.has_method("can_interact") and not node.can_interact(self):
+			continue
+		var d := _dist_to_tile(probe, node.global_position + Vector2(0, -8))
+		if d < best_d:
+			best_d = d
+			best = node
 	return best
 
 

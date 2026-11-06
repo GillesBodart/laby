@@ -23,7 +23,8 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M10b Categorised items: tools, weapons, ammo, armor, accessories, medicine, food, stations, building, materials, creature parts, resources. Recipe books grouped by category with filter chips; backpack **SORT** button merges stacks and orders by category | ✅ |
 | M10c Ground polish: smooth seamless 256px grass textures, organic dirt paths with soft noisy borders (procedural soil, no tile grid), ponds (solid water, mud banks, lily pads) with reeds growing only on their banks, flat clay/sand patches drawn under walkers, creatures scaled to believable sizes (hare 14px to treant 48px), fixed downward tool swing | ✅ |
 | M10d Discovery + crops: recipes appear once you have found any of their ingredients ("N undiscovered" counter, saved per player), E on an empty farm plot opens a seed picker with 13 crops (berries, blueberries, wheat, carrot, potato, herb, cotton, flower, reed, mushroom, glowcap, apple tree, shadow orchid), each with its own growth time, yield and art; tighter interaction reach; fixed the shadow drifting after a swing | ✅ |
-| M11 | Next: taming |
+| M11 Death rules: dying drops your non-insured backpack into a remains pile at the spot (saved; walk back and press **E** to recover it). Strength (10 + level + Brawn) insures 1 slot per 10 points (green padlocked slots, kept by SORT); bound items (keys, relics) are never lost | ✅ |
+| M12 | Next: thirst & temperature |
 
 ## Run
 
@@ -36,7 +37,7 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 
 Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book, on an empty farm plot to pick a seed (click or 1-9), on a ripe one to harvest · **Space** attack (bows shoot toward the mouse cursor once it has moved, otherwise straight ahead) · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls, category chips filter the book, SORT tidies the backpack) · **H** drink / use a potion · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **E** / **G** on a chest opens the Stash window (click a stack to move it across, right-click moves one, 1 stores materials, 2 takes all) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, quit). Keys listed are defaults.
 
-Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--give [--panel] [--sort] [--station=anvil]`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--screenshot=out.png --screenshot-frames=60`.
+Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--give [--panel] [--sort] [--station=anvil]`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--die` (die with a full pack and stand at the remains), `--screenshot=out.png --screenshot-frames=60`.
 
 ## Architecture
 

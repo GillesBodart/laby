@@ -15,6 +15,7 @@ const SUITES := [
 	"res://tests/unit/test_key_bindings.gd",
 	"res://tests/integration/test_world.gd",
 	"res://tests/integration/test_building.gd",
+	"res://tests/integration/test_roadmap.gd",
 ]
 
 
@@ -25,7 +26,13 @@ func _ready() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var total := 0
+	var only := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--suite="):
+			only = arg.substr(8)
 	for path in SUITES:
+		if only != "" and not path.contains(only):
+			continue
 		var suite: TestCase = load(path).new()
 		var count: int = await suite.run_all()
 		total += count

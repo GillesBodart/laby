@@ -85,6 +85,37 @@ func build(new_layout: ClearingLayout) -> void:
 		entities.add_child(enemy)
 	gates.setup(walls, layout.gates)
 	_spawn_structures()
+	for entry in GameState.remains:
+		if entry.area == GameState.area:
+			spawn_remains(entry)
+
+
+## Shows a GameState.remains entry; piles buried by moved walls are pushed
+## to the nearest open cell.
+func spawn_remains(entry: Dictionary) -> Remains:
+	var cell := walls.local_to_map(Vector2(entry.pos[0], entry.pos[1]))
+	if layout.is_wall(cell) or layout.get_ground(cell) == TileCatalog.Id.WATER:
+		cell = nearest_open_cell(cell)
+		var p := cell_to_feet(cell)
+		entry.pos = [p.x, p.y]
+	var r := Remains.create(entry)
+	entities.add_child(r)
+	return r
+
+
+## Closest walkable cell to `from` (spiral search).
+func nearest_open_cell(from: Vector2i) -> Vector2i:
+	for radius in range(1, 40):
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if maxi(absi(dx), absi(dy)) != radius:
+					continue
+				var c := from + Vector2i(dx, dy)
+				if c.x < 0 or c.y < 0 or c.x >= layout.size.x or c.y >= layout.size.y:
+					continue
+				if not layout.is_wall(c) and layout.get_ground(c) != TileCatalog.Id.WATER and layout.get_ground(c) != TileCatalog.Id.VOID:
+					return c
+	return from
 
 
 func _build_dirt() -> void:
@@ -220,7 +251,7 @@ func get_save_data() -> Dictionary:
 	var built: Array = []
 	for c in GameState.structures:
 		var d: Dictionary = GameState.structures[c]
-		built.append({"cell": [c.x, c.y], "type": d.type, "open": d.open, "planted": d.get("planted", Farming.NOT_PLANTED)})
+		built.append({"cell": [c.x, c.y], "type": d.type, "open": d.open, "planted": d.get("planted", Farming.NOT_PLANTED), "crop": d.get("crop", Farming.DEFAULT_CROP)})
 	return {"depleted": cells, "structures": built}
 
 
@@ -234,7 +265,7 @@ func load_save_data(data: Dictionary) -> void:
 	GameState.structures = {}
 	for d in data.get("structures", []):
 		if BuildCatalog.TYPES.has(d.type):
-			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = {"type": String(d.type), "open": bool(d.open), "planted": float(d.get("planted", Farming.NOT_PLANTED))}
+			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = {"type": String(d.type), "open": bool(d.open), "planted": float(d.get("planted", Farming.NOT_PLANTED)), "crop": String(d.get("crop", Farming.DEFAULT_CROP))}
 	_spawn_structures()
 
 

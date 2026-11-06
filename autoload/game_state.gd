@@ -35,6 +35,8 @@ var depleted_cells: Dictionary = {}
 var structures: Dictionary = {}
 ## Shared Stash (chest storage): never lost on death (see design spec).
 var stash := Inventory.new(STASH_SLOTS)
+## Dropped backpacks: [{"area": String, "pos": [x, y], "items": Array}].
+var remains: Array = []
 
 
 func _ready() -> void:
@@ -59,6 +61,25 @@ func new_game(seed_value: int = 0) -> void:
 	depleted_cells = {}
 	structures = {}
 	stash = Inventory.new(STASH_SLOTS)
+	remains = []
+
+
+## Progress data that lives outside the scene tree (saved by SaveSystem).
+func meta_to_data() -> Dictionary:
+	return {"remains": remains.duplicate(true)}
+
+
+func meta_from_data(data: Dictionary) -> void:
+	remains = []
+	for r in data.get("remains", []):
+		remains.append({"area": String(r.area), "pos": [float(r.pos[0]), float(r.pos[1])], "items": Array(r.items)})
+
+
+## Leaves a lootable pile of items where a player fell.
+func add_remains(area_name: String, pos: Vector2, items: Array) -> Dictionary:
+	var entry := {"area": area_name, "pos": [pos.x, pos.y], "items": items}
+	remains.append(entry)
+	return entry
 
 
 func fog_for(area_name: String, size: Vector2i) -> FogMap:

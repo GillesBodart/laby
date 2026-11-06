@@ -191,7 +191,7 @@ func _known() -> Dictionary:
 func sort_backpack() -> void:
 	var player := _player()
 	if player != null:
-		player.inventory.sort()
+		player.inventory.sort(player.survival.insured_slots())
 		EventBus.notify.emit("Backpack sorted")
 
 
@@ -435,8 +435,11 @@ func _draw_backpack(player: Player) -> String:
 		var c := _slot_center(i)
 		var s: Dictionary = inv.slots[i]
 		var selected := i == _hover
-		_diamond(c, DIAMOND, CREAM, GOLD if selected else BROWN)
-		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else TAN, BROWN)
+		var insured := i < player.survival.insured_slots()
+		_diamond(c, DIAMOND, CREAM, GOLD if selected else (OK if insured else BROWN))
+		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else (Color8(196, 214, 150) if insured else TAN), BROWN)
+		if insured:
+			_padlock(c + Vector2(-11, -12))
 		if s.is_empty():
 			continue
 		_icon(c + Vector2(0, -1), s.id)
@@ -448,6 +451,13 @@ func _draw_backpack(player: Player) -> String:
 			draw_string(_font, p + Vector2(1, 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
 			draw_string(_font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, TEXT_LIGHT)
 	return hovered
+
+
+## Tiny padlock marking an insured slot (kept on death).
+func _padlock(p: Vector2) -> void:
+	draw_arc(p + Vector2(3, 2), 2.0, PI, TAU, 6, INK, 1.5)
+	draw_rect(Rect2(p + Vector2(0, 2), Vector2(6, 5)), INK)
+	draw_rect(Rect2(p + Vector2(1, 3), Vector2(4, 3)), GOLD)
 
 
 ## Paper doll of worn gear plus the resulting stats. Returns the hovered worn item id.
@@ -478,9 +488,10 @@ func _draw_doll(player: Player) -> String:
 		"DEF %d" % player.armor(),
 		"HP %d" % int(player.survival.max_health()),
 		"BLK %d%%" % player.block_chance(),
+		"STR %d (%d safe)" % [player.survival.strength(), player.survival.insured_slots()],
 	]
 	for i in lines.size():
-		draw_string(_font, Vector2(62, 178 + i * 14), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
+		draw_string(_font, Vector2(62, 174 + i * 12), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
 	return hovered
 
 

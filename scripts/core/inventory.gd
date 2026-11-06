@@ -129,9 +129,11 @@ func tool_tier(kind: String) -> int:
 
 
 ## Merges partial stacks and orders slots by category (ItemCatalog.sorts_before).
-func sort() -> void:
+## The first `keep_first` slots (insured ones) are left untouched.
+func sort(keep_first := 0) -> void:
 	var totals := {}
-	for s in slots:
+	for i in range(keep_first, slots.size()):
+		var s: Dictionary = slots[i]
 		if not s.is_empty():
 			totals[s.id] = totals.get(s.id, 0) + int(s.count)
 	var ids: Array = totals.keys()
@@ -144,9 +146,25 @@ func sort() -> void:
 			var n := mini(cap, left)
 			packed.append({"id": id, "count": n})
 			left -= n
-	for i in slots.size():
-		slots[i] = packed[i] if i < packed.size() else {}
+	for i in range(keep_first, slots.size()):
+		var k := i - keep_first
+		slots[i] = packed[k] if k < packed.size() else {}
 	changed.emit()
+
+
+## Death rule: empties every slot except the first `keep_first` (insured) ones
+## and Bound items, returning the lost stacks.
+func strip_for_death(keep_first: int) -> Array:
+	var lost := []
+	for i in range(keep_first, slots.size()):
+		var s: Dictionary = slots[i]
+		if s.is_empty() or ItemCatalog.is_bound(s.id):
+			continue
+		lost.append(s.duplicate())
+		slots[i] = {}
+	if not lost.is_empty():
+		changed.emit()
+	return lost
 
 
 func to_data() -> Array:

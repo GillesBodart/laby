@@ -58,6 +58,16 @@ func max_health() -> float:
 	return MAX_HEALTH + 15.0 * rank("vigor") + bonus_health
 
 
+## Strength characteristic: grows with levels and skills; every 10 points
+## insure one backpack slot (kept on death).
+func strength() -> int:
+	return 10 + (level - 1) + 5 * rank("brawn")
+
+
+func insured_slots() -> int:
+	return mini(strength() / 10, 10)
+
+
 func damage_bonus() -> int:
 	return 3 * rank("might")
 
