@@ -363,6 +363,8 @@ func _try_gather(pressed := false) -> void:
 	var station := find_station()
 	if station != "" and pressed and input.is_local():
 		EventBus.station_used.emit(station)
+	elif pressed and input.is_local() and _chest_in_reach():
+		EventBus.chest_used.emit()
 
 
 func _ui_open() -> bool:
@@ -386,6 +388,14 @@ func find_station() -> String:
 				best_d = d
 				best = group
 	return best
+
+
+func _chest_in_reach() -> bool:
+	var probe := global_position + Vector2(0, -6) + facing * PROBE
+	for node in get_tree().get_nodes_in_group("chest"):
+		if _dist_to_tile(probe, node.global_position) < REACH:
+			return true
+	return false
 
 
 func _find_farm_plot() -> Structure:

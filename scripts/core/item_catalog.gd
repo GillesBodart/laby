@@ -214,7 +214,7 @@ const ITEMS := {
 	"tanning_rack": {"name": "Tanning Rack", "stack": 5, "color": Color8(168, 118, 78), "desc": "Place with B, E to use. Leather and leather gear."},
 	"stonecutter": {"name": "Stonecutter", "stack": 5, "color": Color8(128, 132, 130), "desc": "Place with B, E to use. Stone and brick blocks."},
 	"loom": {"name": "Loom", "stack": 5, "color": Color8(176, 130, 82), "desc": "Place with B, E to use. Cloth, felt, silk and garments."},
-	"alchemy_table": {"name": "Alchemy Table", "stack": 5, "color": Color8(120, 90, 140), "desc": "Place with B, E to use. Potions, gunpowder, glue and dye."},	"chest": {"name": "Chest", "stack": 5, "color": Color8(150, 104, 60), "desc": "Place with B. Opens the Stash (G)."},
+	"alchemy_table": {"name": "Alchemy Table", "stack": 5, "color": Color8(120, 90, 140), "desc": "Place with B, E to use. Potions, gunpowder, glue and dye."},	"chest": {"name": "Chest", "stack": 5, "color": Color8(150, 104, 60), "desc": "Place with B, E (or G) to open. The Stash is shared and kept on death."},
 	"wooden_wall": {"name": "Wooden Wall", "stack": 40, "color": Color8(150, 106, 64), "desc": "Place with B. Blocks the way."},
 	"wooden_floor": {"name": "Wooden Floor", "stack": 40, "color": Color8(190, 146, 92), "desc": "Place with B. Walkable."},
 	"wooden_door": {"name": "Wooden Door", "stack": 10, "color": Color8(130, 92, 58), "desc": "Place with B. F opens/closes."},

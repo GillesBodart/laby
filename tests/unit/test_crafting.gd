@@ -170,3 +170,16 @@ func test_known_items_survive_save() -> void:
 	var legacy := Inventory.new()
 	legacy.load_data([{"id": "stone", "count": 1}])
 	check(legacy.knows("stone"), "old saves: carried items count as discovered")
+
+
+func test_moving_a_slot_between_inventories() -> void:
+	var bag := Inventory.new(4)
+	var chest := Inventory.new(2)
+	bag.add("stone", 10)
+	check_eq(bag.move_to(chest, 0, 1), 1, "right-click moves one")
+	check_eq(bag.move_to(chest, 0, 9999), 9, "click moves the rest of the stack")
+	check(bag.slots[0].is_empty() and chest.count("stone") == 10, "stack now in the chest")
+	chest.add("wood", ItemCatalog.stack_size("wood"))
+	bag.add("coal", 3)
+	check_eq(bag.move_to(chest, 0, 3), 0, "full chest takes nothing")
+	check_eq(bag.count("coal"), 3, "coal kept")

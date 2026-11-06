@@ -38,7 +38,7 @@ func _ready() -> void:
 	var skills_panel := Control.new()
 	skills_panel.set_script(preload("res://scripts/ui/skills_panel.gd"))
 	add_child(skills_panel)
-	var stash_panel := PanelContainer.new()
+	var stash_panel := Control.new()
 	stash_panel.set_script(preload("res://scripts/ui/stash_panel.gd"))
 	add_child(stash_panel)
 	var seed_panel := Control.new()

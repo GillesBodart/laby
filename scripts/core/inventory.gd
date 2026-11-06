@@ -90,6 +90,28 @@ func remove(id: String, amount: int) -> bool:
 	return true
 
 
+## Takes up to `amount` items out of slot `index`; returns how many were taken.
+func take(index: int, amount: int) -> int:
+	if index < 0 or index >= slots.size() or slots[index].is_empty():
+		return 0
+	var n := mini(amount, int(slots[index].count))
+	slots[index].count -= n
+	if slots[index].count == 0:
+		slots[index] = {}
+	changed.emit()
+	return n
+
+
+## Moves up to `amount` items of slot `index` into `target`; returns how many moved.
+func move_to(target: RefCounted, index: int, amount: int) -> int:
+	if index < 0 or index >= slots.size() or slots[index].is_empty():
+		return 0
+	var id: String = slots[index].id
+	var n := mini(amount, int(slots[index].count))
+	var moved: int = n - target.add(id, n)
+	return take(index, moved)
+
+
 func has_tool(kind: String) -> bool:
 	for s in slots:
 		if not s.is_empty() and ItemCatalog.tool_of(s.id) == kind:

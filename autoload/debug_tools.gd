@@ -54,7 +54,8 @@ func _ready() -> void:
 		_capture.call_deferred(_args.screenshot, int(_args.get("screenshot-frames", "30")))
 
 
-## --give: fills the backpack with sample items; with --panel also opens it.
+## --give: fills the backpack with sample items; with --panel also opens it,
+## with --chest places a chest holding a few stacks and opens it.
 func _give() -> void:
 	await get_tree().create_timer(0.3).timeout
 	var p: Player = GameState.players.get(GameState.local_peer_id())
@@ -67,7 +68,15 @@ func _give() -> void:
 		p.equipment.equip(p.inventory, id)
 	if _args.has("sort"):
 		p.inventory.sort()
-	if _args.has("station"):
+	if _args.has("chest"):
+		for id in ["stone", "wood", "coal", "berry", "wheat", "bone"]:
+			if ItemCatalog.ITEMS.has(id):
+				GameState.stash.add(id, 12)
+		var clearing := get_tree().current_scene.get_node_or_null("Clearing") as ClearingWorld
+		if clearing:
+			clearing.place_structure(clearing.walls.local_to_map(clearing.walls.to_local(p.global_position)) + Vector2i(1, 0), "chest")
+		EventBus.chest_used.emit()
+	elif _args.has("station"):
 		EventBus.station_used.emit(_args.station)
 	elif _args.has("panel"):
 		var ev := InputEventAction.new()
