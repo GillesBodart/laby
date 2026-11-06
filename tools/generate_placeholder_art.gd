@@ -15,16 +15,16 @@ const C := {
 	"outline": Color8(24, 22, 32),
 	"void": Color8(14, 16, 22),
 	"grass": Color8(84, 146, 60),
-	"grass_dark": Color8(58, 112, 48),
+	"grass_dark": Color8(70, 130, 54),
 	"grass_deep": Color8(44, 90, 42),
-	"grass_light": Color8(120, 176, 78),
+	"grass_light": Color8(98, 160, 68),
 	"flower_y": Color8(244, 212, 92),
 	"flower_w": Color8(240, 236, 220),
 	"flower_r": Color8(214, 84, 76),
 	"dirt": Color8(140, 108, 70),
-	"dirt_dark": Color8(106, 80, 52),
+	"dirt_dark": Color8(124, 94, 62),
 	"dirt_deep": Color8(84, 62, 42),
-	"dirt_light": Color8(170, 134, 90),
+	"dirt_light": Color8(154, 120, 80),
 	"stone": Color8(70, 80, 78),
 	"stone_dark": Color8(44, 51, 52),
 	"stone_light": Color8(90, 102, 98),
@@ -285,25 +285,21 @@ func _paint_grass(img: Image, variant: int) -> void:
 	var bias := -0.07 if variant == 1 else 0.0
 	for y in T:
 		for x in T:
-			var n := _tnoise(x, y, 8, 11) * 0.55 + _tnoise(x, y, 4, 12) * 0.3 + _hash(x, y, 13) * 0.15 + bias
+			var n := _tnoise(x, y, 16, 11) * 0.6 + _tnoise(x, y, 8, 12) * 0.35 + _hash(x, y, 13) * 0.05 + bias
 			var col: Color = C.grass
-			if n < 0.33:
+			if n < 0.2:
 				col = C.grass_deep
-			elif n < 0.45:
+			elif n < 0.36:
 				col = C.grass_dark
 			elif n > 0.74:
 				col = C.grass_light
 			img.set_pixel(x, y, col)
 	# Grass blades: a bright tip over a dark root.
-	for i in 22:
+	for i in 7:
 		var x := rng.randi_range(0, T - 1)
 		var y := rng.randi_range(2, T - 1)
-		_wpx(img, x, y, C.grass_deep)
+		_wpx(img, x, y, C.grass_dark)
 		_wpx(img, x, y - 1, C.grass_light)
-		_wpx(img, x, y - 2, C.grass_light)
-		if i % 3 == 0:
-			_wpx(img, x + 1, y - 2, C.grass_light)
-			_wpx(img, x - 1, y - 1, C.grass)
 	if variant == 2:
 		for i in 6:
 			var x := rng.randi_range(3, T - 4)
@@ -319,7 +315,7 @@ func _paint_grass(img: Image, variant: int) -> void:
 func _paint_dirt(img: Image) -> void:
 	for y in T:
 		for x in T:
-			var n := _tnoise(x, y, 8, 21) * 0.6 + _tnoise(x, y, 4, 22) * 0.25 + _hash(x, y, 23) * 0.15
+			var n := _tnoise(x, y, 16, 21) * 0.65 + _tnoise(x, y, 8, 22) * 0.3 + _hash(x, y, 23) * 0.05
 			var col: Color = C.dirt
 			if n < 0.36:
 				col = C.dirt_dark
@@ -328,14 +324,14 @@ func _paint_dirt(img: Image) -> void:
 			elif n > 0.72:
 				col = C.dirt_light
 			img.set_pixel(x, y, col)
-	for i in 5:
+	for i in 2:
 		var px := rng.randi_range(2, T - 4)
 		var py := rng.randi_range(2, T - 4)
 		_wpx(img, px, py + 1, C.dirt_deep)
 		_wpx(img, px + 1, py + 1, C.dirt_deep)
 		_wpx(img, px, py, C.rock_light)
 		_wpx(img, px + 1, py, C.rock)
-	for i in 3:
+	for i in 0:
 		var cx := rng.randi_range(0, T - 1)
 		var cy := rng.randi_range(0, T - 1)
 		for j in 5:
@@ -887,7 +883,7 @@ func _planks_h(img: Image, x: int, y: int, w: int, h: int, plank_h: int, seed: i
 					col = C.wood_hi.lightened(tone)
 				elif yy == plank_h - 1:
 					col = C.wood_dark
-				elif n > 0.8:
+				elif n > 0.74:
 					col = C.wood
 				elif n < 0.12:
 					col = C.wood_hi
