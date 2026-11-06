@@ -1232,13 +1232,46 @@ const MAT := {
 
 func _icon_sword(tones: Array) -> Image:
 	var img := _new_image(T, T)
-	_tube(img, Vector2(25, 6), Vector2(12, 19), 4, [tones[1], tones[2], tones[3], tones[4]])
-	_line(img, Vector2(24, 7), Vector2(13, 18), tones[4], 1)
-	_tube(img, Vector2(9, 17), Vector2(17, 25), 2, [C.wood_dark, C.gold, C.gold, C.wood_hi])
-	_tube(img, Vector2(9, 22), Vector2(5, 26), 3, [C.wood_deep, C.wood_dark, C.wood, C.wood_light])
+	var dir := Vector2(1, -1).normalized()
+	var perp := Vector2(1, 1).normalized()
+	var base := Vector2(4.5, 28.5)
+	var grip := [C.wood_deep, C.wood_dark, C.wood, C.wood_light]
+	# Blade, grip, guard and pommel are stamped along the diagonal, one pixel at a time.
+	for i in range(0, 400):
+		var t := i * 0.07
+		var half := 0.0
+		var col: Color = tones[2]
+		if t < 1.6:
+			half = 1.6
+			col = C.gold
+		elif t < 6.5:
+			half = 1.0
+			col = grip[1 + (int(t * 1.5) % 2)]
+		elif t < 8.0:
+			half = 4.6
+			col = C.gold if int(t * 3.0) % 2 == 0 else C.wood_hi
+		elif t < 27.5:
+			half = 2.3 if t < 24.0 else maxf((27.5 - t) * 0.65, 0.0)
+			col = tones[2]
+		else:
+			continue
+		var w := -half
+		while w <= half:
+			var p := base + dir * t + perp * w
+			var shade := col
+			if t >= 8.0:
+				if w < -half * 0.45:
+					shade = tones[4]
+				elif w > half * 0.45:
+					shade = tones[1]
+				elif absf(w) < 0.4:
+					shade = tones[3]
+			elif t >= 6.5:
+				shade = col.darkened(0.25) if w > half * 0.5 else col
+			_px(img, int(p.x), int(p.y), shade)
+			w += 0.5
 	_outline(img, C.outline)
 	return img
-
 
 func _icon_ingot(tones: Array) -> Image:
 	var img := _new_image(T, T)
