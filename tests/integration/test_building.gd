@@ -30,7 +30,7 @@ func _free_cell(clearing: ClearingWorld) -> Vector2i:
 
 
 func test_recipes_fit_the_panel_and_placeables_are_items() -> void:
-	check(ItemCatalog.RECIPES.size() <= 10, "at most 10 recipes (keys 1-0)")
+	check(ItemCatalog.RECIPES.size() >= 30, "a rich recipe book")
 	for t in BuildCatalog.TYPES:
 		check(ItemCatalog.ITEMS.has(t), "%s is an item" % t)
 		check(FileAccess.file_exists(BuildCatalog.texture_path(t)), "%s art exists" % t)

@@ -79,6 +79,33 @@ func has_tool(kind: String) -> bool:
 	return false
 
 
+## Highest tier among carried tools of the kind (0 = none; hands only).
+func tool_tier(kind: String) -> int:
+	var best := 0
+	for s in slots:
+		if not s.is_empty() and ItemCatalog.tool_of(s.id) == kind:
+			best = maxi(best, ItemCatalog.tier_of(s.id))
+	return best
+
+
+## Best attack bonus among carried items.
+func best_damage() -> int:
+	var best := 0
+	for s in slots:
+		if not s.is_empty():
+			best = maxi(best, ItemCatalog.damage_of(s.id))
+	return best
+
+
+## Best armor value among carried items.
+func best_armor() -> int:
+	var best := 0
+	for s in slots:
+		if not s.is_empty():
+			best = maxi(best, ItemCatalog.armor_of(s.id))
+	return best
+
+
 func to_data() -> Array:
 	return slots.duplicate(true)
 

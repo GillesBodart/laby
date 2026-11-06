@@ -12,6 +12,7 @@ const BORDER := 3
 const VESTIBULE_ROWS := 8
 const LOOP_CHANCE := 0.08
 const ENEMY_CHANCE := 0.09
+const ORE_CHANCE := 0.3
 const SAFE_RADIUS := 4 # maze cells around the entrance with no enemies
 const SEED_SALT := 7919
 
@@ -60,6 +61,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_layout.spawn_cell = _layout.return_cell
 	_layout.campfire_cell = _layout.return_cell
 	_place_enemies(entry)
+	_place_resources(entry)
 	return _layout
 
 
@@ -75,6 +77,32 @@ func _place_enemies(entry: Vector2i) -> void:
 			var type := EnemyCatalog.type_for_depth(dist / max_dist * 1.4, _rng.randf())
 			var o := cell_origin(mc)
 			_layout.enemy_spawns.append({"type": type, "cell": o + Vector2i(1, 1)})
+
+
+## Ore deposits sit in the corners of maze cells (never blocking passages);
+## richer ores lie deeper in the maze.
+func _place_resources(entry: Vector2i) -> void:
+	var max_dist := float(COLS + ROWS)
+	var corners := [Vector2i(0, 0), Vector2i(2, 0), Vector2i(0, 2), Vector2i(2, 2)]
+	for my in ROWS:
+		for mx in COLS:
+			var mc := Vector2i(mx, my)
+			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
+			var depth := dist / max_dist * 1.4
+			var roll := _rng.randf()
+			var cell: Vector2i = cell_origin(mc) + corners[_rng.randi_range(0, 3)]
+			if dist <= 1:
+				continue
+			if roll < ORE_CHANCE:
+				var kind := _rng.randf()
+				var type := "ore_coal" if kind < 0.5 else "ore_copper"
+				if depth > 0.8 and kind > 0.88:
+					type = "ore_crystal"
+				elif depth > 0.4 and kind > 0.6:
+					type = "ore_iron"
+				_layout.props.append({"type": type, "cell": cell})
+			elif roll < ORE_CHANCE + 0.12:
+				_layout.props.append({"type": "grass", "cell": cell})
 
 
 func _carve(rect: Rect2i) -> void:

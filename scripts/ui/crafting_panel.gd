@@ -1,14 +1,17 @@
 extends PanelContainer
 ## Backpack / crafting screen (I). Two tabs (Tab key or click): a diamond-slot
-## backpack with an item note card, and the crafting list (1-0 or click).
+## backpack with an item note card, and a recipe book (click a recipe to craft, wheel to scroll).
 
-const KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
 const SIZE := Vector2(480, 270)
 const COLS := 5
 const PITCH := Vector2(52, 40)
 const DIAMOND := 18
 const PANEL := Rect2(44, 36, 320, 196)
 const CARD := Rect2(372, 56, 100, 150)
+## Recipe book: a scrollable grid of recipe slots; click one to craft it.
+const GRID_COLS := 7
+const GRID_ROWS := 4
+const SLOT := Vector2(40, 36)
 const TABS := ["INVENTORY", "CRAFTING"]
 
 const INK := Color8(27, 20, 16)
@@ -27,6 +30,7 @@ const OK := Color8(46, 110, 50)
 var tab := 0
 var _font: Font
 var _hover := -1
+var _scroll := 0
 
 
 func _ready() -> void:
@@ -67,10 +71,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			visible = false
 		elif event.physical_keycode == KEY_TAB:
 			tab = (tab + 1) % TABS.size()
-		else:
-			var idx := KEYS.find(event.physical_keycode)
-			if idx >= 0 and idx < ItemCatalog.RECIPES.size():
-				craft(idx)
+		elif event.physical_keycode == KEY_DOWN and tab == 1:
+			_scroll_by(1)
+		elif event.physical_keycode == KEY_UP and tab == 1:
+			_scroll_by(-1)
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		if tab == 1:
+			_scroll_by(1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var m := get_local_mouse_position()
 		for i in TABS.size():
@@ -79,6 +86,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 		if tab == 1 and _hover >= 0:
 			craft(_hover)
+
+
+func _scroll_by(d: int) -> void:
+	var rows := ceili(ItemCatalog.RECIPES.size() / float(GRID_COLS))
+	_scroll = clampi(_scroll + d, 0, maxi(rows - GRID_ROWS, 0))
 
 
 func craft(index: int) -> bool:
@@ -103,8 +115,16 @@ func _slot_center(i: int) -> Vector2:
 	return origin + Vector2((i % COLS) * PITCH.x, (i / COLS) * PITCH.y)
 
 
-func _row_rect(i: int) -> Rect2:
-	return Rect2(PANEL.position.x + 14, PANEL.position.y + 10 + i * 18, PANEL.size.x - 28, 17)
+func _recipe_rect(i: int) -> Rect2:
+	var slot := i - _scroll * GRID_COLS
+	var origin := PANEL.position + Vector2((PANEL.size.x - GRID_COLS * SLOT.x) / 2.0, 30)
+	return Rect2(origin + Vector2((slot % GRID_COLS) * SLOT.x, (slot / GRID_COLS) * SLOT.y), SLOT - Vector2(2, 2))
+
+
+func _visible_recipes() -> Array:
+	var first := _scroll * GRID_COLS
+	var last := mini(first + GRID_COLS * GRID_ROWS, ItemCatalog.RECIPES.size())
+	return range(first, last)
 
 
 func _hover_index(m: Vector2) -> int:
@@ -114,8 +134,8 @@ func _hover_index(m: Vector2) -> int:
 			if d.x + d.y <= DIAMOND:
 				return i
 	else:
-		for i in ItemCatalog.RECIPES.size():
-			if _row_rect(i).has_point(m):
+		for i in _visible_recipes():
+			if _recipe_rect(i).has_point(m):
 				return i
 	return -1
 
@@ -230,9 +250,9 @@ func _draw() -> void:
 		detail_id = _draw_crafting(player)
 		if _hover >= 0:
 			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
-			detail_extra = "At %s" % rec.station if rec.station != "" else "Craft anywhere"
+			detail_extra = _recipe_text(rec, player)
 	_draw_card(detail_id, detail_extra)
-	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [1-0] craft", TEXT_LIGHT)
+	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [Wheel] scroll", TEXT_LIGHT)
 
 
 func _draw_backpack(player: Player) -> String:
@@ -260,29 +280,29 @@ func _draw_backpack(player: Player) -> String:
 func _draw_crafting(player: Player) -> String:
 	var inv := player.inventory
 	var stations := player.nearby_stations()
-	for i in ItemCatalog.RECIPES.size():
+	for i in _visible_recipes():
 		var rec: Dictionary = ItemCatalog.RECIPES[i]
 		var ok := Crafting.can_craft(inv, rec, stations)
-		var r := _row_rect(i)
+		var r := _recipe_rect(i)
 		_box(r, CREAM if ok else TAN, GOLD if i == _hover else BROWN, 3)
-		_icon(r.position + Vector2(10, 8.5), rec.id, 5)
-		_text(r.position + Vector2(20, 13), "%d" % ((i + 1) % 10), BROWN)
-		var label := ItemCatalog.item_name(rec.id)
+		_icon(r.get_center() + Vector2(0, -1), rec.id, 7)
 		if rec.out > 1:
-			label += " x%d" % rec.out
-		_text(r.position + Vector2(32, 13), label, TEXT_DARK if ok else FADED)
-		var ex := r.end.x - 5
-		for k in rec["in"].keys():
-			var amount := "%d" % rec["in"][k]
-			var aw := _font.get_string_size(amount, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			_text(Vector2(ex - aw, r.position.y + 13), amount, OK if ok else FADED)
-			_icon(Vector2(ex - aw - 6, r.position.y + 8.5), k, 3)
-			ex -= aw + 16
-		if rec.station != "":
-			var tag := "bench" if rec.station == "workbench" else "fire"
-			var tw := _font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-			_text(Vector2(ex - tw, r.position.y + 13), tag, BROWN if ok else FADED)
+			var t := "%d" % rec.out
+			var p := r.end - Vector2(_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 2, 2)
+			_text(p + Vector2(1, 1), t, INK)
+			_text(p, t, TEXT_LIGHT)
+		if not ok:
+			draw_rect(r.grow(-1), Color(0.35, 0.28, 0.2, 0.45))
 	return ItemCatalog.RECIPES[_hover].id if _hover >= 0 else ""
+
+
+## Ingredient lines (have/need) plus the required station.
+func _recipe_text(rec: Dictionary, player: Player) -> String:
+	var lines := PackedStringArray()
+	for k in rec["in"]:
+		lines.append("%s %d/%d" % [ItemCatalog.item_name(k), player.inventory.count(k), rec["in"][k]])
+	lines.append("At %s" % rec.station if rec.station != "" else "Anywhere")
+	return "\n".join(lines)
 
 
 func _draw_card(id: String, extra: String) -> void:
@@ -290,13 +310,15 @@ func _draw_card(id: String, extra: String) -> void:
 	var ly := CARD.position.y + 44
 	while ly < CARD.end.y - 6:
 		draw_rect(Rect2(CARD.position.x + 6, ly, CARD.size.x - 12, 1), TAN)
-		ly += 13
+		ly += 12
 	if id == "":
-		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 16, -1, FADED)
+		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, FADED)
 		return
-	_text_center(CARD.get_center().x, CARD.position.y + 16, ItemCatalog.item_name(id), TEXT_DARK)
+	var nm := ItemCatalog.item_name(id)
+	var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	draw_string(_font, Vector2(CARD.get_center().x - nw / 2.0, CARD.position.y + 16), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
 	draw_rect(Rect2(CARD.position.x + 8, CARD.position.y + 21, CARD.size.x - 16, 1), BROWN)
 	var body := ItemCatalog.description(id)
 	if extra != "":
 		body += "\n" + extra
-	draw_multiline_string(_font, CARD.position + Vector2(8, 38), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 16, -1, TEXT_DARK)
+	draw_multiline_string(_font, CARD.position + Vector2(8, 38), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, TEXT_DARK)

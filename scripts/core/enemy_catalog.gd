@@ -8,16 +8,19 @@ const TYPES := {
 		"name": "Moss Grub", "hp": 18, "damage": 6, "speed": 46.0, "aggro": 110.0,
 		"attack_range": 18.0, "cooldown": 1.1, "xp": 6,
 		"drop": "berry", "drop_min": 0, "drop_max": 2, "radius": 7.0,
+		"loot": {"id": "hide", "chance": 0.5, "max": 1},
 	},
 	"stalker": {
 		"name": "Stalker", "hp": 34, "damage": 10, "speed": 92.0, "aggro": 150.0,
 		"attack_range": 20.0, "cooldown": 0.9, "xp": 12,
 		"drop": "stone", "drop_min": 1, "drop_max": 3, "radius": 8.0,
+		"loot": {"id": "bone", "chance": 0.6, "max": 2},
 	},
 	"warden": {
 		"name": "Stone Warden", "hp": 90, "damage": 18, "speed": 40.0, "aggro": 130.0,
 		"attack_range": 26.0, "cooldown": 1.6, "xp": 35,
 		"drop": "plank", "drop_min": 3, "drop_max": 6, "radius": 11.0,
+		"loot": {"id": "crystal", "chance": 0.3, "max": 1},
 	},
 }
 

@@ -87,5 +87,10 @@ func _die(killer: Player) -> void:
 			EventBus.notify.emit("%s defeated: +%d %s" % [_def.name, n, ItemCatalog.item_name(_def.drop)])
 		else:
 			EventBus.notify.emit("%s defeated" % _def.name)
+		var loot: Dictionary = _def.get("loot", {})
+		if not loot.is_empty() and randf() < loot.chance:
+			var m := randi_range(1, loot.max)
+			killer.inventory.add(loot.id, m)
+			EventBus.notify.emit("+%d %s" % [m, ItemCatalog.item_name(loot.id)])
 		killer.gain_xp(_def.xp)
 	queue_free()

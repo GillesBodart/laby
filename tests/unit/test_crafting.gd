@@ -10,11 +10,11 @@ func _recipe(id: String) -> Dictionary:
 
 func test_inventory_stacks_and_overflow() -> void:
 	var inv := Inventory.new(2)
-	check_eq(inv.add("wood", 25), 0, "fits in two stacks")
-	check_eq(inv.count("wood"), 25, "count")
-	check_eq(inv.add("wood", 20), 5, "overflow returned")
+	check_eq(inv.add("wood", 70), 0, "fits in two stacks")
+	check_eq(inv.count("wood"), 70, "count")
+	check_eq(inv.add("wood", 20), 10, "overflow returned")
 	check(inv.remove("wood", 30), "remove")
-	check_eq(inv.count("wood"), 10, "remaining")
+	check_eq(inv.count("wood"), 50, "remaining")
 	check(not inv.remove("wood", 99), "cannot remove too many")
 
 
@@ -56,3 +56,32 @@ func test_recipes_reference_known_items() -> void:
 		check(ItemCatalog.ITEMS.has(r.id), "output %s" % r.id)
 		for k in r["in"]:
 			check(ItemCatalog.ITEMS.has(k), "ingredient %s" % k)
+
+func test_tool_tiers_weapons_and_armor() -> void:
+	var inv := Inventory.new()
+	check_eq(inv.tool_tier("pickaxe"), 0, "no tool")
+	inv.add("stone_pickaxe", 1)
+	inv.add("iron_pickaxe", 1)
+	check_eq(inv.tool_tier("pickaxe"), 3, "best pickaxe wins")
+	inv.add("copper_sword", 1)
+	inv.add("iron_sword", 1)
+	check(inv.best_damage() >= ItemCatalog.damage_of("iron_sword"), "best weapon counted")
+	inv.add("leather_armor", 1)
+	inv.add("iron_armor", 1)
+	check_eq(inv.best_armor(), ItemCatalog.armor_of("iron_armor"), "best armor wins")
+
+
+func test_farming_stages() -> void:
+	check_eq(Farming.stage(Farming.NOT_PLANTED, 1000.0), Farming.EMPTY, "empty")
+	check_eq(Farming.stage(100.0, 200.0), Farming.GROWING, "growing")
+	check_eq(Farming.stage(100.0, 100.0 + Farming.GROW_MINUTES), Farming.RIPE, "ripe")
+
+
+func test_labyrinth_spawns_ores() -> void:
+	var layout := LabyrinthGenerator.generate(5)
+	var ores := 0
+	for p in layout.props:
+		if str(p.type).begins_with("ore_"):
+			ores += 1
+			check(ResourceCatalog.has(p.type), "%s is a known resource" % p.type)
+	check(ores > 10, "labyrinth holds ore deposits")

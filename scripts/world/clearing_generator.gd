@@ -15,6 +15,8 @@ const PLAZA_RADIUS := 3.5
 const TREE_TARGET := 130
 const ROCK_TARGET := 45
 const BUSH_TARGET := 28
+const GRASS_TARGET := 70
+const CLAY_TARGET := 16
 
 const Id := TileCatalog.Id
 
@@ -220,6 +222,20 @@ func _place_props(center: Vector2i) -> void:
 		occupied[cell] = true
 		_layout.props.append({"type": "bush", "cell": cell})
 		bushes += 1
+
+	for extra in [["grass", GRASS_TARGET, 1.5], ["clay", CLAY_TARGET, 4.0]]:
+		var placed := 0
+		for attempt in 2000:
+			if placed >= extra[1]:
+				break
+			var cell := Vector2i(
+				_rng.randi_range(inner.position.x, inner.end.x - 1),
+				_rng.randi_range(inner.position.y, inner.end.y - 1))
+			if not _is_free_for_prop(cell, center, gate_approaches, occupied, extra[2]):
+				continue
+			occupied[cell] = true
+			_layout.props.append({"type": extra[0], "cell": cell})
+			placed += 1
 
 
 func _is_free_for_prop(cell: Vector2i, center: Vector2i, gates: Array[Vector2i],

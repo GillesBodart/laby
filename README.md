@@ -9,14 +9,15 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 |-----------|-------|
 | M0 Project setup (structure, 960x540 viewport, 32px tiles, autoloads, input map, placeholder art) | ✅ |
 | M1 Player + world (seeded Clearing, walk/run + collisions, camera, day/night clock & lighting, gates closing at night) | ✅ |
-| M2 Gather + inventory + craft (E to chop/mine, I backpack + 10 recipes, campfire/workbench stations, saved) | ✅ |
+| M2 Gather + inventory + craft (E to chop/mine, I backpack + recipe book, campfire/workbench stations, saved) | ✅ |
 | Clearing v2 | ✅ 100x70 glade, 10 tree + 10 rock variants, single north gate leading to the Labyrinth (separate scene, loads after the gate corridor; walk back into the vestibule to return) |
 | M3 Building (grid walls/floors/doors/workbench/chest in the Clearing, saved) + Stash chest | ✅ (death rules deferred until health exists) |
 | M4 Survival + XP (health/hunger/stamina bars, berry bushes, R to eat, starvation + respawn, XP & levels from gathering -> skill points, saved) | ✅ (farming plots deferred) |
 | M5 Maze v1 (labyrinth sector from seed, **M** fog-of-war map saved with the game, gates close at night) | ✅ |
 | M6 Combat + enemies (**Space** attack, tools hit harder; moss grubs, stalkers, stone wardens guard the labyrinth by depth, drops + XP) | ✅ |
 | M5b Skills (**K** screen: Vigor, Might, Fleet foot, Endurance, 3 ranks each, spend level-up points, saved) | ✅ |
-| M6b+ | Next: farming, taming |
+| M7 Minecraft-style content: 11 raw resources (grass, clay, coal, copper/iron ore, crystal in the labyrinth by depth), smelting at a furnace, 3 tool/armor tiers (ore needs a good enough pickaxe), 33 recipes, farm plots (E plants a berry, ripe in 4 min) | ✅ |
+| M8 | Next: taming |
 
 ## Run
 
@@ -27,7 +28,7 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs
 ```
 
-Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & crafting (Tab switches tab; 1-0 or click to craft) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30).
+Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks · **Space** attack · **R** eat berries · **M** map · **K** skills · **I** backpack & crafting (Tab switches tab; click a recipe to craft, wheel scrolls the recipe book) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30).
 
 Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--screenshot=out.png --screenshot-frames=60`.
 

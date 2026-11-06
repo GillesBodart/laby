@@ -10,6 +10,8 @@ signal depleted(gatherable: Gatherable)
 @export var max_hits := 4
 @export var tool_kind := "axe"
 @export var xp := 4
+## Minimum tool tier needed (0 = bare hands work).
+@export var min_tier := 0
 
 var cell := Vector2i.ZERO
 var _hits_left := 0
@@ -21,7 +23,12 @@ func _ready() -> void:
 
 
 func hit(player: Player) -> void:
-	var dmg := 2 if player.inventory.has_tool(tool_kind) else 1
+	var tier := player.inventory.tool_tier(tool_kind)
+	if tier < min_tier:
+		EventBus.notify.emit("Needs a better %s" % tool_kind)
+		_shake()
+		return
+	var dmg := 1 + tier
 	_hits_left -= dmg
 	_shake()
 	if _hits_left > 0:

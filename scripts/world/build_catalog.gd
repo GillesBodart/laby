@@ -6,8 +6,13 @@ extends RefCounted
 const TYPES := {
 	"workbench": {"solid": true, "layer": "entity", "group": "workbench"},
 	"chest": {"solid": true, "layer": "entity", "group": "chest"},
+	"furnace": {"solid": true, "layer": "entity", "group": "furnace"},
+	"stone_wall": {"solid": true, "layer": "entity", "group": ""},
+	"brick_wall": {"solid": true, "layer": "entity", "group": ""},
+	"stone_floor": {"solid": false, "layer": "floor", "group": ""},
 	"wooden_wall": {"solid": true, "layer": "entity", "group": ""},
 	"wooden_floor": {"solid": false, "layer": "floor", "group": ""},
+	"farm_plot": {"solid": false, "layer": "floor", "group": "farm_plot"},
 	"wooden_door": {"solid": true, "layer": "entity", "group": "", "door": true},
 }
 
@@ -16,7 +21,9 @@ static func is_placeable(item_id: String) -> bool:
 	return TYPES.has(item_id)
 
 
-static func texture_path(type: String, open := false) -> String:
+static func texture_path(type: String, open := false, stage := 0) -> String:
+	if type == "farm_plot":
+		return "res://assets/sprites/structures/farm_plot_%d.png" % stage
 	if type == "wooden_door":
 		return "res://assets/sprites/structures/wooden_door_%s.png" % ("open" if open else "closed")
 	return "res://assets/sprites/structures/%s.png" % type

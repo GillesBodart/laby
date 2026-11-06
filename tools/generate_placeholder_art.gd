@@ -90,7 +90,7 @@ var rng := RandomNumberGenerator.new()
 
 
 func _init() -> void:
-	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/items", "res://assets/sprites/enemies"]:
+	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/items", "res://assets/sprites/enemies", "res://assets/sprites/resources"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_save(_make_tileset(), Catalog.TEXTURE_PATH)
 	_save(_make_player(), "res://assets/sprites/player.png")
@@ -100,12 +100,18 @@ func _init() -> void:
 	_save(_make_tree(0), "res://assets/sprites/tree.png")
 	_save(_make_rock(0), "res://assets/sprites/rock.png")
 	_save(_make_campfire(), "res://assets/sprites/campfire.png")
-	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open"]:
+	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace", "stone_wall", "brick_wall", "stone_floor", "farm_plot_0", "farm_plot_1", "farm_plot_2"]:
 		_save(_make_structure(s), "res://assets/sprites/structures/%s.png" % s)
 	_save(_make_shadow(), "res://assets/sprites/shadow.png")
 	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
 	_make_item_icons()
 	_save(_make_bush(), "res://assets/sprites/bush.png")
+	_save(_make_grass_tuft(), "res://assets/sprites/resources/grass.png")
+	_save(_make_clay(), "res://assets/sprites/resources/clay.png")
+	_save(_make_ore([Color8(20, 20, 26), Color8(52, 52, 60), Color8(80, 80, 92)], 1), "res://assets/sprites/resources/ore_coal.png")
+	_save(_make_ore([MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 2), "res://assets/sprites/resources/ore_copper.png")
+	_save(_make_ore([Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 3), "res://assets/sprites/resources/ore_iron.png")
+	_save(_make_ore([MAT["crystal"][2], MAT["crystal"][3], MAT["crystal"][4]], 4), "res://assets/sprites/resources/ore_crystal.png")
 	for e in ["grub", "stalker", "warden"]:
 		_save(_make_enemy(e), "res://assets/sprites/enemies/%s.png" % e)
 	print("Art generated.")
@@ -992,8 +998,67 @@ func _make_structure(kind: String) -> Image:
 			_box(img, 13, 13, 6, 7, C.gold, 0.05, 244)
 			_rect(img, 15, 15, 2, 3, C.outline)
 			_rect(img, 3, 27, T - 6, 2, C.wood_deep)
+		"furnace":
+			_box(img, 3, 8, T - 6, 21, C.rock, 0.14, 251)
+			_rect(img, 3, 8, T - 6, 3, C.rock_light)
+			for y in [14, 20, 26]:
+				_rect(img, 3, y, T - 6, 1, C.rock_dark)
+			_box(img, 10, 17, 12, 10, C.outline)
+			_rect(img, 11, 22, 10, 5, C.fire_deep)
+			_rect(img, 12, 21, 8, 5, C.fire_out)
+			_rect(img, 14, 20, 4, 5, C.fire_mid)
+			_rect(img, 15, 22, 2, 3, C.fire_core)
+			_box(img, 12, 1, 8, 8, C.rock_dark, 0.1, 252)
+			_rect(img, 14, 1, 4, 2, C.outline)
+		"stone_wall":
+			_wall_blocks(img, MAT["stone"], 261, false)
+		"brick_wall":
+			_wall_blocks(img, MAT["brick"], 271, true)
+		"stone_floor":
+			for y in T:
+				for x in T:
+					var h := _hash(x / 8, y / 8, 282)
+					var base: Color = C.rock.lightened((h - 0.5) * 0.18)
+					var gx := (x + (y / 8 % 2) * 4) % 8
+					if gx == 7 or y % 8 == 7:
+						base = C.rock_dark
+					elif gx == 0 or y % 8 == 0:
+						base = C.rock_light
+					_px(img, x, y, base)
+			return img
+		"farm_plot_0":
+			return _make_farm_plot(0)
+		"farm_plot_1":
+			return _make_farm_plot(1)
+		"farm_plot_2":
+			return _make_farm_plot(2)
 	_outline(img, C.outline)
 	return img
+
+
+## Masonry wall: a lighter cap on top and offset blocks below.
+func _wall_blocks(img: Image, tones: Array, seed: int, brick: bool) -> void:
+	var bh := 6 if brick else 8
+	var bw := 10 if brick else 15
+	for y in range(8, T - 1):
+		var row := (y - 8) / bh
+		var ox := (row % 2) * (bw / 2)
+		for x in range(1, T - 1):
+			var gx := (x + ox) % bw
+			var gy := (y - 8) % bh
+			var col: Color = tones[2].lightened((_hash((x + ox) / bw, row, seed) - 0.5) * 0.14)
+			if gx == bw - 1 or gy == bh - 1:
+				col = tones[0]
+			elif gy == 0:
+				col = tones[3]
+			elif gx == 0:
+				col = tones[3]
+			_px(img, x, y, col)
+	_rect(img, 1, 1, T - 2, 7, tones[3])
+	_rect(img, 1, 1, T - 2, 1, tones[4])
+	_rect(img, 1, 7, T - 2, 1, tones[1])
+	for x in range(1, T - 1, 4):
+		_px(img, x + int(_hash(x, 0, seed) * 3.0), 3, tones[2])
 
 
 # ---------------------------------------------------------------- item icons
@@ -1011,6 +1076,32 @@ func _make_item_icons() -> void:
 		icons[id] = _make_structure(id)
 	icons["wooden_door"] = _make_structure("wooden_door_closed")
 	icons["berry"] = _icon_berries()
+	for id in ["furnace", "stone_wall", "stone_floor", "brick_wall"]:
+		icons[id] = _make_structure(id)
+	icons["farm_plot"] = _icon_farm_plot()
+	icons["fiber"] = _icon_fiber()
+	icons["rope"] = _icon_rope()
+	icons["bone"] = _icon_bone()
+	icons["hide"] = _icon_hide()
+	icons["crystal"] = _icon_crystal()
+	icons["berry_jam"] = _icon_jam()
+	icons["clay"] = _icon_lump(MAT["clay"], [], 1)
+	icons["coal"] = _icon_lump(MAT["coal"], [MAT["coal"][4], MAT["coal"][3]], 2)
+	icons["copper_ore"] = _icon_lump(MAT["stone"], [MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 3)
+	icons["iron_ore"] = _icon_lump(MAT["stone"], [Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 4)
+	icons["brick"] = _icon_ingot(MAT["brick"])
+	icons["copper_ingot"] = _icon_ingot(MAT["copper"])
+	icons["iron_ingot"] = _icon_ingot(MAT["iron"])
+	icons["leather"] = _icon_hide()
+	for m in ["copper", "iron"]:
+		icons[m + "_axe"] = _icon_tool(true, MAT[m])
+		icons[m + "_pickaxe"] = _icon_tool(false, MAT[m])
+		icons[m + "_sword"] = _icon_sword(MAT[m])
+		icons[m + "_armor"] = _icon_armor(MAT[m])
+	icons["stone_sword"] = _icon_sword(MAT["stone"])
+	icons["bone_sword"] = _icon_sword(MAT["bone"])
+	icons["crystal_blade"] = _icon_sword(MAT["crystal"])
+	icons["leather_armor"] = _icon_armor(MAT["leather"])
 	for id in icons:
 		var big: Image = icons[id]
 		_save(big, "res://assets/ui/items/%s.png" % id)
@@ -1111,10 +1202,9 @@ func _icon_torch() -> Image:
 	return img
 
 
-func _icon_tool(axe: bool) -> Image:
+func _icon_tool(axe: bool, tones: Array = MAT["stone"]) -> Image:
 	var img := _new_image(T, T)
 	_tube(img, Vector2(8, 27), Vector2(22, 8), 2, [C.wood_dark, C.wood, C.wood_light, C.wood_hi])
-	var tones := [C.rock_deep, C.rock_dark, C.rock, C.rock_light, C.rock_hi]
 	if axe:
 		var pts := PackedVector2Array([Vector2(16, 6), Vector2(27, 5), Vector2(29, 14), Vector2(22, 14), Vector2(20, 11)])
 		_fill_poly(img, pts, tones)
@@ -1124,6 +1214,198 @@ func _icon_tool(axe: bool) -> Image:
 	_rect(img, 18, 11, 4, 2, C.cloth)
 	_rect(img, 18, 12, 4, 1, C.pants_dark)
 	_outline(img, C.outline)
+	return img
+
+
+const MAT := {
+	"copper": [Color8(110, 56, 34), Color8(160, 86, 50), Color8(206, 122, 72), Color8(236, 160, 100), Color8(250, 204, 154)],
+	"iron": [Color8(70, 74, 84), Color8(110, 116, 128), Color8(160, 166, 176), Color8(200, 205, 212), Color8(236, 240, 244)],
+	"crystal": [Color8(30, 90, 130), Color8(60, 160, 200), Color8(110, 220, 240), Color8(170, 240, 250), Color8(235, 255, 255)],
+	"bone": [Color8(150, 140, 118), Color8(196, 186, 160), Color8(232, 224, 200), Color8(246, 240, 224), Color8(255, 252, 240)],
+	"leather": [Color8(70, 42, 26), Color8(104, 64, 38), Color8(140, 90, 54), Color8(172, 118, 74), Color8(200, 146, 96)],
+	"brick": [Color8(96, 38, 30), Color8(140, 58, 44), Color8(184, 82, 60), Color8(212, 112, 84), Color8(232, 146, 112)],
+	"coal": [Color8(14, 14, 18), Color8(30, 30, 36), Color8(52, 52, 60), Color8(80, 80, 92), Color8(120, 120, 134)],
+	"clay": [Color8(104, 60, 44), Color8(140, 84, 58), Color8(176, 112, 80), Color8(204, 142, 104), Color8(224, 170, 132)],
+	"stone": [Color8(58, 62, 66), Color8(88, 92, 94), Color8(128, 132, 130), Color8(168, 170, 164), Color8(204, 204, 192)],
+}
+
+
+func _icon_sword(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_tube(img, Vector2(25, 6), Vector2(12, 19), 4, [tones[1], tones[2], tones[3], tones[4]])
+	_line(img, Vector2(24, 7), Vector2(13, 18), tones[4], 1)
+	_tube(img, Vector2(9, 17), Vector2(17, 25), 2, [C.wood_dark, C.gold, C.gold, C.wood_hi])
+	_tube(img, Vector2(9, 22), Vector2(5, 26), 3, [C.wood_deep, C.wood_dark, C.wood, C.wood_light])
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_ingot(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	for off in [Vector2(2, 4), Vector2(-4, -2)]:
+		var pts := PackedVector2Array([Vector2(8, 20) + off, Vector2(12, 14) + off, Vector2(24, 14) + off, Vector2(28, 20) + off])
+		_fill_poly(img, pts, tones)
+		_rect(img, int(8 + off.x), int(20 + off.y), 20, 3, tones[1])
+		_rect(img, int(8 + off.x), int(20 + off.y), 20, 1, tones[0])
+		_line(img, Vector2(13, 15) + off, Vector2(22, 15) + off, tones[4], 1)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_lump(tones: Array, specks := [], seed := 0) -> Image:
+	var img := _new_image(T, T)
+	_blob(img, 16, 18, 10, 8, [tones[0], tones[1], tones[2], tones[3]], 0.15, 500 + seed)
+	_blob(img, 13, 15, 4, 3, [tones[3], tones[4]], 0.0, 501 + seed)
+	for i in specks.size():
+		_rect(img, 10 + (i * 7) % 14, 15 + (i * 5) % 8, 2, 2, specks[i])
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_armor(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	var pts := PackedVector2Array([Vector2(8, 6), Vector2(13, 5), Vector2(16, 8), Vector2(19, 5), Vector2(24, 6), Vector2(29, 11), Vector2(25, 14), Vector2(23, 12), Vector2(23, 27), Vector2(9, 27), Vector2(9, 12), Vector2(7, 14), Vector2(3, 11)])
+	_fill_poly(img, pts, tones)
+	_rect(img, 9, 22, 14, 2, tones[0])
+	_rect(img, 15, 9, 2, 14, tones[1])
+	_line(img, Vector2(11, 12), Vector2(11, 20), tones[4], 1)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_fiber() -> Image:
+	var img := _new_image(T, T)
+	for i in 5:
+		_line(img, Vector2(8 + i * 3, 26), Vector2(6 + i * 5, 8 + (i % 2) * 4), [C.grass_dark, C.grass, C.grass_light][i % 3], 2)
+	_rect(img, 9, 19, 14, 2, C.cloth)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_rope() -> Image:
+	var img := _new_image(T, T)
+	for r in [10.0, 6.0]:
+		for a in 60:
+			var ang := TAU * a / 60.0
+			var col: Color = C.cloth if a % 6 < 3 else C.pants_dark
+			_rect(img, int(16 + cos(ang) * r), int(16 + sin(ang) * r * 0.85), 3, 3, col)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_bone() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["bone"]
+	_tube(img, Vector2(9, 23), Vector2(23, 9), 3, [t[1], t[2], t[3], t[4]])
+	for p in [Vector2(7, 21), Vector2(11, 25), Vector2(21, 7), Vector2(25, 11)]:
+		_blob(img, p.x, p.y, 3, 3, [t[1], t[2], t[3]], 0.0, int(p.x))
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_hide() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["leather"]
+	var pts := PackedVector2Array([Vector2(5, 8), Vector2(12, 6), Vector2(20, 7), Vector2(27, 6), Vector2(26, 14), Vector2(28, 21), Vector2(21, 26), Vector2(12, 25), Vector2(5, 26), Vector2(7, 17)])
+	_fill_poly(img, pts, t)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_crystal() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["crystal"]
+	_fill_poly(img, PackedVector2Array([Vector2(16, 3), Vector2(22, 12), Vector2(20, 27), Vector2(12, 27), Vector2(10, 12)]), t)
+	_fill_poly(img, PackedVector2Array([Vector2(8, 14), Vector2(11, 20), Vector2(10, 28), Vector2(4, 26), Vector2(5, 19)]), t)
+	_fill_poly(img, PackedVector2Array([Vector2(24, 16), Vector2(28, 22), Vector2(27, 28), Vector2(21, 27), Vector2(21, 21)]), t)
+	_line(img, Vector2(15, 8), Vector2(14, 20), t[4], 1)
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_jam() -> Image:
+	var img := _new_image(T, T)
+	_box(img, 8, 11, 16, 16, Color8(196, 220, 226), 0.0, 0)
+	_rect(img, 9, 15, 14, 11, BERRY[1])
+	_rect(img, 9, 15, 14, 2, BERRY[2])
+	_rect(img, 9, 24, 14, 2, BERRY[0])
+	_rect(img, 7, 7, 18, 5, C.wood)
+	_rect(img, 7, 7, 18, 1, C.wood_light)
+	_rect(img, 7, 11, 18, 1, C.wood_dark)
+	_px(img, 11, 18, BERRY[3])
+	_outline(img, C.outline)
+	return img
+
+
+func _icon_farm_plot() -> Image:
+	return _make_structure("farm_plot_2")
+
+
+## Mineral outcrop: a rock blob flecked with the ore colours (feet at bottom centre).
+func _make_ore(specks: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	var tones := [C.rock_deep, C.rock_dark, C.rock, C.rock_light]
+	_blob(img, 16, 22, 12, 8, tones, 0.14, 600 + seed)
+	_blob(img, 15, 15, 9, 8, tones, 0.14, 610 + seed)
+	_blob(img, 12, 12, 4, 3, [C.rock_light, C.rock_hi], 0.0, 620 + seed)
+	_outline(img, C.outline)
+	for i in 9:
+		var x := 8 + int(_hash(i, 1, 630 + seed) * 16.0)
+		var y := 11 + int(_hash(i, 2, 630 + seed) * 14.0)
+		if img.get_pixel(x, y).a > 0.5 and img.get_pixel(x + 1, y + 1).a > 0.5:
+			_rect(img, x, y, 2, 2, specks[i % specks.size()])
+			_px(img, x, y, specks[(i + 1) % specks.size()])
+	return img
+
+
+func _make_grass_tuft() -> Image:
+	var img := _new_image(T, T)
+	var greens := [C.grass_deep, C.grass_dark, C.grass, C.grass_light]
+	for i in 9:
+		var bx := 8 + i * 2
+		var h := 9 + int(_hash(i, 3, 640) * 9.0)
+		var lean := int((_hash(i, 4, 641) - 0.5) * 8.0)
+		_line(img, Vector2(bx, 28), Vector2(bx + lean, 28 - h), greens[1 + i % 3], 2)
+		_px(img, bx + lean, 28 - h, greens[3])
+	_outline(img, C.outline)
+	return img
+
+
+func _make_clay() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["clay"]
+	_blob(img, 16, 24, 12, 5, [t[0], t[1], t[2], t[3]], 0.15, 650)
+	_blob(img, 13, 22, 4, 2, [t[3], t[4]], 0.0, 651)
+	_blob(img, 21, 25, 3, 1.5, [t[0], t[1]], 0.0, 652)
+	_outline(img, C.outline)
+	return img
+
+
+## Plot growth stage: 0 tilled soil, 1 sprouts, 2 ripe berries.
+func _make_farm_plot(stage: int) -> Image:
+	var img := _new_image(T, T)
+	_rect(img, 0, 0, T, T, C.dirt_dark)
+	for row in 4:
+		var y := 2 + row * 8
+		_rect(img, 1, y, T - 2, 3, C.dirt_light)
+		_rect(img, 1, y + 3, T - 2, 3, C.dirt)
+		_rect(img, 1, y + 6, T - 2, 1, C.dirt_deep)
+	for i in 14:
+		_px(img, int(_hash(i, 5, 660) * 30.0) + 1, int(_hash(i, 6, 660) * 30.0) + 1, C.dirt_dark)
+	_rect(img, 0, 0, T, 1, C.wood_dark)
+	_rect(img, 0, T - 1, T, 1, C.wood_dark)
+	_rect(img, 0, 0, 1, T, C.wood_dark)
+	_rect(img, T - 1, 0, 1, T, C.wood_dark)
+	if stage >= 1:
+		for p in [Vector2i(7, 8), Vector2i(23, 8), Vector2i(7, 24), Vector2i(23, 24), Vector2i(15, 16)]:
+			_rect(img, p.x, p.y - 1, 2, 5, C.grass_dark)
+			_rect(img, p.x - 3, p.y - 2, 3, 2, C.grass)
+			_rect(img, p.x + 2, p.y - 3, 3, 2, C.grass_light)
+			if stage == 2:
+				_rect(img, p.x - 4, p.y - 6, 10, 5, C.grass_dark)
+				_rect(img, p.x - 3, p.y - 6, 8, 2, C.grass)
+				_berry(img, p.x - 3, p.y - 4)
+				_berry(img, p.x + 1, p.y - 3)
 	return img
 
 

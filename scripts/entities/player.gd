@@ -142,11 +142,7 @@ func _on_died() -> void:
 
 ## Damage dealt per hit: tools double as weapons.
 func weapon_damage() -> int:
-	if inventory.has_tool("axe"):
-		return BASE_DAMAGE + 6 + survival.damage_bonus()
-	if inventory.has_tool("pickaxe"):
-		return BASE_DAMAGE + 4 + survival.damage_bonus()
-	return BASE_DAMAGE + survival.damage_bonus()
+	return BASE_DAMAGE + inventory.best_damage() + survival.damage_bonus()
 
 
 func _attack() -> void:
@@ -163,7 +159,7 @@ func take_damage(amount: int, source: Node2D = null) -> void:
 	if _hurt_timer > 0.0 or survival.is_dead():
 		return
 	_hurt_timer = HURT_INVULNERABILITY
-	survival.damage(amount)
+	survival.damage(maxi(amount - inventory.best_armor(), 1))
 	if source:
 		velocity = (global_position - source.global_position).normalized() * 160.0
 	var tw := create_tween()
@@ -184,6 +180,23 @@ func _try_gather() -> void:
 	if target:
 		_gather_timer = GATHER_COOLDOWN
 		target.hit(self)
+		return
+	var plot := _find_farm_plot()
+	if plot:
+		_gather_timer = 0.6
+		plot.farm_interact(self)
+
+
+func _find_farm_plot() -> Structure:
+	var probe := global_position + Vector2(0, -8) + facing * 16.0
+	var best: Structure = null
+	var best_d := REACH
+	for node in get_tree().get_nodes_in_group("farm_plot"):
+		var d := probe.distance_to(node.global_position)
+		if d < best_d:
+			best_d = d
+			best = node
+	return best
 
 
 ## Nearest harvestable prop within reach in front of the player.
@@ -202,7 +215,7 @@ func find_gatherable() -> Gatherable:
 ## Crafting stations available near the player.
 func nearby_stations() -> Array:
 	var found: Array = []
-	for group in ["campfire", "workbench"]:
+	for group in ["campfire", "workbench", "furnace"]:
 		for node in get_tree().get_nodes_in_group(group):
 			if global_position.distance_to(node.global_position) <= STATION_RANGE:
 				found.append(group)
