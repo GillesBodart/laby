@@ -4,8 +4,10 @@ extends RefCounted
 ##
 ## Item fields: name, stack, color (fallback icon), desc, and optionally
 ##   tool   - "axe" | "pickaxe" (gathering kind), with tier 1 stone .. 3 iron
-##   dmg    - bonus attack damage while carried
-##   armor  - damage absorbed per hit while carried
+##   slot   - equipment slot (see Equipment.SLOTS); weapons and tools default to "weapon"
+##   dmg    - bonus attack damage while equipped
+##   armor  - damage absorbed per hit while equipped
+##   hp     - bonus max health while equipped
 ##   food   - hunger restored when eaten
 
 const ITEMS := {
@@ -43,9 +45,19 @@ const ITEMS := {
 	"iron_sword": {"name": "Iron Sword", "stack": 1, "color": Color8(190, 194, 202), "dmg": 15, "desc": "+15 damage."},
 	"crystal_blade": {"name": "Crystal Blade", "stack": 1, "color": Color8(120, 220, 240), "dmg": 22, "desc": "Hums with power. +22 damage."},
 	# --- armor (the best piece in the backpack is worn)
-	"leather_armor": {"name": "Leather Armor", "stack": 1, "color": Color8(132, 84, 52), "armor": 2, "desc": "Absorbs 2 damage per hit."},
-	"copper_armor": {"name": "Copper Armor", "stack": 1, "color": Color8(214, 132, 80), "armor": 4, "desc": "Absorbs 4 damage per hit."},
-	"iron_armor": {"name": "Iron Armor", "stack": 1, "color": Color8(190, 194, 202), "armor": 7, "desc": "Absorbs 7 damage per hit."},
+	"leather_armor": {"name": "Leather Armor", "stack": 1, "color": Color8(132, 84, 52), "slot": "body", "armor": 2, "desc": "Body armor. Absorbs 2 damage per hit."},
+	"copper_armor": {"name": "Copper Armor", "stack": 1, "color": Color8(214, 132, 80), "slot": "body", "armor": 4, "desc": "Body armor. Absorbs 4 damage per hit."},
+	"iron_armor": {"name": "Iron Armor", "stack": 1, "color": Color8(190, 194, 202), "slot": "body", "armor": 7, "desc": "Body armor. Absorbs 7 damage per hit."},
+	"leather_cap": {"name": "Leather Cap", "stack": 1, "color": Color8(132, 84, 52), "slot": "head", "armor": 1, "desc": "Head. Absorbs 1 damage."},
+	"copper_helm": {"name": "Copper Helm", "stack": 1, "color": Color8(214, 132, 80), "slot": "head", "armor": 2, "desc": "Head. Absorbs 2 damage."},
+	"iron_helm": {"name": "Iron Helm", "stack": 1, "color": Color8(190, 194, 202), "slot": "head", "armor": 3, "desc": "Head. Absorbs 3 damage."},
+	"leather_boots": {"name": "Leather Boots", "stack": 1, "color": Color8(132, 84, 52), "slot": "feet", "armor": 1, "desc": "Feet. Absorbs 1 damage."},
+	"copper_boots": {"name": "Copper Boots", "stack": 1, "color": Color8(214, 132, 80), "slot": "feet", "armor": 1, "hp": 10, "desc": "Feet. Absorbs 1 damage, +10 max health."},
+	"iron_boots": {"name": "Iron Boots", "stack": 1, "color": Color8(190, 194, 202), "slot": "feet", "armor": 2, "hp": 10, "desc": "Feet. Absorbs 2 damage, +10 max health."},
+	"copper_ring": {"name": "Copper Ring", "stack": 1, "color": Color8(214, 132, 80), "slot": "ring", "dmg": 2, "desc": "Ring. +2 damage."},
+	"crystal_ring": {"name": "Crystal Ring", "stack": 1, "color": Color8(120, 220, 240), "slot": "ring", "dmg": 5, "desc": "Ring. +5 damage."},
+	"bone_charm": {"name": "Bone Charm", "stack": 1, "color": Color8(232, 224, 200), "slot": "amulet", "hp": 20, "desc": "Amulet. +20 max health."},
+	"crystal_amulet": {"name": "Crystal Amulet", "stack": 1, "color": Color8(120, 220, 240), "slot": "amulet", "hp": 40, "armor": 1, "desc": "Amulet. +40 max health, absorbs 1."},
 	# --- food
 	"berry_jam": {"name": "Berry Jam", "stack": 20, "color": Color8(150, 30, 70), "food": 45.0, "desc": "Thick and sweet. R eats it (+45 food)."},
 	# --- buildings
@@ -96,7 +108,16 @@ const RECIPES := [
 	{"id": "leather_armor", "out": 1, "in": {"leather": 5, "rope": 2}, "station": "workbench"},
 	{"id": "copper_armor", "out": 1, "in": {"copper_ingot": 8, "leather": 2}, "station": "workbench"},
 	{"id": "iron_armor", "out": 1, "in": {"iron_ingot": 8, "leather": 3}, "station": "workbench"},
-]
+	{"id": "leather_cap", "out": 1, "in": {"leather": 3}, "station": "workbench"},
+	{"id": "copper_helm", "out": 1, "in": {"copper_ingot": 4, "leather": 1}, "station": "workbench"},
+	{"id": "iron_helm", "out": 1, "in": {"iron_ingot": 4, "leather": 1}, "station": "workbench"},
+	{"id": "leather_boots", "out": 1, "in": {"leather": 2, "rope": 1}, "station": "workbench"},
+	{"id": "copper_boots", "out": 1, "in": {"copper_ingot": 3, "leather": 1}, "station": "workbench"},
+	{"id": "iron_boots", "out": 1, "in": {"iron_ingot": 3, "leather": 1}, "station": "workbench"},
+	{"id": "bone_charm", "out": 1, "in": {"bone": 3, "rope": 1}, "station": ""},
+	{"id": "copper_ring", "out": 1, "in": {"copper_ingot": 2}, "station": "furnace"},
+	{"id": "crystal_ring", "out": 1, "in": {"crystal": 2, "iron_ingot": 1}, "station": "furnace"},
+	{"id": "crystal_amulet", "out": 1, "in": {"crystal": 3, "copper_ingot": 2, "rope": 1}, "station": "workbench"},]
 
 
 static func description(id: String) -> String:
@@ -130,3 +151,17 @@ static func armor_of(id: String) -> int:
 ## Hunger restored when eaten (0 = not food).
 static func food_of(id: String) -> float:
 	return ITEMS[id].get("food", 0.0)
+
+
+static func hp_of(id: String) -> int:
+	return ITEMS[id].get("hp", 0)
+
+
+## Equipment slot the item goes into ("" = not equippable).
+static func slot_of(id: String) -> String:
+	if not ITEMS.has(id):
+		return ""
+	var item: Dictionary = ITEMS[id]
+	if item.has("slot"):
+		return item.slot
+	return "weapon" if item.get("dmg", 0) > 0 else ""

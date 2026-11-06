@@ -33,11 +33,16 @@ const BASE_DAMAGE := 8
 var state: State = State.IDLE
 var facing := Vector2.DOWN
 var inventory := Inventory.new()
+var equipment := Equipment.new()
 var survival := Survival.new()
 var _gather_timer := 0.0
 var _attack_timer := 0.0
 var _hurt_timer := 0.0
 var _slash_time := 0.0
+var _swing: Tween
+var _tool_pivot: Node2D
+var _tool_arm: Node2D
+var _tool_sprite: Sprite2D
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -53,16 +58,22 @@ func _ready() -> void:
 	if GameState.inventories.has(peer_id):
 		inventory.load_data(GameState.inventories[peer_id])
 	inventory.changed.connect(func() -> void: GameState.inventories[peer_id] = inventory.to_data())
+	if GameState.equipments.has(peer_id):
+		equipment.load_data(GameState.equipments[peer_id])
+	equipment.changed.connect(_on_equipment_changed)
+	_on_equipment_changed()
 	if GameState.survivals.has(peer_id):
 		survival.load_data(GameState.survivals[peer_id])
 	survival.died.connect(_on_died)
 	GameState.register_player(self)
+	_build_tool_sprite()
 	if input.is_local():
 		add_child(Builder.new())
 
 
 func _exit_tree() -> void:
 	GameState.survivals[peer_id] = survival.to_data()
+	GameState.equipments[peer_id] = equipment.to_data()
 	if GameState.players.get(peer_id) == self:
 		GameState.unregister_player(peer_id)
 
@@ -140,14 +151,43 @@ func _on_died() -> void:
 		global_position = ClearingWorld.cell_center(world.layout.spawn_cell)
 
 
-## Damage dealt per hit: tools double as weapons.
+## Damage dealt per hit: the equipped weapon (tools count) plus rings and skills.
 func weapon_damage() -> int:
-	return BASE_DAMAGE + inventory.best_damage() + survival.damage_bonus()
+	return BASE_DAMAGE + equipment.stat("dmg") + survival.damage_bonus()
+
+
+## Damage absorbed per hit by worn gear.
+func armor() -> int:
+	return equipment.stat("armor")
+
+
+## Best tool tier of a kind: carried in the backpack or held as the weapon.
+func tool_tier(kind: String) -> int:
+	return maxi(inventory.tool_tier(kind), equipment.tool_tier(kind))
+
+
+## Best tool of a kind to show in hand ("" = bare hands).
+func best_tool(kind: String) -> String:
+	var best := ""
+	var held := equipment.get_item("weapon")
+	if held != "" and ItemCatalog.tool_of(held) == kind:
+		best = held
+	for s in inventory.slots:
+		if not s.is_empty() and ItemCatalog.tool_of(s.id) == kind and (best == "" or ItemCatalog.tier_of(s.id) > ItemCatalog.tier_of(best)):
+			best = s.id
+	return best
+
+
+func _on_equipment_changed() -> void:
+	GameState.equipments[peer_id] = equipment.to_data()
+	survival.bonus_health = float(equipment.stat("hp"))
+	survival.health = minf(survival.health, survival.max_health())
 
 
 func _attack() -> void:
 	_attack_timer = ATTACK_COOLDOWN
 	_slash_time = 0.12
+	swing(equipment.get_item("weapon"))
 	var center := global_position + Vector2(0, -8)
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
@@ -159,7 +199,7 @@ func take_damage(amount: int, source: Node2D = null) -> void:
 	if _hurt_timer > 0.0 or survival.is_dead():
 		return
 	_hurt_timer = HURT_INVULNERABILITY
-	survival.damage(maxi(amount - inventory.best_armor(), 1))
+	survival.damage(maxi(amount - armor(), 1))
 	if source:
 		velocity = (global_position - source.global_position).normalized() * 160.0
 	var tw := create_tween()
@@ -179,7 +219,9 @@ func _try_gather() -> void:
 	var target := find_gatherable()
 	if target:
 		_gather_timer = GATHER_COOLDOWN
-		target.hit(self)
+		swing(best_tool(target.tool_kind), func() -> void:
+			if is_instance_valid(target):
+				target.hit(self))
 		return
 	var plot := _find_farm_plot()
 	if plot:
@@ -251,15 +293,84 @@ func get_save_data() -> Dictionary:
 		"position": [global_position.x, global_position.y],
 		"facing": [facing.x, facing.y],
 		"inventory": inventory.to_data(),
+		"equipment": equipment.to_data(),
 		"survival": survival.to_data(),
 	}
 
 
 func load_save_data(data: Dictionary) -> void:
 	inventory.load_data(data.get("inventory", []))
+	equipment.load_data(data.get("equipment", {}))
 	survival.load_data(data.get("survival", {}))
 	var p: Array = data.get("position", [global_position.x, global_position.y])
 	global_position = Vector2(p[0], p[1])
 	var f: Array = data.get("facing", [0, 1])
 	facing = Vector2(f[0], f[1])
 	velocity = Vector2.ZERO
+
+
+# ------------------------------------------------------------- tool swing
+
+## Pivot (mirrors for left) -> Arm (rotates) -> Sprite (grip at the origin).
+func _build_tool_sprite() -> void:
+	_tool_pivot = Node2D.new()
+	_tool_pivot.name = "ToolPivot"
+	add_child(_tool_pivot)
+	_tool_arm = Node2D.new()
+	_tool_pivot.add_child(_tool_arm)
+	_tool_sprite = Sprite2D.new()
+	_tool_sprite.centered = false
+	# Item icons hold their grip near the bottom-left corner.
+	_tool_sprite.offset = Vector2(-7, -25)
+	_tool_sprite.scale = Vector2(0.62, 0.62)
+	_tool_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_tool_arm.add_child(_tool_sprite)
+	_tool_pivot.visible = false
+
+
+## Swings an item (axe, pickaxe, weapon; "" = empty hand) toward the facing
+## direction; `on_impact` runs when the blow lands.
+func swing(item_id: String, on_impact := Callable()) -> void:
+	if _tool_pivot == null:
+		if on_impact.is_valid():
+			on_impact.call()
+		return
+	if _swing and _swing.is_valid():
+		_swing.kill()
+	var path := "res://assets/ui/items/%s.png" % item_id
+	_tool_sprite.visible = item_id != "" and ResourceLoader.exists(path)
+	if _tool_sprite.visible:
+		_tool_sprite.texture = load(path)
+	# Rotations relative to the icon pose (handle pointing up-right).
+	var raise := -75.0
+	var strike := 75.0
+	_tool_pivot.scale = Vector2.ONE
+	_tool_pivot.z_index = 1
+	_tool_pivot.position = Vector2(4, -11)
+	if facing == Vector2.LEFT:
+		_tool_pivot.scale = Vector2(-1, 1)
+		_tool_pivot.position = Vector2(-4, -11)
+	elif facing == Vector2.DOWN:
+		raise = -45.0
+		strike = 130.0
+		_tool_pivot.position = Vector2(5, -10)
+	elif facing == Vector2.UP:
+		raise = 110.0
+		strike = -40.0
+		_tool_pivot.position = Vector2(4, -14)
+		_tool_pivot.z_index = -1
+	_tool_arm.rotation_degrees = raise - 15.0
+	_tool_pivot.visible = true
+	sprite.position = Vector2.ZERO
+	sprite.scale = Vector2.ONE
+	_swing = create_tween()
+	_swing.tween_property(_tool_arm, "rotation_degrees", raise, 0.07)
+	_swing.tween_property(_tool_arm, "rotation_degrees", strike, 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_swing.parallel().tween_property(sprite, "position", facing * 2.0, 0.09)
+	_swing.tween_callback(func() -> void:
+		sprite.scale = Vector2(1.08, 0.92)
+		if on_impact.is_valid():
+			on_impact.call())
+	_swing.tween_property(sprite, "scale", Vector2.ONE, 0.08)
+	_swing.parallel().tween_property(sprite, "position", Vector2.ZERO, 0.1)
+	_swing.tween_callback(func() -> void: _tool_pivot.visible = false)

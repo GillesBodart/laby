@@ -21,6 +21,8 @@ var scene_changer := Callable()
 var arriving := false
 ## Per-peer backpacks kept while changing area (peer_id -> Inventory data).
 var inventories: Dictionary = {}
+## Per-peer worn gear kept while changing area (peer_id -> Equipment data).
+var equipments: Dictionary = {}
 ## Per-peer survival stats kept while changing area (peer_id -> Survival data).
 var survivals: Dictionary = {}
 ## Explored cells per area (area name -> FogMap), only for fogged areas.
@@ -48,6 +50,7 @@ func new_game(seed_value: int = 0) -> void:
 	area = "clearing"
 	arriving = false
 	inventories = {}
+	equipments = {}
 	survivals = {}
 	fog = {}
 	depleted_cells = {}

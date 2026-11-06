@@ -1,11 +1,22 @@
 extends PanelContainer
-## Backpack / crafting screen (I). Two tabs (Tab key or click): a diamond-slot
-## backpack with an item note card, and a recipe book (click a recipe to craft, wheel to scroll).
+## Backpack / crafting screen (I). Two tabs (Tab key or click): the backpack with a
+## paper doll of worn gear (click to equip / unequip) and an item note card, and a
+## recipe book (click a recipe to craft, wheel to scroll).
 
 const SIZE := Vector2(480, 270)
-const COLS := 6
-const PITCH := Vector2(50, 34)
-const DIAMOND := 18
+const COLS := 5
+const PITCH := Vector2(40, 29)
+const DIAMOND := 15
+## Paper doll: equipment slot centres (24x24 boxes) and the ghost icon shown when empty.
+const DOLL := {
+	"head": Vector2(104, 62), "amulet": Vector2(134, 74), "weapon": Vector2(74, 104),
+	"body": Vector2(104, 104), "ring": Vector2(134, 104), "feet": Vector2(104, 146),
+}
+const GHOST := {
+	"head": "leather_cap", "amulet": "bone_charm", "weapon": "stone_sword",
+	"body": "leather_armor", "ring": "copper_ring", "feet": "leather_boots",
+}
+const EQUIP_SLOT := Vector2(24, 24)
 const PANEL := Rect2(44, 36, 320, 196)
 const CARD := Rect2(372, 56, 100, 150)
 ## Recipe book: a scrollable grid of recipe slots; click one to craft it.
@@ -30,6 +41,7 @@ const OK := Color8(46, 110, 50)
 var tab := 0
 var _font: Font
 var _hover := -1
+var _hover_slot := ""
 var _scroll := 0
 
 
@@ -54,6 +66,7 @@ func _process(_delta: float) -> void:
 	if not visible:
 		return
 	_hover = _hover_index(get_local_mouse_position())
+	_hover_slot = _hover_equip(get_local_mouse_position()) if tab == 0 else ""
 	queue_redraw()
 
 
@@ -86,6 +99,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 		if tab == 1 and _hover >= 0:
 			craft(_hover)
+		elif tab == 0 and _hover_slot != "":
+			unequip(_hover_slot)
+		elif tab == 0 and _hover >= 0:
+			equip_slot(_hover)
 
 
 func _scroll_by(d: int) -> void:
@@ -101,8 +118,35 @@ func craft(index: int) -> bool:
 	var ok := Crafting.craft(player.inventory, recipe, player.nearby_stations())
 	var item := ItemCatalog.item_name(recipe.id)
 	EventBus.notify.emit(("Crafted %s" % item) if ok else ("Cannot craft %s" % item))
+	# Fresh gear goes straight on when its slot is free.
+	var slot := ItemCatalog.slot_of(recipe.id)
+	if ok and slot != "" and player.equipment.get_item(slot) == "":
+		player.equipment.equip(player.inventory, recipe.id)
 	return ok
 
+
+## Puts on the item in a backpack slot (swapping out what was worn).
+func equip_slot(index: int) -> bool:
+	var player := _player()
+	if player == null:
+		return false
+	var s: Dictionary = player.inventory.slots[index]
+	if s.is_empty() or ItemCatalog.slot_of(s.id) == "":
+		return false
+	var ok := player.equipment.equip(player.inventory, s.id)
+	if ok:
+		EventBus.notify.emit("Equipped %s" % ItemCatalog.item_name(s.id))
+	return ok
+
+
+func unequip(slot: String) -> bool:
+	var player := _player()
+	if player == null or player.equipment.get_item(slot) == "":
+		return false
+	var id := player.equipment.get_item(slot)
+	var ok := player.equipment.unequip(player.inventory, slot)
+	EventBus.notify.emit(("Took off %s" % ItemCatalog.item_name(id)) if ok else "Backpack full!")
+	return ok
 
 # ------------------------------------------------------------- layout
 
@@ -111,7 +155,7 @@ func _tab_rect(i: int) -> Rect2:
 
 
 func _slot_center(i: int) -> Vector2:
-	var origin := PANEL.position + Vector2((PANEL.size.x - COLS * PITCH.x) / 2.0 + PITCH.x / 2.0, 30)
+	var origin := Vector2(180, 60)
 	return origin + Vector2((i % COLS) * PITCH.x, (i / COLS) * PITCH.y)
 
 
@@ -125,6 +169,13 @@ func _visible_recipes() -> Array:
 	var first := _scroll * GRID_COLS
 	var last := mini(first + GRID_COLS * GRID_ROWS, ItemCatalog.RECIPES.size())
 	return range(first, last)
+
+
+func _hover_equip(m: Vector2) -> String:
+	for slot in DOLL:
+		if Rect2(DOLL[slot] - EQUIP_SLOT / 2.0, EQUIP_SLOT).has_point(m):
+			return slot
+	return ""
 
 
 func _hover_index(m: Vector2) -> int:
@@ -176,14 +227,14 @@ func _icon_tex(path: String) -> Texture2D:
 	return _icon_cache[path]
 
 
-func _icon(c: Vector2, id: String, half := 6) -> void:
+func _icon(c: Vector2, id: String, half := 6, tint := Color.WHITE) -> void:
 	var small := half < 5
 	var path := "res://assets/ui/items/%s%s.png" % [id, "_s" if small else ""]
 	if ResourceLoader.exists(path):
 		var tex := _icon_tex(path)
 		var sz := Vector2(tex.get_size()) * 0.5
 		draw_set_transform((c - sz * 0.5).round(), 0.0, Vector2(0.5, 0.5))
-		draw_texture(tex, Vector2.ZERO)
+		draw_texture(tex, Vector2.ZERO, tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var col: Color = ItemCatalog.ITEMS[id].color
@@ -246,13 +297,19 @@ func _draw() -> void:
 	var detail_extra := ""
 	if tab == 0:
 		detail_id = _draw_backpack(player)
+		var worn := _draw_doll(player)
+		if worn != "":
+			detail_id = worn
+			detail_extra = "Click to take off."
+		elif detail_id != "" and ItemCatalog.slot_of(detail_id) != "":
+			detail_extra = "Click to equip (%s)." % Equipment.SLOT_NAMES[ItemCatalog.slot_of(detail_id)]
 	else:
 		detail_id = _draw_crafting(player)
 		if _hover >= 0:
 			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
 			detail_extra = _recipe_text(rec, player)
 	_draw_card(detail_id, detail_extra)
-	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [Wheel] scroll", TEXT_LIGHT)
+	_text_center(PANEL.get_center().x, 247, "[I] close   [Tab] switch   [Click] equip / craft", TEXT_LIGHT)
 
 
 func _draw_backpack(player: Player) -> String:
@@ -263,17 +320,50 @@ func _draw_backpack(player: Player) -> String:
 		var s: Dictionary = inv.slots[i]
 		var selected := i == _hover
 		_diamond(c, DIAMOND, CREAM, GOLD if selected else BROWN)
-		_diamond(c, DIAMOND - 4, Color8(240, 200, 140) if selected else TAN, BROWN)
+		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else TAN, BROWN)
 		if s.is_empty():
 			continue
-		_icon(c + Vector2(0, -3), s.id)
+		_icon(c + Vector2(0, -1), s.id)
 		if selected:
 			hovered = s.id
 		if s.count > 1:
 			var t := "%d" % s.count
-			var p := c + Vector2(-_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x / 2.0, 12)
-			_text(p + Vector2(1, 1), t, INK)
-			_text(p, t, TEXT_LIGHT)
+			var p := c + Vector2(13 - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, 13)
+			draw_string(_font, p + Vector2(1, 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
+			draw_string(_font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, TEXT_LIGHT)
+	return hovered
+
+
+## Paper doll of worn gear plus the resulting stats. Returns the hovered worn item id.
+func _draw_doll(player: Player) -> String:
+	var eq := player.equipment
+	# Faint survivor silhouette behind the slots.
+	var ghost := Color(GREEN_LINE, 0.35)
+	draw_circle(Vector2(104, 64), 13.0, ghost)
+	draw_colored_polygon(PackedVector2Array([Vector2(86, 82), Vector2(122, 82), Vector2(126, 124), Vector2(82, 124)]), ghost)
+	draw_rect(Rect2(88, 124, 10, 22), ghost)
+	draw_rect(Rect2(110, 124, 10, 22), ghost)
+	draw_line(Vector2(84, 86), Vector2(74, 104), ghost, 5.0)
+	draw_line(Vector2(124, 86), Vector2(134, 104), ghost, 5.0)
+	var hovered := ""
+	for slot in DOLL:
+		var r := Rect2(DOLL[slot] - EQUIP_SLOT / 2.0, EQUIP_SLOT)
+		var id := eq.get_item(slot)
+		var hot: bool = slot == _hover_slot
+		_box(r, CREAM if id != "" else TAN, GOLD if hot else BROWN, 3)
+		if id != "":
+			_icon(r.get_center(), id)
+			if hot:
+				hovered = id
+		else:
+			_icon(r.get_center(), GHOST[slot], 6, Color(0.35, 0.25, 0.15, 0.35))
+	var lines := [
+		"ATK %d" % player.weapon_damage(),
+		"DEF %d" % player.armor(),
+		"HP %d" % int(player.survival.max_health()),
+	]
+	for i in lines.size():
+		draw_string(_font, Vector2(62, 178 + i * 14), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
 	return hovered
 
 

@@ -46,8 +46,11 @@ func _give() -> void:
 	var p: Player = GameState.players.get(GameState.local_peer_id())
 	if p == null:
 		return
-	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry"]:
-		p.inventory.add(id, 1 if ItemCatalog.tool_of(id) != "" else 7)
+	for id in ["wood", "stone", "plank", "stick", "fiber", "coal", "copper_ore", "copper_ingot", "iron_ingot", "clay", "stone_axe", "workbench", "furnace", "berry", "iron_helm", "copper_ring", "leather_boots"]:
+		p.inventory.add(id, 1 if ItemCatalog.stack_size(id) == 1 else 7)
+	for id in ["iron_sword", "copper_armor", "bone_charm"]:
+		p.inventory.add(id, 1)
+		p.equipment.equip(p.inventory, id)
 	if _args.has("panel"):
 		var ev := InputEventAction.new()
 		ev.action = "inventory"

@@ -1068,10 +1068,10 @@ func _make_item_icons() -> void:
 	icons["wood"] = _icon_log()
 	icons["stone"] = _make_rock(5, true)
 	icons["plank"] = _icon_planks()
-	icons["stick"] = _icon_sticks()
+	icons["stick"] = _ic_stick()
 	icons["torch"] = _icon_torch()
-	icons["stone_axe"] = _icon_tool(true)
-	icons["stone_pickaxe"] = _icon_tool(false)
+	icons["stone_axe"] = _ic_axe(MAT["stone"])
+	icons["stone_pickaxe"] = _ic_pickaxe(MAT["stone"])
 	for id in ["wooden_wall", "wooden_floor", "workbench", "chest"]:
 		icons[id] = _make_structure(id)
 	icons["wooden_door"] = _make_structure("wooden_door_closed")
@@ -1080,28 +1080,36 @@ func _make_item_icons() -> void:
 		icons[id] = _make_structure(id)
 	icons["farm_plot"] = _icon_farm_plot()
 	icons["fiber"] = _icon_fiber()
-	icons["rope"] = _icon_rope()
+	icons["rope"] = _ic_rope()
 	icons["bone"] = _icon_bone()
-	icons["hide"] = _icon_hide()
+	icons["hide"] = _ic_hide()
+	icons["leather"] = _ic_leather()
 	icons["crystal"] = _icon_crystal()
 	icons["berry_jam"] = _icon_jam()
-	icons["clay"] = _icon_lump(MAT["clay"], [], 1)
-	icons["coal"] = _icon_lump(MAT["coal"], [MAT["coal"][4], MAT["coal"][3]], 2)
-	icons["copper_ore"] = _icon_lump(MAT["stone"], [MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 3)
-	icons["iron_ore"] = _icon_lump(MAT["stone"], [Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 4)
-	icons["brick"] = _icon_ingot(MAT["brick"])
-	icons["copper_ingot"] = _icon_ingot(MAT["copper"])
-	icons["iron_ingot"] = _icon_ingot(MAT["iron"])
-	icons["leather"] = _icon_hide()
+	icons["clay"] = _ic_clay()
+	icons["coal"] = _ic_coal()
+	icons["copper_ore"] = _ic_ore(MAT["stone"], MAT["copper"], 731)
+	icons["iron_ore"] = _ic_ore(MAT["stone"], [Color8(110, 60, 44), Color8(150, 92, 70), Color8(196, 150, 120), Color8(220, 186, 160), Color8(240, 220, 200)], 732)
+	icons["brick"] = _ic_ingots(MAT["brick"])
+	icons["copper_ingot"] = _ic_ingots(MAT["copper"])
+	icons["iron_ingot"] = _ic_ingots(MAT["iron"])
 	for m in ["copper", "iron"]:
-		icons[m + "_axe"] = _icon_tool(true, MAT[m])
-		icons[m + "_pickaxe"] = _icon_tool(false, MAT[m])
+		icons[m + "_axe"] = _ic_axe(MAT[m])
+		icons[m + "_pickaxe"] = _ic_pickaxe(MAT[m])
 		icons[m + "_sword"] = _icon_sword(MAT[m])
-		icons[m + "_armor"] = _icon_armor(MAT[m])
+		icons[m + "_armor"] = _ic_armor(MAT[m], false)
+		icons[m + "_helm"] = _ic_helm(MAT[m], m)
+		icons[m + "_boots"] = _ic_boots(MAT[m], MAT["leather"])
 	icons["stone_sword"] = _icon_sword(MAT["stone"])
 	icons["bone_sword"] = _icon_sword(MAT["bone"])
 	icons["crystal_blade"] = _icon_sword(MAT["crystal"])
-	icons["leather_armor"] = _icon_armor(MAT["leather"])
+	icons["leather_armor"] = _ic_armor(MAT["leather"], true)
+	icons["leather_cap"] = _ic_helm(MAT["leather"], "leather")
+	icons["leather_boots"] = _ic_boots(MAT["leather"], [Color8(150, 104, 70), Color8(182, 138, 96), Color8(206, 170, 126), Color8(226, 196, 156), Color8(240, 220, 186)])
+	icons["copper_ring"] = _ic_ring(MAT["copper"], RUBY5)
+	icons["crystal_ring"] = _ic_ring(MAT["iron"], MAT["crystal"])
+	icons["bone_charm"] = _ic_amulet("bone")
+	icons["crystal_amulet"] = _ic_amulet("crystal")
 	for id in icons:
 		var big: Image = icons[id]
 		_save(big, "res://assets/ui/items/%s.png" % id)
@@ -1175,16 +1183,6 @@ func _icon_planks() -> Image:
 	return img
 
 
-func _icon_sticks() -> Image:
-	var img := _new_image(T, T)
-	_tube(img, Vector2(6, 26), Vector2(26, 6), 2, [C.bark_dark, C.bark, C.bark_light, C.bark_light])
-	_tube(img, Vector2(8, 8), Vector2(25, 25), 2, [C.bark_dark, C.bark, C.bark_light, C.bark_light])
-	_line(img, Vector2(15, 17), Vector2(21, 11), C.bark_light, 1)
-	_line(img, Vector2(18, 20), Vector2(24, 18), C.bark, 1)
-	_outline(img, C.outline)
-	return img
-
-
 func _icon_torch() -> Image:
 	var img := _new_image(T, T)
 	_tube(img, Vector2(10, 28), Vector2(18, 14), 2, [C.wood_dark, C.wood, C.wood_light, C.wood_light])
@@ -1198,21 +1196,6 @@ func _icon_torch() -> Image:
 				_px(img, x, 9 - y, C.fire_mid)
 		if y < 5:
 			_px(img, 19, 9 - y, C.fire_core)
-	_outline(img, C.outline)
-	return img
-
-
-func _icon_tool(axe: bool, tones: Array = MAT["stone"]) -> Image:
-	var img := _new_image(T, T)
-	_tube(img, Vector2(8, 27), Vector2(22, 8), 2, [C.wood_dark, C.wood, C.wood_light, C.wood_hi])
-	if axe:
-		var pts := PackedVector2Array([Vector2(16, 6), Vector2(27, 5), Vector2(29, 14), Vector2(22, 14), Vector2(20, 11)])
-		_fill_poly(img, pts, tones)
-	else:
-		var pts := PackedVector2Array([Vector2(10, 9), Vector2(17, 4), Vector2(26, 6), Vector2(30, 13), Vector2(27, 11), Vector2(19, 9), Vector2(13, 12)])
-		_fill_poly(img, pts, tones)
-	_rect(img, 18, 11, 4, 2, C.cloth)
-	_rect(img, 18, 12, 4, 1, C.pants_dark)
 	_outline(img, C.outline)
 	return img
 
@@ -1273,55 +1256,11 @@ func _icon_sword(tones: Array) -> Image:
 	_outline(img, C.outline)
 	return img
 
-func _icon_ingot(tones: Array) -> Image:
-	var img := _new_image(T, T)
-	for off in [Vector2(2, 4), Vector2(-4, -2)]:
-		var pts := PackedVector2Array([Vector2(8, 20) + off, Vector2(12, 14) + off, Vector2(24, 14) + off, Vector2(28, 20) + off])
-		_fill_poly(img, pts, tones)
-		_rect(img, int(8 + off.x), int(20 + off.y), 20, 3, tones[1])
-		_rect(img, int(8 + off.x), int(20 + off.y), 20, 1, tones[0])
-		_line(img, Vector2(13, 15) + off, Vector2(22, 15) + off, tones[4], 1)
-	_outline(img, C.outline)
-	return img
-
-
-func _icon_lump(tones: Array, specks := [], seed := 0) -> Image:
-	var img := _new_image(T, T)
-	_blob(img, 16, 18, 10, 8, [tones[0], tones[1], tones[2], tones[3]], 0.15, 500 + seed)
-	_blob(img, 13, 15, 4, 3, [tones[3], tones[4]], 0.0, 501 + seed)
-	for i in specks.size():
-		_rect(img, 10 + (i * 7) % 14, 15 + (i * 5) % 8, 2, 2, specks[i])
-	_outline(img, C.outline)
-	return img
-
-
-func _icon_armor(tones: Array) -> Image:
-	var img := _new_image(T, T)
-	var pts := PackedVector2Array([Vector2(8, 6), Vector2(13, 5), Vector2(16, 8), Vector2(19, 5), Vector2(24, 6), Vector2(29, 11), Vector2(25, 14), Vector2(23, 12), Vector2(23, 27), Vector2(9, 27), Vector2(9, 12), Vector2(7, 14), Vector2(3, 11)])
-	_fill_poly(img, pts, tones)
-	_rect(img, 9, 22, 14, 2, tones[0])
-	_rect(img, 15, 9, 2, 14, tones[1])
-	_line(img, Vector2(11, 12), Vector2(11, 20), tones[4], 1)
-	_outline(img, C.outline)
-	return img
-
-
 func _icon_fiber() -> Image:
 	var img := _new_image(T, T)
 	for i in 5:
 		_line(img, Vector2(8 + i * 3, 26), Vector2(6 + i * 5, 8 + (i % 2) * 4), [C.grass_dark, C.grass, C.grass_light][i % 3], 2)
 	_rect(img, 9, 19, 14, 2, C.cloth)
-	_outline(img, C.outline)
-	return img
-
-
-func _icon_rope() -> Image:
-	var img := _new_image(T, T)
-	for r in [10.0, 6.0]:
-		for a in 60:
-			var ang := TAU * a / 60.0
-			var col: Color = C.cloth if a % 6 < 3 else C.pants_dark
-			_rect(img, int(16 + cos(ang) * r), int(16 + sin(ang) * r * 0.85), 3, 3, col)
 	_outline(img, C.outline)
 	return img
 
@@ -1332,15 +1271,6 @@ func _icon_bone() -> Image:
 	_tube(img, Vector2(9, 23), Vector2(23, 9), 3, [t[1], t[2], t[3], t[4]])
 	for p in [Vector2(7, 21), Vector2(11, 25), Vector2(21, 7), Vector2(25, 11)]:
 		_blob(img, p.x, p.y, 3, 3, [t[1], t[2], t[3]], 0.0, int(p.x))
-	_outline(img, C.outline)
-	return img
-
-
-func _icon_hide() -> Image:
-	var img := _new_image(T, T)
-	var t: Array = MAT["leather"]
-	var pts := PackedVector2Array([Vector2(5, 8), Vector2(12, 6), Vector2(20, 7), Vector2(27, 6), Vector2(26, 14), Vector2(28, 21), Vector2(21, 26), Vector2(12, 25), Vector2(5, 26), Vector2(7, 17)])
-	_fill_poly(img, pts, t)
 	_outline(img, C.outline)
 	return img
 
@@ -1477,4 +1407,320 @@ func _make_enemy(kind: String) -> Image:
 			_rect(img, 15, 10, 2, 2, Color(0.4, 0.9, 1.0))
 			_rect(img, 19, 10, 2, 2, Color(0.4, 0.9, 1.0))
 	_outline(img, Color(0.05, 0.05, 0.07))
+	return img
+
+
+# ---------------------------------------------------------------- beveled icons
+# Shapes are built as pixel masks, then shaded with the light from the top-left:
+# a bright rim, a softer second ring, a mid fill and a dark bottom-right edge.
+
+const WOOD5 := [Color8(56, 38, 30), Color8(80, 54, 38), Color8(120, 82, 50), Color8(160, 114, 68), Color8(194, 150, 92)]
+const GOLD5 := [Color8(110, 70, 24), Color8(170, 116, 40), Color8(226, 184, 72), Color8(244, 214, 120), Color8(255, 244, 190)]
+const RUBY5 := [Color8(90, 16, 30), Color8(150, 30, 50), Color8(210, 56, 70), Color8(240, 120, 120), Color8(255, 210, 200)]
+
+
+func _mask_fn(test: Callable) -> Dictionary:
+	var m := {}
+	for y in T:
+		for x in T:
+			if test.call(Vector2(x + 0.5, y + 0.5)):
+				m[Vector2i(x, y)] = true
+	return m
+
+
+func _mask_poly(pts: PackedVector2Array) -> Dictionary:
+	return _mask_fn(func(p: Vector2) -> bool: return Geometry2D.is_point_in_polygon(p, pts))
+
+
+func _mask_ellipse(c: Vector2, rx: float, ry: float) -> Dictionary:
+	return _mask_fn(func(p: Vector2) -> bool: return pow((p.x - c.x) / rx, 2) + pow((p.y - c.y) / ry, 2) <= 1.0)
+
+
+func _mask_stroke(a: Vector2, b: Vector2, half: float) -> Dictionary:
+	return _mask_fn(func(p: Vector2) -> bool: return Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) <= half)
+
+
+func _mask_add(a: Dictionary, b: Dictionary) -> Dictionary:
+	var m := a.duplicate()
+	m.merge(b)
+	return m
+
+
+func _mask_cut(a: Dictionary, b: Dictionary) -> Dictionary:
+	var m := a.duplicate()
+	for k in b:
+		m.erase(k)
+	return m
+
+
+func _bevel(img: Image, mask: Dictionary, tones: Array) -> void:
+	for p in mask:
+		var out := func(dx: int, dy: int) -> bool: return not mask.has(p + Vector2i(dx, dy))
+		var col: Color = tones[2]
+		var dark: bool = out.call(1, 0) or out.call(0, 1)
+		var lit: bool = out.call(-1, 0) or out.call(0, -1)
+		if dark and lit:
+			col = tones[2]
+		elif dark:
+			col = tones[1]
+		elif lit:
+			col = tones[4]
+		elif out.call(-2, 0) or out.call(0, -2) or out.call(-1, -1):
+			col = tones[3]
+		elif out.call(2, 0) or out.call(0, 2) or out.call(1, 1):
+			col = tones[2].lerp(tones[1], 0.5)
+		_px(img, p.x, p.y, col)
+
+
+func _handle(img: Image, a := Vector2(6.5, 27.5), b := Vector2(21.5, 12.5)) -> void:
+	_bevel(img, _mask_stroke(a, b, 1.5), WOOD5)
+	for t in [0.25, 0.55]:
+		var p := a.lerp(b, t)
+		_px(img, int(p.x), int(p.y), WOOD5[1])
+
+
+func _ic_axe(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_handle(img)
+	var hub := Vector2(19.5, 13.5)
+	var d := Vector2(1, -1).normalized()
+	var n := Vector2(-1, -1).normalized()
+	var head := _mask_fn(func(p: Vector2) -> bool:
+		var r := p - hub
+		var s := r.dot(n)
+		var u := r.dot(d)
+		var w := 2.6 + maxf(s - 2.0, 0.0) * 0.6
+		return s >= -3.0 and s <= 9.5 - 1.6 * pow(u / 6.8, 2) and absf(u) <= w)
+	_bevel(img, head, tones)
+	# Honed cutting edge.
+	for p in head:
+		var s := (Vector2(p) + Vector2(0.5, 0.5) - hub).dot(n)
+		if s > 7.6 and head.has(p + Vector2i(-1, -1)) == false:
+			_px(img, p.x, p.y, tones[4])
+	_rect(img, 19, 13, 2, 2, C.cloth)
+	_px(img, 20, 14, C.pants_dark)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_pickaxe(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	_handle(img, Vector2(6.5, 27.5), Vector2(20.5, 13.5))
+	var hub := Vector2(21.0, 12.0)
+	var d := Vector2(1, -1).normalized()
+	var along := Vector2(1, 1).normalized()
+	var head := _mask_fn(func(p: Vector2) -> bool:
+		var r := p - hub
+		var u := r.dot(along)
+		var s := r.dot(d)
+		var centre := 1.5 - 0.03 * u * u
+		var half := 2.5 * (1.0 - pow(u / 13.0, 2)) + 0.5
+		return absf(u) <= 13.0 and absf(s - centre) <= half)
+	_bevel(img, head, tones)
+	_rect(img, 20, 12, 2, 2, C.cloth)
+	_px(img, 21, 13, C.pants_dark)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_stick() -> Image:
+	var img := _new_image(T, T)
+	var bark := [C.bark_dark.darkened(0.3), C.bark_dark, C.bark, C.bark_light, C.bark_light.lightened(0.2)]
+	_bevel(img, _mask_add(_mask_stroke(Vector2(6.5, 26.5), Vector2(25.5, 6.5), 1.6), _mask_stroke(Vector2(15.5, 17.5), Vector2(22.5, 18.5), 1.0)), bark)
+	for t in [0.3, 0.62]:
+		var p := Vector2(6.5, 26.5).lerp(Vector2(25.5, 6.5), t)
+		_px(img, int(p.x), int(p.y), bark[0])
+	_blob(img, 24, 18, 2.2, 1.6, [C.grass_dark, C.grass, C.grass_light], 0.0, 701)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_ingots(tones: Array) -> Image:
+	var img := _new_image(T, T)
+	for off in [Vector2(3, -6), Vector2(-2, 3)]:
+		var top := _mask_poly(PackedVector2Array([Vector2(10, 11) + off, Vector2(23, 11) + off, Vector2(26, 15) + off, Vector2(7, 15) + off]))
+		var front := _mask_poly(PackedVector2Array([Vector2(7, 15) + off, Vector2(26, 15) + off, Vector2(26, 20) + off, Vector2(7, 20) + off]))
+		for p in front:
+			var t: float = (p.y - (15 + off.y)) / 5.0
+			_px(img, p.x, p.y, tones[2].lerp(tones[1], t))
+		_bevel(img, top, [tones[2], tones[2], tones[3], tones[4], tones[4]])
+		_line(img, Vector2(7, 19) + off, Vector2(25, 19) + off, tones[0])
+		_line(img, Vector2(8, 16) + off, Vector2(25, 16) + off, tones[3])
+	_outline(img, C.outline)
+	return img
+
+## Rock chunk with embedded ore nuggets (empty specks = plain mineral lump).
+func _ic_ore(rock: Array, ore: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	var pts := PackedVector2Array([Vector2(6, 17), Vector2(10, 9), Vector2(18, 6), Vector2(25, 10), Vector2(27, 19), Vector2(22, 26), Vector2(11, 26)])
+	_bevel(img, _mask_poly(pts), rock)
+	# Facet crease.
+	_line(img, Vector2(12, 12), Vector2(17, 17), rock[1])
+	_line(img, Vector2(17, 17), Vector2(24, 15), rock[3])
+	if ore.size() > 0:
+		for i in 5:
+			var c := Vector2(9 + _hash(i, 1, seed) * 15.0, 10 + _hash(i, 2, seed) * 13.0)
+			var nug := _mask_ellipse(c, 1.9 + _hash(i, 3, seed), 1.6)
+			var keep := {}
+			for p in nug:
+				if img.get_pixel(p.x, p.y).a > 0.5:
+					keep[p] = true
+			_bevel(img, keep, ore)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_clay() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["clay"]
+	var m := _mask_poly(PackedVector2Array([Vector2(6, 14), Vector2(12, 9), Vector2(22, 9), Vector2(27, 14), Vector2(26, 24), Vector2(7, 24)]))
+	_bevel(img, m, t)
+	_bevel(img, _mask_ellipse(Vector2(14, 14), 2.5, 1.6), [t[3], t[0], t[1], t[1], t[0]])
+	_bevel(img, _mask_ellipse(Vector2(20, 17), 2.0, 1.4), [t[3], t[0], t[1], t[1], t[0]])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_armor(tones: Array, leather: bool) -> Image:
+	var img := _new_image(T, T)
+	var body := _mask_poly(PackedVector2Array([Vector2(8, 7), Vector2(13, 6), Vector2(16, 10), Vector2(19, 6), Vector2(24, 7), Vector2(25, 26), Vector2(16, 28), Vector2(7, 26)]))
+	_bevel(img, body, tones)
+	for sx in [-1, 1]:
+		var cx: int = 16 + sx * 10
+		_bevel(img, _mask_ellipse(Vector2(cx, 10), 4.5, 4.0), [tones[0], tones[1], tones[3], tones[4], tones[4]])
+	if leather:
+		for y in range(12, 26, 2):
+			_px(img, 16, y, tones[0])
+		_line(img, Vector2(9, 20), Vector2(23, 20), tones[1])
+		_rect(img, 9, 21, 15, 2, C.wood_deep)
+		_rect(img, 15, 21, 3, 2, C.gold)
+	else:
+		_line(img, Vector2(16, 12), Vector2(16, 25), tones[4])
+		_line(img, Vector2(17, 12), Vector2(17, 25), tones[1])
+		for y in [15, 20]:
+			_line(img, Vector2(9, y), Vector2(24, y), tones[1])
+			_line(img, Vector2(9, y + 1), Vector2(24, y + 1), tones[3])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_helm(tones: Array, kind: String) -> Image:
+	var img := _new_image(T, T)
+	var dome := _mask_fn(func(p: Vector2) -> bool:
+		return p.y <= 19.0 and pow((p.x - 16.0) / 11.0, 2) + pow((p.y - 19.0) / 13.0, 2) <= 1.0)
+	_bevel(img, dome, tones)
+	match kind:
+		"leather":
+			for x in range(8, 25, 3):
+				_px(img, x, 12, tones[0])
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(3, 19), Vector2(29, 19), Vector2(27, 23), Vector2(5, 23)])), tones)
+		"copper":
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(4, 18), Vector2(28, 18), Vector2(28, 22), Vector2(4, 22)])), tones)
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(14, 3), Vector2(18, 3), Vector2(18, 18), Vector2(14, 18)])), GOLD5)
+			for x in [7, 12, 20, 25]:
+				_px(img, x, 20, GOLD5[3])
+		"iron":
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 17), Vector2(27, 17), Vector2(27, 28), Vector2(21, 28), Vector2(21, 21), Vector2(11, 21), Vector2(11, 28), Vector2(5, 28)])), tones)
+			_rect(img, 8, 18, 7, 2, C.outline)
+			_rect(img, 17, 18, 7, 2, C.outline)
+			_bevel(img, _mask_poly(PackedVector2Array([Vector2(15, 17), Vector2(17, 17), Vector2(17, 26), Vector2(15, 26)])), tones)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_boots(tones: Array, cuff: Array) -> Image:
+	var img := _new_image(T, T)
+	for off in [Vector2(7, -3), Vector2(0, 0)]:
+		var boot := _mask_poly(PackedVector2Array([
+			Vector2(6, 8) + off, Vector2(14, 8) + off, Vector2(14, 20) + off,
+			Vector2(20, 22) + off, Vector2(20, 27) + off, Vector2(6, 27) + off]))
+		_bevel(img, boot, tones)
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 7) + off, Vector2(15, 7) + off, Vector2(15, 11) + off, Vector2(5, 11) + off])), cuff)
+		_line(img, Vector2(6, 26) + off, Vector2(19, 26) + off, C.outline)
+		_line(img, Vector2(7, 25) + off, Vector2(19, 25) + off, tones[0])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_ring(band: Array, gem: Array) -> Image:
+	var img := _new_image(T, T)
+	var ring := _mask_cut(_mask_ellipse(Vector2(16, 19), 9.5, 8.5), _mask_ellipse(Vector2(16, 19.5), 5.8, 4.8))
+	_bevel(img, ring, band)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(16, 4), Vector2(22, 10), Vector2(16, 15), Vector2(10, 10)])), gem)
+	_px(img, 14, 8, gem[4])
+	_px(img, 15, 7, gem[4])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_amulet(pendant: String) -> Image:
+	var img := _new_image(T, T)
+	var cord := GOLD5 if pendant == "crystal" else WOOD5
+	for i in 15:
+		var a := PI * (0.05 + 0.9 * float(i) / 14.0)
+		var p := Vector2(16 - cos(a) * 11.0, 4 + sin(a) * 11.0)
+		_rect(img, int(p.x), int(p.y), 2, 2, cord[2] if i % 2 == 0 else cord[1])
+	if pendant == "crystal":
+		_bevel(img, _mask_ellipse(Vector2(16, 17), 4.5, 4.5), GOLD5)
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(16, 14), Vector2(20, 19), Vector2(16, 28), Vector2(12, 19)])), MAT["crystal"])
+	else:
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(10, 15), Vector2(22, 15), Vector2(21, 21), Vector2(16, 30), Vector2(11, 21)])), MAT["bone"])
+		_line(img, Vector2(14, 18), Vector2(16, 26), MAT["bone"][1])
+		_rect(img, 11, 13, 10, 3, C.wood_dark)
+		_rect(img, 11, 13, 10, 1, C.wood_light)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_rope() -> Image:
+	var img := _new_image(T, T)
+	var tones := [C.pants_dark, Color8(150, 122, 78), C.cloth, Color8(214, 194, 146), Color8(236, 222, 186)]
+	for i in 3:
+		var cy := 22.0 - i * 5.0
+		var loop := _mask_cut(_mask_ellipse(Vector2(16, cy), 11.0 - i, 5.0), _mask_ellipse(Vector2(16, cy - 0.5), 7.5 - i, 2.6))
+		_bevel(img, loop, tones)
+		for p in loop:
+			if (p.x + p.y * 2) % 5 == 0:
+				_px(img, p.x, p.y, tones[1])
+	_bevel(img, _mask_stroke(Vector2(24.5, 10.5), Vector2(28.5, 5.5), 1.2), tones)
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_hide() -> Image:
+	var img := _new_image(T, T)
+	var fur := [Color8(70, 46, 30), Color8(110, 76, 50), Color8(150, 106, 70), Color8(182, 138, 96), Color8(206, 170, 126)]
+	var pts := PackedVector2Array([Vector2(4, 9), Vector2(10, 6), Vector2(16, 8), Vector2(22, 6), Vector2(28, 9), Vector2(26, 16), Vector2(28, 24), Vector2(21, 27), Vector2(16, 24), Vector2(11, 27), Vector2(4, 24), Vector2(6, 16)])
+	_bevel(img, _mask_poly(pts), fur)
+	for i in 18:
+		var x := 7 + int(_hash(i, 7, 711) * 19.0)
+		var y := 9 + int(_hash(i, 8, 711) * 15.0)
+		_px(img, x, y, fur[1])
+		_px(img, x + 1, y - 1, fur[3])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_leather() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["leather"]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(9, 9), Vector2(27, 9), Vector2(27, 25), Vector2(9, 25)])), t)
+	_bevel(img, _mask_ellipse(Vector2(8, 17), 4.0, 8.5), [t[0], t[1], t[3], t[4], t[4]])
+	_line(img, Vector2(8, 10), Vector2(8, 24), t[1])
+	for x in range(12, 26, 3):
+		_px(img, x, 11, t[4])
+		_px(img, x, 23, t[4])
+	_outline(img, C.outline)
+	return img
+
+
+func _ic_coal() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["coal"]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 18), Vector2(9, 10), Vector2(17, 7), Vector2(25, 11), Vector2(27, 20), Vector2(20, 26), Vector2(10, 25)])), t)
+	_line(img, Vector2(11, 13), Vector2(16, 18), t[1])
+	_line(img, Vector2(16, 18), Vector2(24, 16), t[3])
+	for p in [Vector2i(12, 11), Vector2i(20, 12), Vector2i(14, 21), Vector2i(22, 20)]:
+		_px(img, p.x, p.y, t[4])
+	_outline(img, C.outline)
 	return img

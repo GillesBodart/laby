@@ -23,7 +23,7 @@ func _ready() -> void:
 
 
 func hit(player: Player) -> void:
-	var tier := player.inventory.tool_tier(tool_kind)
+	var tier := player.tool_tier(tool_kind)
 	if tier < min_tier:
 		EventBus.notify.emit("Needs a better %s" % tool_kind)
 		_shake()
@@ -31,6 +31,8 @@ func hit(player: Player) -> void:
 	var dmg := 1 + tier
 	_hits_left -= dmg
 	_shake()
+	if is_inside_tree():
+		HitChips.burst(get_parent(), global_position + Vector2(0, -10), _chip_colors())
 	if _hits_left > 0:
 		return
 	var left := player.inventory.add(item_id, yield_amount)
@@ -40,6 +42,16 @@ func hit(player: Player) -> void:
 	player.gain_xp(xp)
 	depleted.emit(self)
 	queue_free()
+
+
+## Chip colours: wood for axes, stone plus the ore tint for pickaxes, leaves otherwise.
+func _chip_colors() -> Array:
+	match tool_kind:
+		"axe":
+			return [Color8(160, 114, 68), Color8(194, 150, 92), Color8(100, 68, 44)]
+		"pickaxe":
+			return [Color8(128, 132, 130), Color8(168, 170, 164), ItemCatalog.ITEMS[item_id].color]
+	return [Color8(84, 146, 60), Color8(98, 160, 68), Color8(44, 90, 42)]
 
 
 func _shake() -> void:

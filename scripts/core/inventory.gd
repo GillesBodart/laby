@@ -88,24 +88,6 @@ func tool_tier(kind: String) -> int:
 	return best
 
 
-## Best attack bonus among carried items.
-func best_damage() -> int:
-	var best := 0
-	for s in slots:
-		if not s.is_empty():
-			best = maxi(best, ItemCatalog.damage_of(s.id))
-	return best
-
-
-## Best armor value among carried items.
-func best_armor() -> int:
-	var best := 0
-	for s in slots:
-		if not s.is_empty():
-			best = maxi(best, ItemCatalog.armor_of(s.id))
-	return best
-
-
 func to_data() -> Array:
 	return slots.duplicate(true)
 

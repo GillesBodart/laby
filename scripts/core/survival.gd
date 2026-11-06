@@ -39,6 +39,8 @@ var level := 1
 var skill_points := 0
 ## skill id -> rank.
 var skills := {}
+## Extra max health from worn gear (set by the Player, not saved here).
+var bonus_health := 0.0
 
 var _exhausted := false
 var _regen_wait := 0.0
@@ -53,7 +55,7 @@ func rank(id: String) -> int:
 
 
 func max_health() -> float:
-	return MAX_HEALTH + 15.0 * rank("vigor")
+	return MAX_HEALTH + 15.0 * rank("vigor") + bonus_health
 
 
 func damage_bonus() -> int:
