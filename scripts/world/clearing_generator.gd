@@ -14,6 +14,7 @@ const PORTAL_ROWS := 3
 const PLAZA_RADIUS := 3.5
 const TREE_TARGET := 130
 const ROCK_TARGET := 45
+const BUSH_TARGET := 28
 
 const Id := TileCatalog.Id
 
@@ -206,6 +207,19 @@ func _place_props(center: Vector2i) -> void:
 		occupied[cell] = true
 		_layout.props.append({"type": "rock", "cell": cell, "variant": _rng.randi_range(0, VARIANTS - 1)})
 		rocks += 1
+
+	var bushes := 0
+	for attempt in 1500:
+		if bushes >= BUSH_TARGET:
+			break
+		var cell := Vector2i(
+			_rng.randi_range(inner.position.x, inner.end.x - 1),
+			_rng.randi_range(inner.position.y, inner.end.y - 1))
+		if not _is_free_for_prop(cell, center, gate_approaches, occupied, 3.0):
+			continue
+		occupied[cell] = true
+		_layout.props.append({"type": "bush", "cell": cell})
+		bushes += 1
 
 
 func _is_free_for_prop(cell: Vector2i, center: Vector2i, gates: Array[Vector2i],

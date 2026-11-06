@@ -15,6 +15,7 @@ const ITEMS := {
 	"workbench": {"name": "Workbench", "stack": 5, "color": Color8(166, 120, 72)},
 	"chest": {"name": "Chest", "stack": 5, "color": Color8(150, 104, 60)},
 	"wooden_door": {"name": "Wooden Door", "stack": 10, "color": Color8(130, 92, 58)},
+	"berry": {"name": "Berries", "stack": 20, "color": Color8(200, 52, 84), "food": 14.0},
 }
 
 ## station: "" = craftable anywhere, otherwise a node group that must be near.
@@ -45,6 +46,7 @@ const DESC := {
 	"workbench": "Place with B. Unlocks crafting.",
 	"chest": "Place with B. Opens the Stash (G).",
 	"wooden_door": "Place with B. F opens/closes.",
+	"berry": "Sweet wild berries. R eats them (+14 food).",
 }
 
 
@@ -62,3 +64,8 @@ static func stack_size(id: String) -> int:
 
 static func tool_of(id: String) -> String:
 	return ITEMS[id].get("tool", "")
+
+
+## Hunger restored when eaten (0 = not food).
+static func food_of(id: String) -> float:
+	return ITEMS[id].get("food", 0.0)

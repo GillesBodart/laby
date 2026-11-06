@@ -5,6 +5,7 @@ extends Node2D
 const PROP_SCENES := {
 	"tree": preload("res://scenes/world/props/tree.tscn"),
 	"rock": preload("res://scenes/world/props/rock.tscn"),
+	"bush": preload("res://scenes/world/props/bush.tscn"),
 	"campfire": preload("res://scenes/world/props/campfire.tscn"),
 }
 

@@ -7,12 +7,13 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 
 | Milestone | State |
 |-----------|-------|
-| M0 Project setup (structure, 480x270 pixel-perfect viewport, autoloads, input map, placeholder art) | ✅ |
+| M0 Project setup (structure, 960x540 viewport, 32px tiles, autoloads, input map, placeholder art) | ✅ |
 | M1 Player + world (seeded Clearing, walk/run + collisions, camera, day/night clock & lighting, gates closing at night) | ✅ |
 | M2 Gather + inventory + craft (E to chop/mine, I backpack + 10 recipes, campfire/workbench stations, saved) | ✅ |
 | Clearing v2 | ✅ 100x70 glade, 10 tree + 10 rock variants, single north gate leading to the Labyrinth (separate scene, loads after the gate corridor; walk back into the vestibule to return) |
 | M3 Building (grid walls/floors/doors/workbench/chest in the Clearing, saved) + Stash chest | ✅ (death rules deferred until health exists) |
-| M4+ | Next: survival needs, health, enemies |
+| M4 Survival + XP (health/hunger/stamina bars, berry bushes, R to eat, starvation + respawn, XP & levels from gathering -> skill points, saved) | ✅ (farming plots deferred) |
+| M5+ | Next: Maze v1 (fog-of-war map), skill graph, enemies |
 
 ## Run
 
@@ -23,7 +24,7 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs
 ```
 
-Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks · **I** backpack & crafting (Tab switches tab; 1-0 or click to craft) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30).
+Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks · **R** eat berries · **I** backpack & crafting (Tab switches tab; 1-0 or click to craft) · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **G** Stash (next to a chest: 1 deposit, 2 withdraw) · **F5/F9** quick save/load · **F3** fast time (x30).
 
 Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=labyrinth`, `--screenshot=out.png --screenshot-frames=60`.
 

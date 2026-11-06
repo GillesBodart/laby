@@ -29,6 +29,7 @@ const GATHER_COOLDOWN := 0.4
 var state: State = State.IDLE
 var facing := Vector2.DOWN
 var inventory := Inventory.new()
+var survival := Survival.new()
 var _gather_timer := 0.0
 
 @onready var input: PlayerInput = $PlayerInput
@@ -45,12 +46,16 @@ func _ready() -> void:
 	if GameState.inventories.has(peer_id):
 		inventory.load_data(GameState.inventories[peer_id])
 	inventory.changed.connect(func() -> void: GameState.inventories[peer_id] = inventory.to_data())
+	if GameState.survivals.has(peer_id):
+		survival.load_data(GameState.survivals[peer_id])
+	survival.died.connect(_on_died)
 	GameState.register_player(self)
 	if input.is_local():
 		add_child(Builder.new())
 
 
 func _exit_tree() -> void:
+	GameState.survivals[peer_id] = survival.to_data()
 	if GameState.players.get(peer_id) == self:
 		GameState.unregister_player(peer_id)
 
@@ -66,16 +71,59 @@ func _physics_process(delta: float) -> void:
 				state = State.IDLE
 
 	if state == State.MOVE:
-		var speed := RUN_SPEED if input.run else WALK_SPEED
+		var speed := RUN_SPEED if input.run and survival.can_run() else WALK_SPEED
 		velocity = velocity.move_toward(move * speed, ACCELERATION * delta)
 		facing = _cardinal(move)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	move_and_slide()
+	survival.tick(delta, state == State.MOVE, input.run)
 	_update_visuals()
 	_gather_timer = maxf(_gather_timer - delta, 0.0)
 	if input.interact and _gather_timer == 0.0:
 		_try_gather()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if input.is_local() and event.is_action_pressed("eat"):
+		eat_best_food()
+
+
+## Eats the most nourishing food in the backpack. Returns whether anything was eaten.
+func eat_best_food() -> bool:
+	var best := ""
+	for s in inventory.slots:
+		if not s.is_empty() and ItemCatalog.food_of(s.id) > (ItemCatalog.food_of(best) if best != "" else 0.0):
+			best = s.id
+	if best == "":
+		EventBus.notify.emit("Nothing to eat.")
+		return false
+	if survival.hunger >= Survival.MAX_HUNGER - 0.5:
+		EventBus.notify.emit("Not hungry.")
+		return false
+	inventory.remove(best, 1)
+	survival.eat(ItemCatalog.food_of(best))
+	EventBus.notify.emit("Ate %s." % ItemCatalog.item_name(best))
+	return true
+
+
+func gain_xp(amount: int) -> void:
+	var before := survival.level
+	if survival.add_xp(amount) > 0:
+		EventBus.notify.emit("Level %d! +%d skill point" % [survival.level, survival.level - before])
+
+
+func _on_died() -> void:
+	EventBus.notify.emit("You collapsed... and wake up at the camp.")
+	survival.revive()
+	velocity = Vector2.ZERO
+	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+	if GameState.area != "clearing" or world == null:
+		GameState.arriving = false
+		GameState.survivals[peer_id] = survival.to_data()
+		GameState.travel("clearing")
+	else:
+		global_position = ClearingWorld.cell_center(world.layout.spawn_cell)
 
 
 func _try_gather() -> void:
@@ -124,7 +172,7 @@ func _update_visuals() -> void:
 	var anim := ("walk_" if state == State.MOVE else "idle_") + dir_name
 	if sprite.animation != anim:
 		sprite.play(anim)
-	sprite.speed_scale = 1.5 if input.run else 1.0
+	sprite.speed_scale = 1.5 if input.run and survival.can_run() else 1.0
 	light.energy = 0.55 * LightingCurve.darkness_at(TimeSystem.minute_of_day())
 
 
@@ -137,11 +185,13 @@ func get_save_data() -> Dictionary:
 		"position": [global_position.x, global_position.y],
 		"facing": [facing.x, facing.y],
 		"inventory": inventory.to_data(),
+		"survival": survival.to_data(),
 	}
 
 
 func load_save_data(data: Dictionary) -> void:
 	inventory.load_data(data.get("inventory", []))
+	survival.load_data(data.get("survival", {}))
 	var p: Array = data.get("position", [global_position.x, global_position.y])
 	global_position = Vector2(p[0], p[1])
 	var f: Array = data.get("facing", [0, 1])

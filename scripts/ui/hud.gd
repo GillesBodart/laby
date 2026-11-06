@@ -26,6 +26,9 @@ func _ready() -> void:
 	notice.modulate.a = 0.0
 	EventBus.minute_changed.connect(_on_minute_changed)
 	EventBus.notify.connect(show_notice)
+	var bars := Control.new()
+	bars.set_script(preload("res://scripts/ui/survival_bars.gd"))
+	add_child(bars)
 	var panel := PanelContainer.new()
 	panel.set_script(preload("res://scripts/ui/crafting_panel.gd"))
 	add_child(panel)

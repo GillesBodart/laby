@@ -105,6 +105,7 @@ func _init() -> void:
 	_save(_make_shadow(), "res://assets/sprites/shadow.png")
 	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
 	_make_item_icons()
+	_save(_make_bush(), "res://assets/sprites/bush.png")
 	print("Art generated.")
 	quit()
 
@@ -1007,12 +1008,50 @@ func _make_item_icons() -> void:
 	for id in ["wooden_wall", "wooden_floor", "workbench", "chest"]:
 		icons[id] = _make_structure(id)
 	icons["wooden_door"] = _make_structure("wooden_door_closed")
+	icons["berry"] = _icon_berries()
 	for id in icons:
 		var big: Image = icons[id]
 		_save(big, "res://assets/ui/items/%s.png" % id)
 		var small := big.duplicate() as Image
 		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
 		_save(small, "res://assets/ui/items/%s_s.png" % id)
+
+
+const BERRY := [Color8(110, 24, 52), Color8(168, 36, 70), Color8(214, 70, 96), Color8(250, 150, 160)]
+
+
+func _berry(img: Image, x: int, y: int) -> void:
+	_rect(img, x, y, 3, 3, BERRY[1])
+	_px(img, x, y + 2, BERRY[0])
+	_px(img, x + 1, y + 2, BERRY[0])
+	_px(img, x + 2, y + 1, BERRY[0])
+	_px(img, x, y, BERRY[2])
+	_px(img, x + 1, y, BERRY[3])
+
+
+## Low berry bush (feet at the bottom center of a 32x32 frame).
+func _make_bush() -> Image:
+	var img := _new_image(T, T)
+	var greens := [C.grass_deep, C.grass_dark, C.grass, C.grass_light]
+	_blob(img, 9, 20, 8, 7, greens, 0.2, 401)
+	_blob(img, 22, 20, 8, 7, greens, 0.2, 402)
+	_blob(img, 16, 15, 10, 9, greens, 0.2, 403)
+	_outline(img, C.outline)
+	for p in [Vector2i(10, 15), Vector2i(19, 12), Vector2i(23, 19), Vector2i(14, 20), Vector2i(7, 21), Vector2i(17, 17)]:
+		_berry(img, p.x, p.y)
+	return img
+
+
+func _icon_berries() -> Image:
+	var img := _new_image(T, T)
+	for p in [Vector2i(8, 17), Vector2i(15, 12), Vector2i(17, 19), Vector2i(11, 22)]:
+		_blob(img, p.x + 3, p.y + 3, 4.5, 4.5, [BERRY[0], BERRY[1], BERRY[2], BERRY[2]], 0.0, p.x)
+		_px(img, p.x + 1, p.y + 1, BERRY[3])
+		_px(img, p.x + 2, p.y + 1, BERRY[3])
+	_tube(img, Vector2(15, 12), Vector2(19, 6), 2, [C.grass_deep, C.grass_dark, C.grass, C.grass])
+	_blob(img, 22, 7, 4, 2.6, [C.grass_deep, C.grass_dark, C.grass, C.grass_light], 0.0, 411)
+	_outline(img, C.outline)
+	return img
 
 
 func _icon_log() -> Image:

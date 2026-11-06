@@ -21,6 +21,8 @@ var scene_changer := Callable()
 var arriving := false
 ## Per-peer backpacks kept while changing area (peer_id -> Inventory data).
 var inventories: Dictionary = {}
+## Per-peer survival stats kept while changing area (peer_id -> Survival data).
+var survivals: Dictionary = {}
 ## Harvested Clearing props (cell -> true), so they stay gone across areas.
 var depleted_cells: Dictionary = {}
 ## Player-built structures in the Clearing (cell -> {"type": String, "open": bool}).
@@ -44,6 +46,7 @@ func new_game(seed_value: int = 0) -> void:
 	area = "clearing"
 	arriving = false
 	inventories = {}
+	survivals = {}
 	depleted_cells = {}
 	structures = {}
 	stash = Inventory.new(STASH_SLOTS)

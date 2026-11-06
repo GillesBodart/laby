@@ -9,6 +9,7 @@ signal depleted(gatherable: Gatherable)
 @export var yield_amount := 3
 @export var max_hits := 4
 @export var tool_kind := "axe"
+@export var xp := 4
 
 var cell := Vector2i.ZERO
 var _hits_left := 0
@@ -29,6 +30,7 @@ func hit(player: Player) -> void:
 	EventBus.notify.emit("+%d %s" % [yield_amount - left, ItemCatalog.item_name(item_id)])
 	if left > 0:
 		EventBus.notify.emit("Backpack full!")
+	player.gain_xp(xp)
 	depleted.emit(self)
 	queue_free()
 
