@@ -36,6 +36,12 @@ var boss: Dictionary = {}
 var arena_rect: Rect2i
 ## Whether the player may build here (only the Clearing).
 var buildable := false
+## Fixed landmarks of a sector (never shift): [{"type": String, "cell": Vector2i}].
+var landmarks: Array = []
+## Glyph stones: [{"glyph": String, "cell": Vector2i}].
+var glyphs: Array = []
+## Tile rects of the maze regions that moved at the current shift.
+var shift_tiles: Array = []
 ## Whether unexplored cells are hidden on the map (the Labyrinth).
 var fogged := false
 

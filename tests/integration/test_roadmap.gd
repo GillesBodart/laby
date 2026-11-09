@@ -316,3 +316,125 @@ func test_downed_companion_recovers_in_the_clearing() -> void:
 	await _frames(1)
 	check(rec.downed, "downed after a beating")
 	world.free()
+
+
+## Every maze cell centre and the arena reachable from the vestibule.
+func _all_reachable(layout: ClearingLayout) -> bool:
+	var seen := {layout.return_cell: true}
+	var queue: Array[Vector2i] = [layout.return_cell]
+	var head := 0
+	while head < queue.size():
+		var cur := queue[head]
+		head += 1
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var n: Vector2i = cur + d
+			if layout.in_bounds(n) and not layout.is_wall(n) and not seen.has(n):
+				seen[n] = true
+				queue.append(n)
+	for my in LabyrinthGenerator.ROWS:
+		for mx in LabyrinthGenerator.COLS:
+			if not seen.has(LabyrinthGenerator.cell_origin(Vector2i(mx, my)) + Vector2i.ONE):
+				return false
+	return seen.has(layout.boss.cell)
+
+
+func test_maze_shifts_stay_connected_and_keep_landmarks() -> void:
+	for s in ["labyrinth", "ice"]:
+		var base := LabyrinthGenerator.generate(9, s, 0)
+		check(base.shift_tiles.is_empty(), "%s: no shift before the first night" % s)
+		check_eq(base.landmarks.size(), LabyrinthGenerator.LANDMARK_COUNT, "%s landmarks" % s)
+		check_eq(base.glyphs.size(), LabyrinthGenerator.GLYPH_COUNT, "%s glyph stones" % s)
+		var moved_any := false
+		for shift in [1, 2, 5]:
+			var l := LabyrinthGenerator.generate(9, s, shift)
+			check(_all_reachable(l), "%s shift %d fully connected" % [s, shift])
+			check_eq(l.shift_tiles.size(), LabyrinthGenerator.SHIFT_REGIONS, "%s shift %d regions" % [s, shift])
+			check_eq(l.landmarks, base.landmarks, "landmarks never move")
+			check_eq(l.glyphs, base.glyphs, "glyph stones never move")
+			check_eq(l.enemy_spawns, base.enemy_spawns, "creatures unchanged by the shift")
+			check_eq(l.props, base.props, "resources unchanged by the shift")
+			var outside_same := true
+			for y in l.size.y:
+				for x in l.size.x:
+					var c := Vector2i(x, y)
+					var inside: bool = l.shift_tiles.any(func(r): return r.has_point(c))
+					if l.is_wall(c) != base.is_wall(c):
+						if inside:
+							moved_any = true
+						else:
+							outside_same = false
+			check(outside_same, "%s shift %d only touches its regions" % [s, shift])
+			for m in l.landmarks:
+				check(not l.shift_tiles.any(func(r): return r.has_point(m.cell)), "landmark outside moving regions")
+		check(moved_any, "%s: the walls really move" % s)
+
+
+func test_fog_uncertainty_and_map_markers_persist() -> void:
+	var fog := FogMap.new(Vector2i(30, 30))
+	fog.reveal(Vector2i(10, 10), 4)
+	fog.mark_uncertain(Rect2i(8, 8, 4, 4))
+	check(fog.is_uncertain(Vector2i(9, 9)), "explored cell flagged")
+	check(not fog.is_uncertain(Vector2i(25, 25)), "unexplored cells are never uncertain")
+	fog.shift = 3
+	var copy := FogMap.from_data(JSON.parse_string(JSON.stringify(fog.to_data())))
+	check_eq(copy.uncertain_count(), fog.uncertain_count(), "uncertainty saved")
+	check_eq(copy.shift, 3, "shift saved")
+	copy.reveal(Vector2i(9, 9), 1)
+	check(not copy.is_uncertain(Vector2i(9, 9)), "seeing it again clears the doubt")
+	GameState.new_game(12)
+	GameState.add_marker("labyrinth", "danger", Vector2i(5, 6))
+	GameState.add_marker("labyrinth", "door", Vector2i(20, 6))
+	GameState.log_journal("creatures", "cave_rat")
+	check(not GameState.log_journal("creatures", "cave_rat"), "second sighting is not new")
+	var data := SaveSystem.collect()
+	GameState.new_game(12)
+	GameState.meta_from_data(JSON.parse_string(JSON.stringify(data)).meta)
+	check_eq(GameState.markers.get("labyrinth", []).size(), 2, "markers saved")
+	check_eq(int(GameState.journal.creatures.cave_rat), 2, "journal counts saved")
+	check(GameState.remove_marker_near("labyrinth", Vector2i(6, 6)), "right click removes the nearest")
+	check_eq(String(GameState.markers.labyrinth[0].kind), "door", "the other marker stays")
+
+
+func test_live_shift_moves_walls_and_glyphs_need_insight() -> void:
+	GameState.new_game(2024)
+	TimeSystem.reset()
+	TimeSystem.set_time_of_day(19 * 60 + 50)
+	GameState.area = "labyrinth"
+	GameState.arriving = false
+	var world: Node = load("res://scenes/world/labyrinth.tscn").instantiate()
+	_tree().root.add_child(world)
+	await _frames(2)
+	check_eq(_tree().get_nodes_in_group("landmarks").size(), LabyrinthGenerator.LANDMARK_COUNT + LabyrinthGenerator.GLYPH_COUNT, "landmarks and glyph stones stand")
+	var before: PackedInt32Array = world.layout.walls.duplicate()
+	for x in world.layout.size.x:
+		for y in world.layout.size.y:
+			world.fog.reveal(Vector2i(x, y), 0)
+	TimeSystem.advance(20)
+	await _frames(2)
+	var expected := LabyrinthGenerator.generate(2024, "labyrinth", 1)
+	var same := true
+	for y in expected.size.y:
+		for x in expected.size.x:
+			var c := Vector2i(x, y)
+			if expected.is_wall(c) != world.layout.is_wall(c):
+				same = false
+			if expected.is_wall(c) != (world.clearing.walls.get_cell_source_id(c) != -1):
+				same = false
+	check(same, "nightfall turns the maze into tonight's layout")
+	check(world.layout.walls != before, "walls changed")
+	check(world.fog.uncertain_count() > 0, "the map flags moved passages")
+	check_eq(world.fog.shift, 1, "fog knows the shift")
+	var player := _local_player()
+	var stones := _tree().get_nodes_in_group("landmarks").filter(func(l): return l.kind == "glyph")
+	stones.sort_custom(func(a, b): return Glyphs.index_of(a.id) < Glyphs.index_of(b.id))
+	stones[0].interact(player)
+	check(GameState.in_journal("glyphs", "labyrinth_0"), "first stone needs no insight")
+	stones[2].interact(player)
+	check(not GameState.in_journal("glyphs", "labyrinth_2"), "deeper stones need glyph insight")
+	var statue: Landmark = _tree().get_nodes_in_group("landmarks").filter(func(l): return l.kind == "landmark")[0]
+	statue.interact(player)
+	check(GameState.in_journal("places", statue.id), "landmark logged")
+	var path := preload("res://scripts/ui/map_panel.gd").route(world.layout, world.layout.return_cell, world.layout.boss.cell)
+	check(path.size() > 20, "a route to the arena exists after the shift")
+	world.free()
+	GameState.area = "clearing"

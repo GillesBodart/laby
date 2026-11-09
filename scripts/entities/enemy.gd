@@ -496,6 +496,7 @@ func tame(p: Player) -> bool:
 	Companion.spawn(get_parent(), record, p, global_position)
 	EventBus.notify.emit("The %s eats from your hand. It will follow you." % _def.name)
 	p.gain_xp(int(_def.xp))
+	GameState.log_journal("creatures", type_id, 0)
 	queue_free()
 	return true
 
@@ -522,6 +523,7 @@ func _die(killer: Player) -> void:
 			got.append("+%d %s" % [shards, ItemCatalog.item_name(Survival.RESPEC_ITEM)])
 		EventBus.notify.emit("%s defeated%s" % [_def.name, (": " + ", ".join(got)) if not got.is_empty() else ""])
 		killer.gain_xp(_def.xp)
+	GameState.log_journal("creatures", type_id)
 	if _def.boss:
 		GameState.defeat_boss(type_id)
 	queue_free()

@@ -4,6 +4,11 @@ extends RefCounted
 ## perfect maze (recursive backtracker) with a few loops, a short vestibule
 ## at the bottom leading back south, and a guardian's arena at the top whose
 ## sealed gate opens north onto the next sector.
+##
+## The walls move: at each night start (shift = night index) a few seeded
+## regions of the maze are re-carved. Each region gets a fresh spanning tree,
+## so the maze stays connected. Landmarks never move and nothing spawns on
+## them. Enemies, resources and landmarks do not depend on the shift.
 
 const COLS := 20
 const ROWS := 14
@@ -22,6 +27,13 @@ const SEED_SALT := 7919
 const SECTOR_SALT := 104729
 ## Maze cells merged into the guardian's arena (top centre).
 const ARENA := Rect2i(8, 0, 4, 2)
+## Shifting regions per night and their size in maze cells.
+const SHIFT_REGIONS := 3
+const SHIFT_SIZE := Vector2i(4, 3)
+const LANDMARK_COUNT := 5
+const LANDMARK_TYPES := ["statue_angel", "statue_dragon", "statue_guardian", "statue_hero",
+	"statue_sword", "statue_twins", "column", "old_engine"]
+const GLYPH_COUNT := 4
 
 const Id := TileCatalog.Id
 
@@ -29,15 +41,19 @@ var _rng := RandomNumberGenerator.new()
 var _layout: ClearingLayout
 var _solid: Dictionary = {}
 var _sector := "labyrinth"
+var _shift := 0
+var _seed := 0
+var _landmark_cells := {}
 
 
 static func map_size() -> Vector2i:
 	return Vector2i(COLS * PITCH + 4, ROWS * PITCH + 4 + VESTIBULE_ROWS)
 
 
-static func generate(seed_value: int, sector := "labyrinth") -> ClearingLayout:
+static func generate(seed_value: int, sector := "labyrinth", shift := 0) -> ClearingLayout:
 	var g := LabyrinthGenerator.new()
 	g._sector = sector
+	g._shift = shift
 	return g._generate(seed_value)
 
 
@@ -55,7 +71,16 @@ func _generate(seed_value: int) -> ClearingLayout:
 			_solid[Vector2i(x, y)] = true
 			_layout.set_ground(Vector2i(x, y), Id.MAZE_FLOOR)
 
+	_seed = seed_value
 	var links := _carve_maze()
+	var marks := landmarks(seed_value, _sector)
+	for m in marks:
+		_landmark_cells[m.mc] = true
+	_layout.shift_tiles = []
+	if _shift > 0:
+		for region in shift_regions(seed_value, _sector, _shift):
+			_reshape(region)
+			_layout.shift_tiles.append(region_tiles(region))
 	var entry := Vector2i(COLS / 2, ROWS - 1)
 	var o := cell_origin(entry)
 	var vestibule := Rect2i(o.x, o.y + OPEN, OPEN, size.y - 3 - (o.y + OPEN))
@@ -68,7 +93,11 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_carve(Rect2i(north.x, 1, OPEN, BORDER - 1))
 	_layout.clearing_rect = Rect2i(o, Vector2i(OPEN, OPEN))
 	_paint_ground()
-	WallResolver.resolve(_layout, _solid, _rng)
+	# Decoration has its own stream so the creature and resource rolls
+	# below stay the same whatever the walls did.
+	var deco := RandomNumberGenerator.new()
+	deco.seed = _rng.seed + 1
+	WallResolver.resolve(_layout, _solid, deco)
 
 	var back := Sectors.prev_of(_sector)
 	_layout.portal_rect = Rect2i(o.x, size.y - 5, OPEN, 2)
@@ -92,6 +121,11 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_layout.sector_gate = {"rect": Rect2i(north.x, BORDER - 1, OPEN, 1), "keys": keys}
 	_layout.boss = {"type": info.boss, "cell": arena.get_center()}
 	_layout.arena_rect = arena
+	for m in marks:
+		_layout.landmarks.append({"type": m.type, "cell": cell_origin(m.mc) + Vector2i(1, 1)})
+	for g in glyph_spots(seed_value, _sector):
+		_layout.glyphs.append({"glyph": g.glyph, "cell": cell_origin(g.mc) + Vector2i(1, 1)})
+		_landmark_cells[g.mc] = true
 	_place_enemies(entry)
 	_place_resources(entry)
 	return _layout
@@ -104,7 +138,7 @@ func _place_enemies(entry: Vector2i) -> void:
 			var mc := Vector2i(mx, my)
 			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
 			var roll := _rng.randf()
-			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE or ARENA.has_point(mc):
+			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE or ARENA.has_point(mc) or _landmark_cells.has(mc):
 				continue
 			var type := EnemyCatalog.pick(_sector, dist / max_dist * 1.4, _rng.randf())
 			var o := cell_origin(mc)
@@ -123,7 +157,7 @@ func _place_resources(entry: Vector2i) -> void:
 			var depth := dist / max_dist * 1.4
 			var first := _rng.randi_range(0, 3)
 			var rolls := [_rng.randf(), _rng.randf()]
-			if dist <= 1 or ARENA.has_point(mc):
+			if dist <= 1 or ARENA.has_point(mc) or _landmark_cells.has(mc):
 				continue
 			for k in 2:
 				if rolls[k] > (RESOURCE_CHANCE if k == 0 else SECOND_CHANCE):
@@ -191,18 +225,122 @@ func _in_maze(mc: Vector2i) -> bool:
 	return mc.x >= 0 and mc.y >= 0 and mc.x < COLS and mc.y < ROWS
 
 
-func _link(a: Vector2i, b: Vector2i) -> void:
+func _link(a: Vector2i, b: Vector2i, close := false) -> void:
 	var lo := Vector2i(mini(a.x, b.x), mini(a.y, b.y))
 	var o := cell_origin(lo)
-	if a.x != b.x:
-		_carve(Rect2i(o.x + OPEN, o.y, PITCH - OPEN, OPEN))
+	var rect := Rect2i(o.x + OPEN, o.y, PITCH - OPEN, OPEN) if a.x != b.x else Rect2i(o.x, o.y + OPEN, OPEN, PITCH - OPEN)
+	if close:
+		for y in range(rect.position.y, rect.end.y):
+			for x in range(rect.position.x, rect.end.x):
+				_solid[Vector2i(x, y)] = true
 	else:
-		_carve(Rect2i(o.x, o.y + OPEN, OPEN, PITCH - OPEN))
+		_carve(rect)
 
 
 func _paint_ground() -> void:
 	for y in _layout.size.y:
 		for x in _layout.size.x:
 			var cell := Vector2i(x, y)
-			if not _solid.has(cell) and _rng.randf() < Sectors.info(_sector).moss:
+			if not _solid.has(cell) and _cell_noise(cell) < Sectors.info(_sector).moss:
 				_layout.set_ground(cell, Id.MAZE_FLOOR_MOSS)
+
+func _cell_noise(cell: Vector2i) -> float:
+	return float(absi(hash(Vector3i(cell.x, cell.y, _seed))) % 10000) / 10000.0
+
+
+static func _sector_rng(seed_value: int, sector: String, salt: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + salt + Sectors.index_of(sector) * SECTOR_SALT
+	return rng
+
+
+## Fixed landmarks of a sector: [{type, mc (maze cell)}], spread out at
+## mid-depth, away from the entrance and the arena.
+static func landmarks(seed_value: int, sector: String) -> Array:
+	var rng := _sector_rng(seed_value, sector, 31337)
+	var types := LANDMARK_TYPES.duplicate()
+	var out := []
+	var tries := 0
+	while out.size() < LANDMARK_COUNT and tries < 200:
+		tries += 1
+		var mc := Vector2i(rng.randi_range(0, COLS - 1), rng.randi_range(2, ROWS - 3))
+		if out.any(func(m): return absi(m.mc.x - mc.x) + absi(m.mc.y - mc.y) < 5):
+			continue
+		var t: String = types.pop_at(rng.randi_range(0, types.size() - 1))
+		out.append({"type": t, "mc": mc})
+	return out
+
+
+## Glyph stones: [{glyph, mc}] in dead-quiet corners of the maze (never on a
+## landmark). The glyph ids index Glyphs.DATA.
+static func glyph_spots(seed_value: int, sector: String) -> Array:
+	var rng := _sector_rng(seed_value, sector, 51551)
+	var taken := {}
+	for m in landmarks(seed_value, sector):
+		taken[m.mc] = true
+	var out := []
+	var tries := 0
+	while out.size() < GLYPH_COUNT and tries < 200:
+		tries += 1
+		var mc := Vector2i(rng.randi_range(0, COLS - 1), rng.randi_range(1, ROWS - 3))
+		if taken.has(mc) or ARENA.has_point(mc):
+			continue
+		taken[mc] = true
+		out.append({"glyph": "%s_%d" % [sector, out.size()], "mc": mc})
+	return out
+
+
+## Maze-cell rects re-carved at a shift (night index), never holding a
+## landmark nor touching the entrance rows or the arena.
+static func shift_regions(seed_value: int, sector: String, shift: int) -> Array:
+	if shift <= 0:
+		return []
+	var rng := _sector_rng(seed_value + shift * 7907, sector, 99991)
+	var fixed := landmarks(seed_value, sector).map(func(m): return m.mc)
+	var out := []
+	var tries := 0
+	while out.size() < SHIFT_REGIONS and tries < 100:
+		tries += 1
+		var r := Rect2i(Vector2i(rng.randi_range(0, COLS - SHIFT_SIZE.x), rng.randi_range(2, ROWS - 2 - SHIFT_SIZE.y)), SHIFT_SIZE)
+		if out.any(func(o): return o.grow(1).intersects(r)) or fixed.any(func(mc): return r.has_point(mc)):
+			continue
+		out.append(r)
+	return out
+
+
+## Tiles covered by a region of maze cells (cells plus the walls between them).
+static func region_tiles(region: Rect2i) -> Rect2i:
+	var a := cell_origin(region.position)
+	var b := cell_origin(region.end - Vector2i.ONE) + Vector2i(OPEN, OPEN)
+	return Rect2i(a, b - a)
+
+
+## Closes every passage inside the region, then carves a new spanning tree
+## (plus a loop) through it. Passages crossing the border are kept, so every
+## path that went through the region still does.
+func _reshape(region: Rect2i) -> void:
+	var rng := _sector_rng(_seed + _shift * 7907 + region.position.x * 31 + region.position.y, _sector, 4441)
+	for my in range(region.position.y, region.end.y):
+		for mx in range(region.position.x, region.end.x):
+			var c := Vector2i(mx, my)
+			for d in [Vector2i.RIGHT, Vector2i.DOWN]:
+				if region.has_point(c + d):
+					_link(c, c + d, true)
+	var visited := {region.position: true}
+	var stack: Array[Vector2i] = [region.position]
+	while not stack.is_empty():
+		var cur: Vector2i = stack.back()
+		var options: Array[Vector2i] = []
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var n: Vector2i = cur + d
+			if region.has_point(n) and not visited.has(n):
+				options.append(n)
+		if options.is_empty():
+			stack.pop_back()
+			continue
+		var next: Vector2i = options[rng.randi_range(0, options.size() - 1)]
+		_link(cur, next)
+		visited[next] = true
+		stack.append(next)
+	var c := region.position + Vector2i(rng.randi_range(0, region.size.x - 2), rng.randi_range(0, region.size.y - 1))
+	_link(c, c + Vector2i.RIGHT)

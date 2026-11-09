@@ -54,6 +54,13 @@ var bosses_defeated: Dictionary = {}
 var escaped := false
 ## Tamed creatures: [{type, name, owner, hp, max_hp, level, xp, mode, downed}].
 var companions: Array = []
+## Field journal: kind (creatures/resources/glyphs/places) -> {id: count}.
+var journal: Dictionary = {}
+## Map markers per area: area -> [{kind, cell: [x, y]}].
+var markers: Dictionary = {}
+
+const JOURNAL_KINDS := ["creatures", "resources", "glyphs", "places"]
+const MARKER_KINDS := ["danger", "resource", "door", "note"]
 
 
 func _ready() -> void:
@@ -85,12 +92,15 @@ func new_game(seed_value: int = 0) -> void:
 	bosses_defeated = {}
 	escaped = false
 	companions = []
+	journal = {}
+	markers = {}
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
 func meta_to_data() -> Dictionary:
 	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
-		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true)}
+		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true),
+		"journal": journal.duplicate(true), "markers": markers.duplicate(true)}
 
 
 func meta_from_data(data: Dictionary) -> void:
@@ -107,6 +117,17 @@ func meta_from_data(data: Dictionary) -> void:
 			companions.append({"type": String(c.type), "name": String(c.get("name", "")), "owner": int(c.get("owner", 1)),
 				"hp": int(c.hp), "max_hp": int(c.max_hp), "level": int(c.get("level", 1)), "xp": int(c.get("xp", 0)),
 				"mode": String(c.get("mode", "follow")), "downed": bool(c.get("downed", false))})
+	journal = {}
+	var j: Dictionary = data.get("journal", {})
+	for kind in JOURNAL_KINDS:
+		var entries: Dictionary = j.get(kind, {})
+		for id in entries:
+			log_journal(kind, String(id), int(entries[id]))
+	markers = {}
+	var m: Dictionary = data.get("markers", {})
+	for a in m:
+		for mk in m[a]:
+			add_marker(String(a), String(mk.get("kind", "note")), Vector2i(int(mk.cell[0]), int(mk.cell[1])))
 
 
 func _set_of(list: Array) -> Dictionary:
@@ -114,6 +135,45 @@ func _set_of(list: Array) -> Dictionary:
 	for k in list:
 		out[String(k)] = true
 	return out
+
+
+## Logs a journal entry (count = times seen); true when it is a new one.
+func log_journal(kind: String, id: String, count := 1) -> bool:
+	if not JOURNAL_KINDS.has(kind) or id == "":
+		return false
+	if not journal.has(kind):
+		journal[kind] = {}
+	var fresh: bool = not journal[kind].has(id)
+	journal[kind][id] = int(journal[kind].get(id, 0)) + count
+	return fresh
+
+
+func in_journal(kind: String, id: String) -> bool:
+	return journal.has(kind) and journal[kind].has(id)
+
+
+func add_marker(area_name: String, kind: String, cell: Vector2i) -> void:
+	if not MARKER_KINDS.has(kind):
+		kind = "note"
+	if not markers.has(area_name):
+		markers[area_name] = []
+	markers[area_name].append({"kind": kind, "cell": [cell.x, cell.y]})
+
+
+## Removes the marker of an area closest to cell (within max_dist cells).
+func remove_marker_near(area_name: String, cell: Vector2i, max_dist := 4.0) -> bool:
+	var list: Array = markers.get(area_name, [])
+	var best := -1
+	var best_d := max_dist
+	for i in list.size():
+		var d := Vector2(cell).distance_to(Vector2(list[i].cell[0], list[i].cell[1]))
+		if d <= best_d:
+			best_d = d
+			best = i
+	if best < 0:
+		return false
+	list.remove_at(best)
+	return true
 
 
 ## Companions owned by a survivor (downed ones included).

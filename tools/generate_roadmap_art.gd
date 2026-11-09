@@ -122,6 +122,11 @@ func _sector_art() -> void:
 	_save(altar, "res://assets/sprites/structures/skill_altar.png")
 	_icon(altar, "skill_altar")
 	_icon(_memory_shard(), "memory_shard")
+	for s in ["statue_angel", "statue_dragon", "statue_guardian", "statue_hero", "statue_sword", "statue_twins", "column"]:
+		_save(_dcss(s, 36), "res://assets/sprites/props/landmark_%s.png" % s)
+	_save(_old_engine(), "res://assets/sprites/props/landmark_old_engine.png")
+	_save(_glyph_stone(false), "res://assets/sprites/props/glyph_stone.png")
+	_save(_glyph_stone(true), "res://assets/sprites/props/glyph_stone_read.png")
 
 
 ## Pale violet crystal splinter with a bright core (Bound respec resource).
@@ -273,6 +278,60 @@ func _sector_gate() -> Image:
 	_line(img, Vector2(48, 22), Vector2(48, 32), GLOW[3], 2)
 	_line(img, Vector2(44, 25), Vector2(52, 25), GLOW[2])
 	_rect(img, 46, 30, 5, 2, GLOW[2])
+	return _outline(img)
+
+
+
+## Rusted machine half-swallowed by the maze: a big cog, pipes and a dead lamp.
+func _old_engine() -> Image:
+	var img := _img(34, 34)
+	var rust := [Color8(70, 40, 30), Color8(116, 64, 40), Color8(160, 96, 56), Color8(196, 136, 80)]
+	var iron := [Color8(40, 44, 50), Color8(66, 72, 80), Color8(98, 106, 114), Color8(140, 150, 156)]
+	_box(img, 4, 14, 26, 18, iron, 41)
+	_box(img, 7, 18, 8, 10, rust, 42)
+	for a in 8:
+		var ang := a * TAU / 8.0
+		var p := Vector2(22, 13) + Vector2.from_angle(ang) * 9.0
+		_rect(img, int(p.x) - 1, int(p.y) - 1, 3, 3, rust[1])
+	_blob(img, 22, 13, 8, 8, rust, 0.15, 43)
+	_blob(img, 22, 13, 3, 3, iron, 0.0, 44)
+	_rect(img, 2, 8, 3, 22, iron[2])
+	_rect(img, 2, 8, 9, 3, iron[2])
+	_rect(img, 2, 8, 1, 22, iron[3])
+	_blob(img, 26, 26, 2.5, 2.5, [Color8(60, 90, 70), Color8(90, 160, 120), Color8(170, 240, 200)], 0.0, 45)
+	for i in 5:
+		_px(img, 6 + i * 5, 31, Color8(60, 110, 50))
+		_px(img, 7 + i * 5, 30, Color8(80, 140, 60))
+	return _outline(img)
+
+
+## Upright slab carved with a spiral glyph; read stones glow.
+func _glyph_stone(read: bool) -> Image:
+	var img := _img(26, 32)
+	for y in range(2, 30):
+		var w := 18 if y > 7 else 18 - (8 - y) * 2
+		for x in range(13 - w / 2, 13 + w / 2):
+			var col: Color = STONE[2]
+			if x == 13 - w / 2 or y == 2:
+				col = STONE[3]
+			elif x == 13 + w / 2 - 1:
+				col = STONE[0]
+			elif _hash(x, y, 9) > 0.8:
+				col = STONE[1]
+			_px(img, x, y, col)
+	_rect(img, 3, 28, 20, 3, STONE[1])
+	var ink: Color = GLOW[3] if read else Color8(40, 46, 48)
+	var ink2: Color = GLOW[2] if read else Color8(60, 68, 70)
+	_line(img, Vector2(9, 9), Vector2(17, 9), ink)
+	_line(img, Vector2(17, 9), Vector2(17, 17), ink)
+	_line(img, Vector2(17, 17), Vector2(11, 17), ink)
+	_line(img, Vector2(11, 17), Vector2(11, 13), ink2)
+	_line(img, Vector2(11, 13), Vector2(14, 13), ink2)
+	_line(img, Vector2(9, 21), Vector2(17, 21), ink2)
+	_rect(img, 12, 24, 3, 2, ink)
+	for y in range(6, 12):
+		_px(img, 5, y, Color8(70, 120, 60))
+	_px(img, 6, 11, Color8(90, 150, 70))
 	return _outline(img)
 
 

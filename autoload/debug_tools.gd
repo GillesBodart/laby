@@ -8,6 +8,9 @@ extends Node
 ##     --area=<name>            start in an area (clearing or a sector id, see Sectors)
 ##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
+##     --explore                reveal the sector, read its glyphs, sample markers,
+##                              journal entries and a wall shift
+##     --journal                open the journal
 ##     --menu=<page>            open the Esc menu (main, save, load, controls)
 ##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
@@ -39,6 +42,10 @@ func _ready() -> void:
 		TimeSystem.set_time_of_day.call_deferred(int(hm[0]) * 60 + (int(hm[1]) if hm.size() > 1 else 0))
 	if _args.has("at"):
 		_teleport_local_player.call_deferred(_args.at)
+	if _args.has("explore"):
+		_explore.call_deferred()
+	if _args.has("journal"):
+		_press_action.call_deferred("journal")
 	if _args.has("map"):
 		_press_map.call_deferred()
 	if _args.has("menu"):
@@ -209,6 +216,39 @@ func _press_map() -> void:
 	ev.action = "map"
 	ev.pressed = true
 	Input.parse_input_event(ev)
+
+
+func _press_action(action: String) -> void:
+	await get_tree().create_timer(0.8).timeout
+	var ev := InputEventAction.new()
+	ev.action = action
+	ev.pressed = true
+	Input.parse_input_event(ev)
+
+
+## --explore: a well-travelled sector for map and journal screenshots.
+func _explore() -> void:
+	await get_tree().create_timer(0.4).timeout
+	var world := get_tree().current_scene as World
+	if world == null or world.fog == null:
+		return
+	for y in world.layout.size.y:
+		for x in world.layout.size.x:
+			world.fog.reveal(Vector2i(x, y), 0)
+	for i in LabyrinthGenerator.GLYPH_COUNT:
+		GameState.log_journal("glyphs", "%s_%d" % [GameState.area, i])
+	for m in world.layout.landmarks:
+		GameState.log_journal("places", m.type)
+	for e in world.layout.enemy_spawns.slice(0, 6):
+		GameState.log_journal("creatures", e.type, 2)
+	for p in world.layout.props.slice(0, 12):
+		GameState.log_journal("resources", String(ResourceCatalog.NODES.get(p.type, {}).get("item", "stone")))
+	var cell := world.layout.return_cell
+	GameState.add_marker(GameState.area, "danger", cell + Vector2i(-8, -20))
+	GameState.add_marker(GameState.area, "resource", cell + Vector2i(12, -30))
+	GameState.add_marker(GameState.area, "door", cell + Vector2i(0, -50))
+	if world.has_method("apply_shift"):
+		world.apply_shift(1)
 
 
 ## --skills: grants 3 skill points and opens the skill screen.

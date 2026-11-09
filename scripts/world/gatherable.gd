@@ -42,6 +42,7 @@ func hit(player: Player) -> void:
 	EventBus.notify.emit("+%d %s" % [amount - left, ItemCatalog.item_name(item_id)])
 	if left > 0:
 		EventBus.notify.emit("Backpack full!")
+	GameState.log_journal("resources", item_id)
 	player.gain_xp(xp)
 	depleted.emit(self)
 	queue_free()
