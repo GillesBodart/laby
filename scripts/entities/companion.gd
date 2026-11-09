@@ -41,7 +41,7 @@ func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var shadow := Sprite2D.new()
-	shadow.texture = load("res://assets/sprites/shadow.png")
+	shadow.texture = load("res://assets/sprites/effects/shadow.png")
 	shadow.position = Vector2(0, -2)
 	add_child(shadow)
 	_sprite = Sprite2D.new()
@@ -179,8 +179,12 @@ func take_damage(amount: int, _source: Node2D = null) -> void:
 	if hp() <= 0:
 		entry.hp = 0
 		entry.downed = true
-		EventBus.notify.emit("%s is downed and limps back to the Clearing." % display_name())
+		if GameState.area == "clearing":
+			EventBus.notify.emit("%s is downed and rests by the campfire." % display_name())
+		else:
+			EventBus.notify.emit("%s is downed and limps back to the Clearing." % display_name())
 		HitChips.burst(get_parent(), global_position + Vector2(0, -8), [Color8(200, 200, 200), Color8(140, 140, 150)], 7)
+		EventBus.companion_downed.emit(entry)
 		queue_free()
 
 

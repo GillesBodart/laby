@@ -34,6 +34,10 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M19 Night raids: from the second night, every other night raiders come out of the maze, more for bigger camps and fewer the better it is defended (guards, walls, torches). They batter structures (HP bars; stone outlasts wood, Builder skills toughen them), guards fight them, survivors chase them off at dawn. Builders mend damage at dawn and **F** in build mode repairs with one of the structure's main material. Away from home, a raid is resolved off-screen | ✅ |
 | M20 Sound: every effect and ambience is synthesised at runtime (no audio files) — swings, hits, shield blocks, chopping, mining, crafting, building, doors, eating, level-ups, the raid horn, the maze grinding as it shifts. Ambience follows place and time (meadow birds by day, crickets at night, the maze's hum, clanks and distant growls). Esc → Sound sets master / effects / ambience volume (saved in `user://settings.cfg`) | ✅ |
 | M21 Gamepad: plays fully on a controller — left stick moves, right stick aims shots, A attack, B dodge, X gather / use, Y backpack, LB eat, RB drink, LT run, RT place / repair, D-pad skills / journal / next building / build mode, L3 companions, R3 remove, Back map, Start pause. In panels and menus the pad drives the cursor (A click, X right-click, B back) and prompts show pad buttons | ✅ |
+| M22 Title screen: the game opens on a maze backdrop with the Clearing at its heart — New game, Load game (the 3 save slots; greyed out until one exists), Settings (controls and sound, as in the pause menu) and Exit. Keyboard, mouse and pad all drive it | ✅ |
+| M23 Building on floors: chests, beds, stations, walls and doors stand on wooden/stone floors (removing or wrecking them leaves the floor); vertical wall runs join into one continuous wall that shows its face only at the bottom | ✅ |
+| M24 Rooms and sleep: an area closed by walls and doors (up to 64 tiles) is a room; what stands inside grants comfort buffs (bed: Rested +50% regen, cooking pot: Nourished, a station: Handy +2 dmg, chest: Organised +5 strength, standing torch: Cosy +15 max HP, fully floored: Comfortable) while inside and for 2 min after leaving. E on a bed in a closed room at night, with no raiders or hostiles near, sleeps until 07:00: full heal and stamina, -15 food/water, the room's buffs for a whole day | ✅ |
+| M25 Graphics overhaul: a wider view (camera zoom 0.75) and a crisp native-resolution HUD (9-slice frames, pixel-icon survival bars, a notice box sized to its text); sprites get a selective ink outline with a lit rim; walls gain depth (overhang shadow, ambient occlusion, moss) and contact shadows; closed rooms get a shingled roof that fades while you are inside or building; maze walls have seamless ivy-covered cap slabs, inked rims and cast shadows; smoother night light falloff | ✅ |
 
 ## Run
 
@@ -41,24 +45,36 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --path .                                              # play
 & $godot --headless --path . res://tests/test_runner.tscn      # tests (exit code = failures)
-& $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs
+& $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs (or only a part: `-- --tiles` tileset, `--walls` wall-run joins, `--structures`, `--roof`, `--chars` player + survivors, `--npcs`, `--ui` HUD frame)
 ```
 
 Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book, on an empty farm plot to pick a seed (click or 1-9), on a ripe one to harvest · **Space** attack (bows shoot toward the mouse cursor once it has moved, otherwise straight ahead) · **R** eat berries · **M** map · **K** skills · **V** companions follow/stay · **J** journal · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls, category chips filter the book, SORT tidies the backpack) · **H** drink / use a potion · **B** build mode (**Q** next item, **F** place / toggle door / repair, **X** remove + refund) · **E** / **G** on a chest opens the Stash window (click a stack to move it across, right-click moves one, 1 stores materials, 2 takes all) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, sound volumes, quit). Keys listed are defaults. A gamepad works too (see M21).
 
-Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=desert` (clearing or any sector), `--give [--panel] [--sort] [--station=anvil]`, `--tame=tusk_boar,hare`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--equip=torch,iron_sword` (give and equip), `--die` (die with a full pack and stand at the remains), `--explore` (reveal the sector, read its glyphs, add sample markers, journal entries and a wall shift), `--map`, `--journal`, `--screenshot=out.png --screenshot-frames=60`.
+Debug args (after `--`; any of them skips the title screen except `--title`, which stays on it): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=desert` (clearing or any sector), `--give [--panel] [--sort] [--station=anvil]`, `--tame=tusk_boar,hare`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--equip=torch,iron_sword` (give and equip), `--die` (die with a full pack and stand at the remains), `--explore` (reveal the sector, read its glyphs, add sample markers, journal entries and a wall shift), `--house` (a floored hut with wall runs and furniture), `--map`, `--journal`, `--screenshot=out.png --screenshot-frames=60`.
 
 ## Architecture
 
 ```
-autoload/   EventBus (signals) · GameState (seed, players by peer id) · TimeSystem · SaveSystem · KeyBindings (rebindable shortcuts) · DebugTools
-scripts/core      DayClock (pure time logic) · SpriteFramesBuilder
-scripts/world     TileCatalog (tile ids/atlas/collision) · TileSetFactory · ClearingGenerator -> ClearingLayout (pure data)
-                  ClearingWorld (renders layout) · ClearingGates · LightingCurve · GameCamera · world.gd
-scripts/entities  Player (state machine) · PlayerInput (intent) · campfire
-scenes/           world, player, props, ui
-tests/            unit + integration suites (TestCase base, test_runner.tscn)
-tools/            placeholder art generator
+autoload/                 EventBus (signals) · GameState · TimeSystem · SaveSystem · KeyBindings · Gamepad · Sound · DebugTools
+scripts/data/             static tables: ItemCatalog · EnemyCatalog · BuildCatalog · ResourceCatalog · TileCatalog · Sectors
+scripts/systems/          pure game rules (RefCounted, testable): DayClock · Survival · Inventory · Equipment · Crafting · Farming
+                          Taming · Settlement · Rooms · SkillGraph · Glyphs · FogMap
+scripts/generation/       seed -> data: ClearingGenerator · LabyrinthGenerator -> ClearingLayout · WallResolver
+scripts/world/            scene roots: world.gd · labyrinth.gd · ClearingWorld (renders a layout) · ClearingGates · GameCamera
+scripts/world/visuals/    TileSetFactory · DirtOverlay · Pond · WallEdges · Roof · HitChips · LightingCurve · day/night modulate
+scripts/world/objects/    placed things: Structure · Gatherable · Landmark · Remains · SectorGate · campfire
+scripts/entities/         Player (state machine) · PlayerInput (intent) · Builder · Companion · Survivor · Enemy · Projectile
+scripts/ui/               hud/ (HUD, bars, notices) · panels/ (crafting, map, journal, stash...) · menus/ (title, settings) · common/ (UiFrame)
+scripts/audio/, util/     Synth (runtime sound) · SpriteFramesBuilder
+scenes/                   world/ · entities/ (player, enemy) · props/ (tree, rock, bush, campfire, resource node) · ui/
+resources/                Godot resources: ui/ (theme, HUD frame) · lights/ (light gradient)
+assets/tilesets/          clearing_tiles.png (atlas laid out by TileCatalog)
+assets/sprites/           characters/ (player, survivors/) · enemies/ · structures/ · effects/ (shadow)
+                          environment/ (trees/, rocks/, gatherables/, crops/, landmarks/, bush, campfire, remains)
+assets/ui/                frame.png · icons/ (time_icons, items/ 32 px, items/small/ 16 px)
+assets/fonts/             VT323 (OFL)
+tests/                    unit + integration suites (TestCase base, test_runner.tscn)
+tools/                    placeholder art generators (+ third_party/dcss source art)
 ```
 
 Key decisions:

@@ -83,14 +83,14 @@ func primary() -> bool:
 	if world == null:
 		return false
 	var cell := target_cell()
+	var item := selected_item()
 	var existing := world.structure_at(cell)
 	if existing and existing.is_damaged():
 		return repair(existing)
-	if existing:
+	if existing and not BuildCatalog.can_stand_on(existing.type, item):
 		world.toggle_structure(cell)
 		Sound.play("door" if BuildCatalog.TYPES[existing.type].get("door", false) else "ui", existing.global_position)
 		return true
-	var item := selected_item()
 	if item == "":
 		return false
 	var why := world.build_blocker(cell, item)
@@ -100,7 +100,27 @@ func primary() -> bool:
 	if not player.inventory.remove(item, 1):
 		return false
 	Sound.play("build", player.global_position)
-	return world.place_structure(cell, item)
+	var before := Rooms.buffs_of(Rooms.find(GameState.structures, cell)).size()
+	if not world.place_structure(cell, item):
+		return false
+	_announce_room(cell, item, before)
+	return true
+
+
+## Closing a room, or adding comfort to one, says what the room now gives.
+func _announce_room(cell: Vector2i, item: String, buffs_before: int) -> void:
+	if Rooms.encloses(item):
+		for n in [cell + Vector2i.UP, cell + Vector2i.DOWN, cell + Vector2i.LEFT, cell + Vector2i.RIGHT]:
+			var room := Rooms.find(GameState.structures, n)
+			if not room.is_empty():
+				EventBus.notify.emit("Room closed (%d tiles): %s" % [room.cells.size(), Rooms.describe(room)])
+				if Rooms.key(player.current_room()) == Rooms.key(room):
+					player._room_key = Rooms.key(room)
+				return
+		return
+	var room := Rooms.find(GameState.structures, cell)
+	if Rooms.buffs_of(room).size() > buffs_before:
+		EventBus.notify.emit("Room: %s" % Rooms.describe(room))
 
 
 ## F on a damaged structure: one of its main material mends it fully.

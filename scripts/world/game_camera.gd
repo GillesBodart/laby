@@ -2,7 +2,15 @@ class_name GameCamera
 extends Camera2D
 ## Follows the local player, clamped to the map bounds.
 
+## Below 1 the camera stands back: about 40x22 tiles on screen, like a
+## classic RPG overview, instead of 30x17 big chunky pixels.
+const ZOOM := 0.75
+
 var target: Node2D
+
+
+func _ready() -> void:
+	zoom = Vector2(ZOOM, ZOOM)
 
 
 func follow(node: Node2D, snap := true) -> void:

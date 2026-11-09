@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/world/world.gd" id="1_world"]
-[ext_resource type="Script" path="res://scripts/world/day_night_modulate.gd" id="2_daynight"]
+[ext_resource type="Script" path="res://scripts/world/visuals/day_night_modulate.gd" id="2_daynight"]
 [ext_resource type="Script" path="res://scripts/world/clearing_world.gd" id="3_clearing"]
 [ext_resource type="Script" path="res://scripts/world/clearing_gates.gd" id="4_gates"]
 [ext_resource type="Script" path="res://scripts/world/game_camera.gd" id="5_camera"]

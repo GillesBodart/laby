@@ -3,7 +3,7 @@ extends World
 ## the deeper biomes beyond it. The sector id is GameState.area. The south
 ## vestibule leads back, the guardian's arena and its sealed gate lie north.
 
-const ENEMY_SCENE := preload("res://scenes/world/props/enemy.tscn")
+const ENEMY_SCENE := preload("res://scenes/entities/enemy.tscn")
 
 
 func sector() -> String:
@@ -78,10 +78,11 @@ func apply_shift(shift: int) -> void:
 				layout.set_ground(c, fresh.get_ground(c))
 				clearing.ground.set_cell(c, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(fresh.get_ground(c), c))
 				if fresh.is_wall(c):
-					clearing.walls.set_cell(c, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(fresh.get_wall(c)))
+					clearing.walls.set_cell(c, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(fresh.get_wall(c), c))
 				else:
 					clearing.walls.erase_cell(c)
 	layout.shift_tiles = fresh.shift_tiles
+	clearing.refresh_wall_edges()
 	if fog != null:
 		for r in rects:
 			fog.mark_uncertain(r)

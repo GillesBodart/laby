@@ -130,7 +130,7 @@ func test_sector_scene_has_gate_guardian_and_waystone() -> void:
 	check(player.survival.thirst_enabled, "thirst is on in the desert")
 	_face(player, stones[0].global_position)
 	check(player.find_interactable() == stones[0], "waystone in reach")
-	check_eq(preload("res://scripts/ui/waystone_panel.gd").destinations(), ["clearing", "desert"], "waystone lists reached places")
+	check_eq(preload("res://scripts/ui/panels/waystone_panel.gd").destinations(), ["clearing", "desert"], "waystone lists reached places")
 	GameState.defeat_boss("sun_wyrm")
 	await _frames(2)
 	check_eq(_tree().get_nodes_in_group("sector_gate").size(), 0, "gate opens with the key")
@@ -185,7 +185,7 @@ func test_torch_lights_and_wards_night_hunters() -> void:
 	var player := _local_player()
 	for fire in _tree().get_nodes_in_group("campfire"):
 		player.global_position = fire.global_position + Vector2(0, 400)
-	var jackal: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	var jackal: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
 	jackal.setup("dusk_jackal")
 	player.get_parent().add_child(jackal)
 	jackal.global_position = player.global_position + Vector2(60, 0)
@@ -257,7 +257,7 @@ func test_tamed_companion_follows_fights_and_persists() -> void:
 	var player := _local_player()
 	for fire in _tree().get_nodes_in_group("campfire"):
 		player.global_position = fire.global_position + Vector2(0, 300)
-	var hare: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	var hare: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
 	hare.setup("hare")
 	player.get_parent().add_child(hare)
 	hare.global_position = player.global_position + Vector2(0, -18)
@@ -275,7 +275,7 @@ func test_tamed_companion_follows_fights_and_persists() -> void:
 	player.global_position += Vector2(120, 0)
 	await _frames(40)
 	check(pet.global_position.distance_to(player.global_position) < 60.0, "companion follows")
-	var rat: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	var rat: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
 	rat.setup("cave_rat")
 	player.get_parent().add_child(rat)
 	rat.global_position = player.global_position + Vector2(40, 0)
@@ -315,6 +315,20 @@ func test_downed_companion_recovers_in_the_clearing() -> void:
 	pet.take_damage(999)
 	await _frames(1)
 	check(rec.downed, "downed after a beating")
+	var hare: Enemy = preload("res://scenes/entities/enemy.tscn").instantiate()
+	hare.setup("hare")
+	world.add_child(hare)
+	_local_player().inventory.add(Taming.favourite("hare"), 1)
+	var notes: Array[String] = []
+	var grab := func(t: String) -> void: notes.append(t)
+	EventBus.notify.connect(grab)
+	check(not hare.tame(_local_player()), "party still full while it rests")
+	EventBus.notify.disconnect(grab)
+	check(notes.size() == 1 and notes[0].contains("recovering"), "the refusal says who is resting")
+	world._revive_companion(rec)
+	await _frames(1)
+	check(not rec.downed and rec.hp == rec.max_hp, "rested by the campfire in the Clearing")
+	check_eq(_tree().get_nodes_in_group("companions").size(), 1, "back without leaving the Clearing")
 	world.free()
 
 
@@ -434,7 +448,7 @@ func test_live_shift_moves_walls_and_glyphs_need_insight() -> void:
 	var statue: Landmark = _tree().get_nodes_in_group("landmarks").filter(func(l): return l.kind == "landmark")[0]
 	statue.interact(player)
 	check(GameState.in_journal("places", statue.id), "landmark logged")
-	var path := preload("res://scripts/ui/map_panel.gd").route(world.layout, world.layout.return_cell, world.layout.boss.cell)
+	var path := preload("res://scripts/ui/panels/map_panel.gd").route(world.layout, world.layout.return_cell, world.layout.boss.cell)
 	check(path.size() > 20, "a route to the arena exists after the shift")
 	world.free()
 	GameState.area = "clearing"
@@ -654,3 +668,85 @@ func test_gamepad_stick_shaping() -> void:
 	Gamepad.using_pad = false
 	check(Gamepad.prompt("interact") != "X", "prompts name the key")
 	Gamepad.using_pad = was
+
+func test_dropped_items_form_a_recoverable_pile() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	player.inventory.slots[4] = {"id": "wood", "count": 7}
+	check_eq(player.drop_slot(4, 1), 1, "one dropped")
+	check_eq(player.drop_slot(4, 99), 6, "rest dropped")
+	check_eq(player.inventory.count("wood"), 0, "gone from the pack")
+	var piles := _tree().get_nodes_in_group("remains")
+	check_eq(piles.size(), 1, "drops share one pile")
+	check_eq(piles[0].entry.items, [{"id": "wood", "count": 7}], "pile merged")
+	check_eq(piles[0].interact_hint(), "Pick up dropped items", "dropped pile hint")
+	piles[0].interact(player)
+	await _frames(1)
+	check_eq(player.inventory.count("wood"), 7, "picked back up")
+	check(GameState.remains.is_empty(), "pile cleared")
+	world.free()
+
+
+func test_item_feed_stacks_and_merges() -> void:
+	var feed: Control = load("res://scripts/ui/hud/notice_feed.gd").new()
+	feed.push("drop", "wood", 1)
+	feed.push("drop", "stone", 2)
+	feed.push("drop", "wood", 6)
+	check_eq(feed._rows.size(), 2, "one row per item")
+	check_eq(feed._rows[-1].id, "wood", "repeat moves to the newest row")
+	check_eq(int(feed._rows[-1].count), 7, "repeat adds up")
+	feed._process(10.0)
+	check(feed._rows.is_empty(), "rows expire")
+	feed.free()
+
+
+
+func test_long_notices_wrap_inside_the_screen() -> void:
+	var hud: Node = load("res://scenes/ui/hud.tscn").instantiate()
+	_tree().root.add_child(hud)
+	var notice: Label = hud.notice
+	hud.show_notice("short")
+	var one_line := notice.size.y
+	hud.show_notice("You find a carving of a key and a beast's eye. The guardian's den and its key are marked on your map. ".repeat(2))
+	check(notice.size.y > one_line * 1.5, "long text wraps onto more lines")
+	check(notice.size.x <= 960.0 and notice.position.x >= 0.0, "the box stays on screen")
+	check(notice.position.y + notice.size.y <= 540.0, "and above the bottom edge")
+	hud.show_notice("short")
+	check_eq(notice.size.y, one_line, "a short notice shrinks the box back")
+	hud.free()
+
+
+func test_title_menu_starts_loads_and_opens_settings() -> void:
+	check_eq(ProjectSettings.get_setting("application/run/main_scene"), MainMenu.SCENE, "the game boots on the title")
+	GameState.new_game(77)
+	var menu: MainMenu = load(MainMenu.SCENE).instantiate()
+	# No awaits below: other suites' coroutines must not run while the title is up.
+	_tree().root.add_child(menu)
+	check(TimeSystem.paused, "the clock waits on the title")
+	check(Gamepad.ui_active(), "the pad steers a cursor on the title")
+	var settings: Control = menu._settings
+	menu.activate(2)
+	check(settings.visible and settings.title_mode, "Settings opens the settings menu")
+	check(not _tree().paused, "without pausing the tree")
+	check_eq(settings._rows(), settings.TITLE_MAIN, "only controls and sound")
+	settings.activate(1)
+	check_eq(settings.page, "sound", "sound page")
+	settings.back()
+	settings.back()
+	check(not settings.visible, "Back returns to the title")
+	menu.activate(1)
+	if menu.has_any_save():
+		check(settings.visible and settings.page == "load", "Load game lists the slots")
+		settings.back()
+		check(not settings.visible, "Back from the slots returns to the title")
+	else:
+		check(not settings.visible and menu.status != "", "no saves: a note instead")
+	var requested: Array[String] = []
+	GameState.scene_changer = func(path: String) -> void: requested.append(path)
+	GameState.area = "desert"
+	menu.activate(0)
+	GameState.scene_changer = Callable()
+	check_eq(requested, [GameState.AREA_SCENES.clearing], "New game starts in the Clearing")
+	check(GameState.world_seed != 77, "with a fresh seed")
+	menu.free()
+	check(not TimeSystem.paused, "the clock runs again once the title is gone")

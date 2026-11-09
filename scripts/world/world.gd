@@ -3,12 +3,14 @@ extends Node2D
 ## Main gameplay scene: builds an area from the world seed, spawns the local
 ## player, wires the camera and handles portal travel between areas.
 
-const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
+const PLAYER_SCENE := preload("res://scenes/entities/player.tscn")
 
 @onready var clearing: ClearingWorld = $Clearing
 @onready var camera: GameCamera = $Camera
 
 const REVEAL_RADIUS := 5
+## Real seconds a companion downed in the Clearing rests before rejoining.
+const COMPANION_REST_SECONDS := 30.0
 
 var layout: ClearingLayout
 var fog: FogMap
@@ -38,6 +40,8 @@ func _ready() -> void:
 	EventBus.settlement_changed.connect(spawn_survivors)
 	EventBus.night_started.connect(start_raid)
 	EventBus.day_started.connect(end_raid)
+	EventBus.companion_downed.connect(_on_companion_downed)
+	EventBus.slept.connect(_on_slept)
 	camera.follow(player)
 
 
@@ -88,20 +92,60 @@ func portal_message(_target: String) -> String:
 
 
 ## Brings each survivor's companions along. Downed ones rest in the Clearing
-## and are back on their feet once their owner returns there.
+## and are back on their feet once their owner returns there (or, when they
+## fell in the Clearing itself, after COMPANION_REST_SECONDS by the campfire).
 func spawn_companions() -> void:
 	for c in GameState.companions:
 		var owner_node: Player = GameState.players.get(int(c.owner))
 		if owner_node == null:
 			continue
 		if c.downed and GameState.area == "clearing":
-			c.downed = false
-			c.hp = c.max_hp
+			_heal_companion(c)
 		if c.downed:
 			continue
 		if c.get("mode", "follow") == "stay" and GameState.area != "clearing":
 			c.mode = "follow"
 		Companion.spawn(clearing.entities, c, owner_node, owner_node.global_position + Vector2(-16, 10))
+
+
+func _heal_companion(c: Dictionary) -> void:
+	c.downed = false
+	c.hp = c.max_hp
+
+
+## Waking up: the screen fades in from black.
+func _on_slept() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	var black := ColorRect.new()
+	black.color = Color(0.03, 0.03, 0.06)
+	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	black.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(black)
+	add_child(layer)
+	var tween := layer.create_tween()
+	tween.tween_interval(0.4)
+	tween.tween_property(black, "modulate:a", 0.0, 1.4)
+	tween.tween_callback(layer.queue_free)
+
+
+func _on_companion_downed(record: Dictionary) -> void:
+	if GameState.area != "clearing":
+		return
+	# Pauses with the game; the connection dies with this scene.
+	get_tree().create_timer(COMPANION_REST_SECONDS, false).timeout.connect(_revive_companion.bind(record))
+
+
+## A companion that rested by the campfire gets up and rejoins its owner.
+func _revive_companion(record: Dictionary) -> void:
+	if not record.downed or not GameState.companions.has(record) or GameState.area != "clearing":
+		return
+	var owner_node: Player = GameState.players.get(int(record.owner))
+	if owner_node == null:
+		return
+	_heal_companion(record)
+	Companion.spawn(clearing.entities, record, owner_node, ClearingWorld.cell_center(layout.campfire_cell + Vector2i(1, 1)))
+	EventBus.notify.emit("%s is back on its feet." % record.name)
 
 
 ## The settlement's people live around the campfire, a little away from where

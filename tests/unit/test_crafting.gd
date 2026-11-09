@@ -128,6 +128,29 @@ func test_inventory_sort_merges_and_orders() -> void:
 	check(inv.slots[3].is_empty(), "empties at the end")
 
 
+func test_inventory_manual_move_and_discard() -> void:
+	var inv := Inventory.new(4)
+	inv.slots[0] = {"id": "wood", "count": 5}
+	inv.slots[2] = {"id": "stone", "count": 3}
+	inv.move_slot(0, 2)
+	check_eq(inv.slots[0], {"id": "stone", "count": 3}, "different items swap")
+	check_eq(inv.slots[2], {"id": "wood", "count": 5}, "dragged stack lands on target")
+	inv.move_slot(2, 3)
+	check(inv.slots[2].is_empty() and inv.slots[3].id == "wood", "move into an empty slot")
+	var cap := ItemCatalog.stack_size("wood")
+	inv.slots[1] = {"id": "wood", "count": cap - 2}
+	inv.move_slot(3, 1)
+	check_eq(int(inv.slots[1].count), cap, "same items merge up to the stack size")
+	check_eq(inv.slots[3], {"id": "wood", "count": 3}, "overflow stays behind")
+	check_eq(inv.discard(0, 1), {"id": "stone", "count": 1}, "drop one")
+	check_eq(int(inv.slots[0].count), 2, "rest kept")
+	check_eq(inv.discard(0, 99), {"id": "stone", "count": 2}, "drop whole stack")
+	check(inv.slots[0].is_empty(), "slot emptied")
+	inv.slots[0] = {"id": "memory_shard", "count": 1}
+	check(inv.discard(0, 1).is_empty(), "bound items cannot be dropped")
+	check_eq(inv.count("memory_shard"), 1, "bound item kept")
+
+
 func test_farming_stages() -> void:
 	check_eq(Farming.stage(Farming.NOT_PLANTED, 1000.0), Farming.EMPTY, "empty")
 	check_eq(Farming.stage(100.0, 200.0), Farming.GROWING, "growing")

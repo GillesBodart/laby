@@ -14,9 +14,15 @@ signal gates_changed(open: bool)
 # Players
 signal player_spawned(player: Node)
 signal player_despawned(peer_id: int)
+## A companion fell (its GameState.companions record, now downed).
+signal companion_downed(record: Dictionary)
+## A player slept through the night in a bed (the screen fades in from black).
+signal slept
 
 # UI
 signal notify(text: String)
+## Compact bottom-right item feed ("drop" = items thrown away).
+signal item_feed(verb: String, id: String, count: int)
 ## E on a crafting station: opens its recipe book ("" = close the book).
 signal station_used(station: String)
 ## E on an empty farm plot: the seed picker opens for it.

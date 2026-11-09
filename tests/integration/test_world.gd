@@ -159,7 +159,7 @@ func test_gate_waits_for_player_to_step_off() -> void:
 func test_player_kills_enemy_and_enemy_hurts_player() -> void:
 	var world: Node = await _start_world(10 * 60)
 	var player := _local_player()
-	var enemy: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	var enemy: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
 	enemy.setup("grub")
 	world.add_child(enemy)
 	player.facing = Vector2.RIGHT

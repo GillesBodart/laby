@@ -7,9 +7,11 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/generate_placeholder_art.gd
 ##   godot --headless --path . --editor --quit
 
-const Catalog := preload("res://scripts/world/tile_catalog.gd")
+const Catalog := preload("res://scripts/data/tile_catalog.gd")
 const T := 32
 const VARIANTS := 10
+const STRUCTURES := ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace",
+	"stone_wall", "brick_wall", "stone_floor", "farm_plot_0", "farm_plot_1", "farm_plot_2", "anvil", "cooking_pot", "tanning_rack", "stonecutter"]
 
 const C := {
 	"outline": Color8(24, 22, 32),
@@ -87,32 +89,76 @@ const C := {
 }
 
 var rng := RandomNumberGenerator.new()
+## Palette the character routines draw with: C, or C with a survivor's colours.
+var P: Dictionary = C.duplicate()
 
 
 func _init() -> void:
-	for dir in ["res://assets/tilesets", "res://assets/sprites", "res://assets/sprites/trees", "res://assets/sprites/rocks", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/items", "res://assets/sprites/enemies", "res://assets/sprites/resources"]:
+	if "--ui" in OS.get_cmdline_user_args():
+		_save(_make_ui_frame(), "res://assets/ui/frame.png")
+		print("UI frame generated.")
+		quit()
+		return
+	if "--tiles" in OS.get_cmdline_user_args():
+		_save(_make_tileset(), Catalog.TEXTURE_PATH)
+		print("Tileset generated.")
+		quit()
+		return
+	if "--roof" in OS.get_cmdline_user_args():
+		_save(_make_roof(), "res://assets/sprites/structures/roof.png")
+		print("Roof generated.")
+		quit()
+		return
+	if "--walls" in OS.get_cmdline_user_args():
+		_make_wall_joins()
+		print("Wall joins generated.")
+		quit()
+		return
+	if "--structures" in OS.get_cmdline_user_args():
+		for s in STRUCTURES:
+			_save(_make_structure(s), "res://assets/sprites/structures/%s.png" % s)
+		_make_wall_joins()
+		print("Structures generated.")
+		quit()
+		return
+	if "--chars" in OS.get_cmdline_user_args():
+		_save(_make_player(), "res://assets/sprites/characters/player.png")
+		_make_npcs()
+		print("Characters generated.")
+		quit()
+		return
+	if "--npcs" in OS.get_cmdline_user_args():
+		_make_npcs()
+		print("Survivors generated.")
+		quit()
+		return
+	for dir in ["res://assets/tilesets", "res://assets/sprites/characters", "res://assets/sprites/effects", "res://assets/sprites/environment/trees", "res://assets/sprites/environment/rocks", "res://assets/sprites/environment/gatherables", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/icons/items/small", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_save(_make_tileset(), Catalog.TEXTURE_PATH)
-	_save(_make_player(), "res://assets/sprites/player.png")
+	_save(_make_player(), "res://assets/sprites/characters/player.png")
+	_make_npcs()
 	for v in VARIANTS:
-		_save(_make_tree(v), "res://assets/sprites/trees/tree_%d.png" % v)
-		_save(_make_rock(v), "res://assets/sprites/rocks/rock_%d.png" % v)
-	_save(_make_tree(0), "res://assets/sprites/tree.png")
-	_save(_make_rock(0), "res://assets/sprites/rock.png")
-	_save(_make_campfire(), "res://assets/sprites/campfire.png")
-	for s in ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace", "stone_wall", "brick_wall", "stone_floor", "farm_plot_0", "farm_plot_1", "farm_plot_2", "anvil", "cooking_pot", "tanning_rack", "stonecutter"]:
+		_save(_make_tree(v), "res://assets/sprites/environment/trees/tree_%d.png" % v)
+		_save(_make_rock(v), "res://assets/sprites/environment/rocks/rock_%d.png" % v)
+	_save(_make_tree(0), "res://assets/sprites/environment/tree.png")
+	_save(_make_rock(0), "res://assets/sprites/environment/rock.png")
+	_save(_make_campfire(), "res://assets/sprites/environment/campfire.png")
+	for s in STRUCTURES:
 		_save(_make_structure(s), "res://assets/sprites/structures/%s.png" % s)
-	_save(_make_shadow(), "res://assets/sprites/shadow.png")
-	_save(_make_time_icons(), "res://assets/ui/time_icons.png")
+	_make_wall_joins()
+	_save(_make_roof(), "res://assets/sprites/structures/roof.png")
+	_save(_make_shadow(), "res://assets/sprites/effects/shadow.png")
+	_save(_make_time_icons(), "res://assets/ui/icons/time_icons.png")
+	_save(_make_ui_frame(), "res://assets/ui/frame.png")
 	_make_item_icons()
-	_save(_make_bush(), "res://assets/sprites/bush.png")
-	_save(_make_grass_tuft(), "res://assets/sprites/resources/grass.png")
-	_save(_make_clay(), "res://assets/sprites/resources/clay.png")
-	_save(_make_mushrooms(), "res://assets/sprites/resources/mushroom.png")
-	_save(_make_ore([Color8(20, 20, 26), Color8(52, 52, 60), Color8(80, 80, 92)], 1), "res://assets/sprites/resources/ore_coal.png")
-	_save(_make_ore([MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 2), "res://assets/sprites/resources/ore_copper.png")
-	_save(_make_ore([Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 3), "res://assets/sprites/resources/ore_iron.png")
-	_save(_make_ore([MAT["crystal"][2], MAT["crystal"][3], MAT["crystal"][4]], 4), "res://assets/sprites/resources/ore_crystal.png")
+	_save(_make_bush(), "res://assets/sprites/environment/bush.png")
+	_save(_make_grass_tuft(), "res://assets/sprites/environment/gatherables/grass.png")
+	_save(_make_clay(), "res://assets/sprites/environment/gatherables/clay.png")
+	_save(_make_mushrooms(), "res://assets/sprites/environment/gatherables/mushroom.png")
+	_save(_make_ore([Color8(20, 20, 26), Color8(52, 52, 60), Color8(80, 80, 92)], 1), "res://assets/sprites/environment/gatherables/ore_coal.png")
+	_save(_make_ore([MAT["copper"][2], MAT["copper"][3], Color8(80, 170, 120)], 2), "res://assets/sprites/environment/gatherables/ore_copper.png")
+	_save(_make_ore([Color8(196, 160, 140), Color8(150, 110, 96), Color8(220, 190, 170)], 3), "res://assets/sprites/environment/gatherables/ore_iron.png")
+	_save(_make_ore([MAT["crystal"][2], MAT["crystal"][3], MAT["crystal"][4]], 4), "res://assets/sprites/environment/gatherables/ore_crystal.png")
 	_make_biome_art()
 	print("Art generated.")
 	quit()
@@ -234,6 +280,47 @@ func _outline(img: Image, color: Color) -> void:
 						break
 
 
+## Finishing pass for sprites: a soft volume rim (lit top edge, shaded
+## bottom/right edge) and a selective outline - each outline pixel is a deep
+## shade of the colour it borders, pure ink only along the bottom so the
+## sprite stays grounded.
+func _ink(img: Image) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var src := img.duplicate() as Image
+	var solid := func(x: int, y: int) -> bool:
+		return x >= 0 and y >= 0 and x < w and y < h and src.get_pixel(x, y).a > 0.5
+	for y in h:
+		for x in w:
+			var c := src.get_pixel(x, y)
+			if c.a <= 0.5 or c == C.outline:
+				continue
+			if not solid.call(x, y - 1):
+				img.set_pixel(x, y, c.lightened(0.14))
+			elif not solid.call(x, y + 1) or not solid.call(x + 1, y):
+				img.set_pixel(x, y, c.darkened(0.16))
+	src = img.duplicate() as Image
+	for y in h:
+		for x in w:
+			if src.get_pixel(x, y).a > 0.0:
+				continue
+			var sum := Vector3.ZERO
+			var n := 0
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h and src.get_pixel(q.x, q.y).a > 0.5:
+					var nc := src.get_pixel(q.x, q.y)
+					sum += Vector3(nc.r, nc.g, nc.b)
+					n += 1
+			if n == 0:
+				continue
+			var avg := Color(sum.x / n, sum.y / n, sum.z / n)
+			var ink: Color = C.outline
+			if not solid.call(x, y - 1):
+				ink = avg.darkened(0.72).lerp(C.outline, 0.35)
+			img.set_pixel(x, y, ink)
+
+
 func _line(img: Image, a: Vector2, b: Vector2, col: Color, width := 1) -> void:
 	var steps := int(maxf(absf(b.x - a.x), absf(b.y - a.y))) + 1
 	for i in steps + 1:
@@ -292,6 +379,11 @@ func _make_tileset() -> Image:
 	for v in 3:
 		var id: int = [Catalog.Id.GRASS, Catalog.Id.GRASS_ALT, Catalog.Id.GRASS_FLOWERS][v]
 		var macro := _paint_grass_macro(v)
+		img.blit_rect(macro, Rect2i(0, 0, macro.get_width(), macro.get_height()), Catalog.DEFS[id].macro * T)
+		img.blit_rect(macro, Rect2i(0, 0, T, T), Catalog.atlas_coords(id) * T)
+	for moss in [false, true]:
+		var id: int = Catalog.Id.WALL_TOP_MOSS if moss else Catalog.Id.WALL_TOP
+		var macro := _paint_wall_top_macro(moss)
 		img.blit_rect(macro, Rect2i(0, 0, macro.get_width(), macro.get_height()), Catalog.DEFS[id].macro * T)
 		img.blit_rect(macro, Rect2i(0, 0, T, T), Catalog.atlas_coords(id) * T)
 	return img
@@ -539,6 +631,153 @@ func _paint_wall_top(img: Image, moss: bool) -> void:
 				_wpx(img, x, y, C.moss_dark if j < 6 else (C.moss if j < 14 else C.moss_light))
 
 
+## Weathered concrete cap slabs, 6 tones, lit from the upper left.
+const STONE6 := [Color8(64, 72, 72), Color8(84, 94, 92), Color8(104, 114, 108), Color8(124, 134, 124),
+	Color8(146, 154, 142), Color8(172, 178, 162)]
+## Ivy mats creeping over the wall tops: ink, shade, body, lit, sunlit.
+const IVY5 := [Color8(22, 42, 32), Color8(36, 66, 42), Color8(54, 94, 50), Color8(80, 124, 58),
+	Color8(118, 158, 74)]
+## Slab row heights of the wall-top macro; they sum to T * MACRO so it tiles.
+const SLAB_ROWS := [28, 36, 24, 32, 40, 28, 36, 32]
+
+
+## Seamless MACRO x MACRO tile wall-top texture: big irregular slabs with
+## bevels, cracks and stains, partly covered by ivy mats. WALL_TOP and
+## WALL_TOP_MOSS share the same slabs and ivy so neighbouring cells join; the
+## moss variant only adds tufts that stay inside each tile.
+func _paint_wall_top_macro(moss: bool) -> Image:
+	var P := T * Catalog.MACRO
+	var img := _new_image(P, P)
+	var r := RandomNumberGenerator.new()
+	r.seed = 7171
+	var slab := PackedInt32Array()
+	slab.resize(P * P)
+	var level := PackedInt32Array()
+	level.resize(P * P)
+	var y0 := 0
+	for row in SLAB_ROWS.size():
+		var h: int = SLAB_ROWS[row]
+		var x0 := r.randi_range(0, 40)
+		var widths: Array[int] = []
+		var total := 0
+		while total < P:
+			var w := r.randi_range(28, 56)
+			if P - total - w < 28:
+				w = P - total
+			widths.append(w)
+			total += w
+		var sx := x0
+		for i in widths.size():
+			var w: int = widths[i]
+			var id := row * 64 + i
+			var tone := 2 + (1 if _hash(id, 3, 61) > 0.55 else 0) - (1 if _hash(id, 4, 61) > 0.85 else 0)
+			var chip := r.randi_range(0, 3) if r.randf() < 0.35 else -1
+			for yy in h:
+				for xx in w:
+					var x := posmod(sx + xx, P)
+					var y := y0 + yy
+					var k := y * P + x
+					slab[k] = id
+					var n := _pnoise(x, y, 64, 62, P) * 0.55 + _pnoise(x, y, 16, 63, P) * 0.37 + _hash(x, y, 64) * 0.08
+					var lv := tone
+					if n < 0.34:
+						lv -= 1
+					elif n > 0.7 and (x + y) % 2 == 0:
+						lv += 1
+					# Bevel: lit top/left rim, shaded bottom/right, dark joint.
+					if yy == h - 1 or xx == w - 1:
+						lv = 0
+					elif yy == 0 or xx == 0:
+						lv = mini(tone + 2, 5)
+					elif yy == h - 2 or xx == w - 2:
+						lv = maxi(tone - 1, 1)
+					# Chipped corner.
+					var corner := Vector2i(0 if chip % 2 == 0 else w - 1, 0 if chip < 2 else h - 1)
+					if chip >= 0 and absi(xx - corner.x) + absi(yy - corner.y) < 5:
+						lv = 1 if absi(xx - corner.x) + absi(yy - corner.y) < 4 else 0
+					level[k] = clampi(lv, 0, 5)
+			sx += w
+		y0 += h
+	# Hairline cracks wandering across slabs.
+	for i in 22:
+		var x := r.randi_range(0, P - 1)
+		var y := r.randi_range(0, P - 1)
+		var dir := Vector2i(1 if r.randf() < 0.5 else -1, 0) if r.randf() < 0.5 else Vector2i(0, 1)
+		for s in r.randi_range(6, 16):
+			var k := posmod(y, P) * P + posmod(x, P)
+			if level[k] > 1:
+				level[k] = 1
+				var k2 := posmod(y + 1, P) * P + posmod(x + 1, P)
+				level[k2] = mini(level[k2] + 1, 5)
+			if r.randf() < 0.4:
+				if dir.y == 0:
+					y += r.randi_range(-1, 1)
+				else:
+					x += r.randi_range(-1, 1)
+			x += dir.x
+			y += dir.y
+	for y in P:
+		for x in P:
+			img.set_pixel(x, y, STONE6[level[y * P + x]])
+	# Ivy cover from tileable noise; leaves are drawn as small lit clusters.
+	var ivy := PackedByteArray()
+	ivy.resize(P * P)
+	for y in P:
+		for x in P:
+			var n := _pnoise(x, y, 64, 71, P) * 0.62 + _pnoise(x, y, 16, 72, P) * 0.34 + _hash(x, y, 73) * 0.04
+			ivy[y * P + x] = 1 if n > 0.6 else 0
+	for y in P:
+		for x in P:
+			if ivy[y * P + x] == 0:
+				# Ivy casts a short shadow down and to the right.
+				if ivy[posmod(y - 1, P) * P + x] == 1 or ivy[posmod(y - 2, P) * P + posmod(x - 1, P)] == 1:
+					img.set_pixel(x, y, STONE6[maxi(level[y * P + x] - 2, 0)])
+				continue
+			var edge := false
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if ivy[posmod(y + d.y, P) * P + posmod(x + d.x, P)] == 0:
+					edge = true
+			img.set_pixel(x, y, IVY5[0] if edge else IVY5[1])
+	for i in 5200:
+		var x := r.randi_range(0, P - 1)
+		var y := r.randi_range(0, P - 1)
+		if ivy[y * P + x] == 0:
+			continue
+		var lit := 3 if r.randf() < 0.7 else 4
+		for d in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+			if ivy[posmod(y + d.y, P) * P + posmod(x + d.x, P)] == 1:
+				_wpx(img, x + d.x, y + d.y, IVY5[2])
+		_wpx(img, x, y, IVY5[lit])
+		if ivy[posmod(y + 2, P) * P + posmod(x + 1, P)] == 1:
+			_wpx(img, x + 1, y + 2, IVY5[1])
+	# Trailing tendrils escaping the mats along slab joints.
+	for i in 90:
+		var x := r.randi_range(0, P - 1)
+		var y := r.randi_range(0, P - 1)
+		if ivy[y * P + x] == 0:
+			continue
+		var dir: Vector2i = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)][r.randi_range(0, 3)]
+		for s in r.randi_range(4, 12):
+			x += dir.x + (r.randi_range(-1, 1) if dir.y != 0 and r.randf() < 0.3 else 0)
+			y += dir.y + (r.randi_range(-1, 1) if dir.x != 0 and r.randf() < 0.3 else 0)
+			_wpx(img, x, y, IVY5[1])
+			if s % 3 == 1:
+				_wpx(img, x + 1, y - 1, IVY5[3])
+	if moss:
+		# Tufts kept 4 px inside each tile so moss cells still join plain ones.
+		for ty in Catalog.MACRO:
+			for tx in Catalog.MACRO:
+				for j in 3:
+					var cx := tx * T + r.randi_range(6, T - 7)
+					var cy := ty * T + r.randi_range(6, T - 7)
+					for q in 10:
+						var x := cx + r.randi_range(-2, 2)
+						var y := cy + r.randi_range(-1, 1)
+						_wpx(img, x, y, IVY5[2] if q < 5 else (IVY5[3] if q < 8 else IVY5[4]))
+					_wpx(img, cx - 2, cy + 2, IVY5[0])
+					_wpx(img, cx + 2, cy + 2, IVY5[0])
+	return img
+
 ## Front of a wall: staggered bricks, darker toward the ground.
 func _paint_wall_face(img: Image, low: bool, vines: bool) -> void:
 	for r in 4:
@@ -626,7 +865,7 @@ func _make_player() -> Image:
 		for col in 3:
 			var frame := _new_image(T, T)
 			_draw_player(frame, row, col)
-			_outline(frame, C.outline)
+			_ink(frame)
 			img.blit_rect(frame, Rect2i(0, 0, T, T), Vector2i(col * T, row * T))
 	return img
 
@@ -643,12 +882,12 @@ func _draw_player(f: Image, dir: int, step: int) -> void:
 
 	# Backpack behind the body (seen from the back and the side).
 	if dir == 1:
-		_box(f, 10, 13 + bob, 12, 11, C.pack, 0.1, 81)
-		_rect(f, 10, 17 + bob, 12, 1, C.pack_dark)
-		_box(f, 12, 22 + bob, 8, 3, C.pack_dark)
+		_box(f, 10, 13 + bob, 12, 11, P.pack, 0.1, 81)
+		_rect(f, 10, 17 + bob, 12, 1, P.pack_dark)
+		_box(f, 12, 22 + bob, 8, 3, P.pack_dark)
 	elif side:
-		_box(f, 6, 14 + bob, 6, 10, C.pack, 0.1, 81)
-		_rect(f, 6, 18 + bob, 6, 1, C.pack_dark)
+		_box(f, 6, 14 + bob, 6, 10, P.pack, 0.1, 81)
+		_rect(f, 6, 18 + bob, 6, 1, P.pack_dark)
 
 	# Legs.
 	var leg_y := 23
@@ -662,15 +901,15 @@ func _draw_player(f: Image, dir: int, step: int) -> void:
 	# Torso.
 	var tw := 10 if side else 14
 	var tx := cx - tw / 2
-	_box(f, tx, 13 + bob, tw, 11, C.tunic, 0.12, 82)
-	_rect(f, tx + 1, 20 + bob, tw - 2, 2, C.pants_dark)
-	_rect(f, tx + 1, 20 + bob, tw - 2, 1, C.pants)
+	_box(f, tx, 13 + bob, tw, 11, P.tunic, 0.12, 82)
+	_rect(f, tx + 1, 20 + bob, tw - 2, 2, P.pants_dark)
+	_rect(f, tx + 1, 20 + bob, tw - 2, 1, P.pants)
 	if not side:
-		_rect(f, cx - 1, 20 + bob, 3, 2, C.gold)
+		_rect(f, cx - 1, 20 + bob, 3, 2, P.gold)
 		if dir == 0:
-			_rect(f, cx - 2, 13 + bob, 4, 2, C.cloth)
-			_px(f, cx, 15 + bob, C.cloth)
-	_rect(f, tx + 2, 14 + bob, 2, 3, C.tunic_light)
+			_rect(f, cx - 2, 13 + bob, 4, 2, P.cloth)
+			_px(f, cx, 15 + bob, P.cloth)
+	_rect(f, tx + 2, 14 + bob, 2, 3, P.tunic_light)
 
 	# Arms.
 	if side:
@@ -681,29 +920,29 @@ func _draw_player(f: Image, dir: int, step: int) -> void:
 
 	# Head.
 	var hy := 8 + bob
-	_blob(f, cx, hy, 7.0, 7.0, [C.skin_deep, C.skin_dark, C.skin, C.skin], 0.0, 83)
+	_blob(f, cx, hy, 7.0, 7.0, [P.skin_deep, P.skin_dark, P.skin, P.skin], 0.0, 83)
 	if dir == 0:
-		_rect(f, cx - 4, hy + 1, 3, 3, C.outline)
-		_rect(f, cx + 2, hy + 1, 3, 3, C.outline)
+		_rect(f, cx - 4, hy + 1, 3, 3, P.outline)
+		_rect(f, cx + 2, hy + 1, 3, 3, P.outline)
 		_px(f, cx - 4, hy + 1, Color.WHITE)
 		_px(f, cx + 2, hy + 1, Color.WHITE)
-		_rect(f, cx - 1, hy + 4, 3, 1, C.skin_deep)
-		_rect(f, cx - 6, hy + 3, 2, 1, C.flower_r.lightened(0.2))
-		_rect(f, cx + 5, hy + 3, 2, 1, C.flower_r.lightened(0.2))
+		_rect(f, cx - 1, hy + 4, 3, 1, P.skin_deep)
+		_rect(f, cx - 6, hy + 3, 2, 1, P.flower_r.lightened(0.2))
+		_rect(f, cx + 5, hy + 3, 2, 1, P.flower_r.lightened(0.2))
 		_hair_cap(f, cx, hy, 0)
 	elif dir == 1:
-		_blob(f, cx, hy, 7.0, 7.0, [C.hair_dark, C.hair, C.hair, C.hair_light], 0.18, 84)
-		_rect(f, cx - 6, hy + 4, 12, 2, C.hair_dark)
+		_blob(f, cx, hy, 7.0, 7.0, [P.hair_dark, P.hair, P.hair, P.hair_light], 0.18, 84)
+		_rect(f, cx - 6, hy + 4, 12, 2, P.hair_dark)
 	else:
-		_rect(f, cx + 2, hy + 1, 3, 3, C.outline)
+		_rect(f, cx + 2, hy + 1, 3, 3, P.outline)
 		_px(f, cx + 2, hy + 1, Color.WHITE)
-		_px(f, cx + 6, hy + 3, C.skin_dark)
-		_rect(f, cx + 1, hy + 5, 3, 1, C.skin_deep)
+		_px(f, cx + 6, hy + 3, P.skin_dark)
+		_rect(f, cx + 1, hy + 5, 3, 1, P.skin_deep)
 		_hair_cap(f, cx - 1, hy, 1)
 
 
 func _hair_cap(f: Image, cx: int, hy: int, mode: int) -> void:
-	var tones := [C.hair_dark, C.hair, C.hair, C.hair_light]
+	var tones := [P.hair_dark, P.hair, P.hair, P.hair_light]
 	var light := Vector3(-0.5, -0.7, 0.55).normalized()
 	for y in range(hy - 8, hy + 1):
 		for x in range(cx - 8, cx + 9):
@@ -722,16 +961,120 @@ func _hair_cap(f: Image, cx: int, hy: int, mode: int) -> void:
 
 
 func _leg(f: Image, x: int, y: int, bob: int) -> void:
-	_box(f, x, y, 4, 5, C.pants, 0.08, 86)
-	_box(f, x - 1, y + 5, 6, 3, C.boot, 0.06, 87)
-	_rect(f, x - 1, y + 7, 6, 1, C.boot_dark)
+	_box(f, x, y, 4, 5, P.pants, 0.08, 86)
+	_box(f, x - 1, y + 5, 6, 3, P.boot, 0.06, 87)
+	_rect(f, x - 1, y + 7, 6, 1, P.boot_dark)
 
 
 func _arm(f: Image, x: int, y: int, swing: int) -> void:
-	_box(f, x, y + swing / 2, 3, 6, C.tunic, 0.1, 88)
-	_rect(f, x, y + 5 + swing / 2, 3, 3, C.skin)
-	_px(f, x, y + 5 + swing / 2, C.skin_dark.lightened(0.2))
-	_rect(f, x, y + 7 + swing / 2, 3, 1, C.skin_dark)
+	_box(f, x, y + swing / 2, 3, 6, P.tunic, 0.1, 88)
+	_rect(f, x, y + 5 + swing / 2, 3, 3, P.skin)
+	_px(f, x, y + 5 + swing / 2, P.skin_dark.lightened(0.2))
+	_rect(f, x, y + 7 + swing / 2, 3, 1, P.skin_dark)
+
+
+# ---------------------------------------------------------------- survivors
+
+## The Clearing's survivors (Settlement.CAST): the player's body and
+## proportions, facing the camera, each with their own colours and features.
+const NPCS := {
+	"npc_human": {"tunic": [Color8(150, 74, 50), Color8(104, 50, 38), Color8(188, 106, 70)],
+		"hair": [Color8(44, 32, 28), Color8(70, 50, 40), Color8(98, 72, 54)], "beard": "short"},
+	"npc_elf": {"skin": [Color8(250, 222, 196), Color8(222, 184, 156), Color8(190, 148, 124)],
+		"hair": [Color8(196, 160, 72), Color8(234, 206, 120), Color8(250, 236, 170)],
+		"tunic": [Color8(62, 132, 112), Color8(40, 92, 80), Color8(100, 170, 140)], "ears": "pointed", "long_hair": true},
+	"npc_dwarf": {"hair": [Color8(130, 130, 130), Color8(176, 176, 172), Color8(216, 214, 206)],
+		"tunic": [Color8(88, 96, 140), Color8(60, 64, 100), Color8(120, 130, 172)], "beard": "long", "apron": [Color8(120, 80, 48), Color8(150, 104, 62)]},
+	"npc_halfling": {"hair": [Color8(150, 66, 30), Color8(196, 98, 44), Color8(226, 136, 70)],
+		"tunic": [Color8(200, 160, 60), Color8(150, 112, 40), Color8(230, 196, 96)], "apron": [Color8(206, 200, 184), Color8(240, 236, 222)]},
+	"npc_tengu": {"skin": [Color8(150, 140, 160), Color8(110, 100, 120), Color8(80, 72, 90)],
+		"hair": [Color8(30, 30, 44), Color8(52, 52, 74), Color8(84, 84, 112)],
+		"tunic": [Color8(64, 92, 150), Color8(42, 60, 104), Color8(96, 130, 190)], "beak": true},
+	"npc_deep_dwarf": {"skin": [Color8(170, 176, 190), Color8(132, 138, 156), Color8(100, 104, 122)],
+		"hair": [Color8(70, 74, 84), Color8(110, 116, 128), Color8(170, 176, 186)],
+		"tunic": [Color8(96, 100, 108), Color8(60, 63, 72), Color8(150, 156, 164)], "beard": "long", "beard_tones": [Color8(196, 196, 196), Color8(232, 232, 228)], "helmet": true},
+	"npc_faun": {"skin": [Color8(222, 170, 126), Color8(188, 132, 96), Color8(150, 100, 74)],
+		"hair": [Color8(70, 44, 30), Color8(104, 66, 42), Color8(136, 92, 58)],
+		"tunic": [Color8(150, 118, 64), Color8(108, 82, 46), Color8(186, 156, 92)],
+		"legs": [Color8(110, 76, 52), Color8(80, 54, 38)], "hooves": [Color8(44, 34, 30), Color8(28, 22, 20)], "horns": true},
+	"npc_merfolk": {"skin": [Color8(150, 204, 196), Color8(112, 170, 166), Color8(80, 132, 134)],
+		"hair": [Color8(30, 96, 110), Color8(44, 136, 146), Color8(84, 180, 180)],
+		"tunic": [Color8(214, 208, 190), Color8(170, 160, 140), Color8(240, 236, 222)], "ears": "fins", "long_hair": true},
+}
+
+
+func _make_npcs() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/characters/survivors"))
+	for id in NPCS:
+		_save(_make_npc(NPCS[id]), "res://assets/sprites/characters/survivors/%s.png" % id)
+
+
+func _make_npc(d: Dictionary) -> Image:
+	P = C.duplicate()
+	if d.has("skin"):
+		P.skin = d.skin[0]
+		P.skin_dark = d.skin[1]
+		P.skin_deep = d.skin[2]
+	P.hair_dark = d.hair[0]
+	P.hair = d.hair[1]
+	P.hair_light = d.hair[2]
+	P.tunic = d.tunic[0]
+	P.tunic_dark = d.tunic[1]
+	P.tunic_light = d.tunic[2]
+	if d.has("legs"):
+		P.pants = d.legs[0]
+		P.pants_dark = d.legs[1]
+	if d.has("hooves"):
+		P.boot = d.hooves[0]
+		P.boot_dark = d.hooves[1]
+	var f := _new_image(T, T)
+	var cx := 16
+	var hy := 8
+	if d.get("long_hair", false):
+		for side in [-1, 1]:
+			_box(f, cx + side * 7 - 1, hy, 3, 10, P.hair, 0.1, 301)
+	_draw_player(f, 0, 0)
+	if d.has("apron"):
+		_rect(f, cx - 4, 15, 9, 8, d.apron[0])
+		_rect(f, cx - 3, 15, 7, 7, d.apron[1])
+		_rect(f, cx - 4, 15, 9, 1, d.apron[0])
+	match d.get("beard", ""):
+		"short":
+			_rect(f, cx - 4, hy + 4, 9, 2, P.hair)
+			_rect(f, cx - 3, hy + 6, 7, 1, P.hair_dark)
+			_rect(f, cx - 1, hy + 4, 3, 1, P.skin_deep)
+		"long":
+			var bt: Array = d.get("beard_tones", [P.hair, P.hair_light])
+			_blob(f, cx, hy + 8, 6.0, 7.0, [P.hair_dark, bt[0], bt[0], bt[1]], 0.12, 302)
+			_rect(f, cx - 3, hy + 4, 7, 1, bt[1])
+	match d.get("ears", ""):
+		"pointed":
+			for side in [-1, 1]:
+				for i in 3:
+					_rect(f, cx + side * (7 + i) - (1 if side < 0 else 0), hy - i, 2, 2 if i < 2 else 1, P.skin_dark if i else P.skin)
+		"fins":
+			for side in [-1, 1]:
+				for i in 4:
+					_rect(f, cx + side * (7 + i / 2) - (1 if side < 0 else 0), hy - 1 + i, 2, 1, P.hair_light if i % 2 else P.hair)
+	if d.get("horns", false):
+		# Ram-like horns curling out of the hair at the temples.
+		for side in [-1, 1]:
+			_px(f, cx + side * 6, hy - 5, Color8(226, 214, 186))
+			_px(f, cx + side * 7, hy - 6, Color8(226, 214, 186))
+			_px(f, cx + side * 8, hy - 6, Color8(190, 176, 146))
+			_px(f, cx + side * 9, hy - 5, Color8(190, 176, 146))
+			_px(f, cx + side * 9, hy - 4, Color8(160, 146, 120))
+			_px(f, cx + side * 8, hy - 3, Color8(160, 146, 120))
+	if d.get("beak", false):
+		_rect(f, cx - 2, hy + 3, 5, 2, Color8(232, 168, 60))
+		_rect(f, cx - 1, hy + 5, 3, 1, Color8(196, 120, 40))
+		_px(f, cx, hy + 6, Color8(150, 86, 34))
+	if d.get("helmet", false):
+		_rect(f, cx - 7, hy - 1, 15, 1, P.hair_dark)
+		_rect(f, cx, hy - 1, 1, 4, P.hair)
+	_ink(f)
+	P = C.duplicate()
+	return f
 
 
 # ---------------------------------------------------------------- trees
@@ -933,6 +1276,65 @@ func _make_campfire() -> Image:
 	return img
 
 
+## Roof strip over closed rooms (scripts/world/visuals/roof.gd), four 32x32 tiles
+## that tile sideways: back slope (foreshortened, sunlit), ridge, front
+## slope, and the front slope's bottom row with its eave board.
+const ROOF5 := [Color8(58, 30, 32), Color8(96, 46, 40), Color8(138, 66, 48), Color8(172, 94, 62), Color8(206, 136, 90)]
+
+
+func _make_roof() -> Image:
+	var img := _new_image(T * 4, T * ROOF_VARIANTS)
+	for v in ROOF_VARIANTS:
+		for tile in 4:
+			_roof_tile(img, tile * T, v * T, tile, v)
+	return img
+
+
+const ROOF_VARIANTS := 3
+
+
+func _roof_tile(img: Image, ox: int, oy: int, tile: int, v: int) -> void:
+	for y in T:
+		for x in T:
+			var back := tile == 0 or (tile == 1 and y < 10)
+			var sh := 4 if back else 8
+			var yy := y if back else y - (18 if tile == 1 else 0)
+			var row := yy / sh
+			var gy := posmod(yy, sh)
+			var gx := posmod(x + (row % 2) * 4, 8)
+			var col_i := (x + (row % 2) * 4) / 8
+			var jitter := (_hash(col_i, row + tile * 17, 601 + v * 7) - 0.5) * 0.18
+			var base: Color = ROOF5[3] if back else ROOF5[2]
+			var col := base.lightened(jitter) if jitter > 0.0 else base.darkened(-jitter)
+			if gy == sh - 1:
+				col = ROOF5[1] if back else ROOF5[0]
+			elif gx == 7:
+				col = ROOF5[1]
+			elif gy == 0:
+				col = ROOF5[4] if back else ROOF5[3]
+			elif not back and gy == sh - 2:
+				col = col.darkened(0.14 if gx in [0, 6] else 0.08)
+			# Moss and lichen gather in a few clumps on the shaded front slope.
+			if not back and _hash(x / 8, (y + oy) / 8, 604 + v) > 0.9 and _hash(x, y, 605 + v) > 0.2:
+				col = C.moss_dark if gy >= sh - 2 else (C.moss if _hash(x, y, 606) > 0.4 else C.moss_light)
+			img.set_pixel(ox + x, oy + y, col)
+	if tile == 1:
+		var beam := [C.outline, ROOF5[4], ROOF5[3], ROOF5[3], ROOF5[2], ROOF5[1], C.outline, ROOF5[0]]
+		for i in beam.size():
+			for x in T:
+				var c: Color = beam[i]
+				if i in [2, 3] and x % 8 == 7:
+					c = ROOF5[1]
+				img.set_pixel(ox + x, oy + 10 + i, c)
+	if tile == 3:
+		var eave := [ROOF5[0], C.wood_hi, C.wood_light, C.wood, C.wood_dark, C.outline]
+		for i in eave.size():
+			for x in T:
+				var c: Color = eave[i]
+				if i in [2, 3] and _hash(x / 4, i, 603 + v) > 0.8:
+					c = C.wood
+				img.set_pixel(ox + x, oy + 26 + i, c)
+
 func _make_shadow() -> Image:
 	var img := _new_image(T, 12)
 	for y in 12:
@@ -960,6 +1362,21 @@ func _make_time_icons() -> Image:
 				img.set_pixel(9 + x, y, C.moon)
 	return img
 
+
+
+## 9-slice HUD frame (margins 3): ink rim with clipped corners, a bevelled
+## brass edge and a faint top highlight over a translucent night-blue fill.
+func _make_ui_frame() -> Image:
+	var rows := [".kkkkkk.", "kLLLLLLk", "kLhhhhDk", "kLbbbbDk", "kLbbbbDk", "kLbbbbDk", "kDDDDDDk", ".kkkkkk."]
+	var cols := {"k": Color8(14, 11, 14), "L": Color8(176, 152, 104), "D": Color8(104, 82, 56),
+		"h": Color8(40, 36, 48, 236), "b": Color8(20, 18, 28, 228)}
+	var img := _new_image(8, 8)
+	for y in 8:
+		for x in 8:
+			var ch: String = rows[y][x]
+			if cols.has(ch):
+				img.set_pixel(x, y, cols[ch])
+	return img
 
 # ---------------------------------------------------------------- structures
 
@@ -1012,6 +1429,7 @@ func _make_structure(kind: String) -> Image:
 						elif _hash(x0 + xx, yy / 3, 213) > 0.8:
 							col = C.wood_dark
 						_px(img, x0 + xx, yy, col)
+			_face_depth(img, 8, T - 3)
 			_rect(img, 1, T - 3, T - 2, 2, C.wood_deep)
 			for x in [4, 12, 20, 28]:
 				_px(img, x, 12, C.iron_light)
@@ -1125,8 +1543,19 @@ func _make_structure(kind: String) -> Image:
 			return _make_farm_plot(1)
 		"farm_plot_2":
 			return _make_farm_plot(2)
-	_outline(img, C.outline)
+	_ink(img)
 	return img
+
+
+## Depth on a wall face spanning rows y0..y1-1: the cap's overhang shadow at
+## the top and ambient occlusion deepening towards the ground.
+func _face_depth(img: Image, y0: int, y1: int) -> void:
+	var shade := {y0: 0.34, y0 + 1: 0.14, y1 - 3: 0.06, y1 - 2: 0.14, y1 - 1: 0.24}
+	for y in shade:
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a > 0.0:
+				img.set_pixel(x, y, c.darkened(shade[y]))
 
 
 ## Masonry wall: a lighter cap on top and offset blocks below.
@@ -1147,11 +1576,85 @@ func _wall_blocks(img: Image, tones: Array, seed: int, brick: bool) -> void:
 			elif gx == 0:
 				col = tones[3]
 			_px(img, x, y, col)
+	_face_depth(img, 8, T - 1)
+	if not brick:
+		# Moss creeping up from the ground between the blocks.
+		for i in 4:
+			var mx := 3 + int(_hash(i, 1, seed) * 24.0)
+			var mh := 1 + int(_hash(i, 2, seed) * 3.0)
+			for k in mh:
+				_px(img, mx, T - 2 - k, C.moss if k < mh - 1 else C.moss_light)
+				if k == 0:
+					_px(img, mx + 1, T - 2, C.moss_dark)
+					_px(img, mx - 1, T - 2, C.moss)
 	_rect(img, 1, 1, T - 2, 7, tones[3])
 	_rect(img, 1, 1, T - 2, 1, tones[4])
 	_rect(img, 1, 7, T - 2, 1, tones[1])
 	for x in range(1, T - 1, 4):
 		_px(img, x + int(_hash(x, 0, seed) * 3.0), 3, tones[2])
+
+
+## Vertical wall runs (see BuildCatalog.wall_join): the wall's top surface
+## carries on from tile to tile, and only the bottom tile shows its face.
+##   _run_top: wall below only; _run_mid: walls above and below;
+##   _run_end: the face at the bottom of a run (wall above only).
+func _make_wall_joins() -> void:
+	for kind in ["wooden_wall", "stone_wall", "brick_wall"]:
+		var top := _new_image(T, T)
+		_wall_top_surface(top, kind, 1, T)
+		_ink(top)
+		_save(top, "res://assets/sprites/structures/%s_run_top.png" % kind)
+		var mid := _new_image(T, T)
+		_wall_top_surface(mid, kind, 0, T)
+		_rect(mid, 0, 0, 1, T, C.outline)
+		_rect(mid, T - 1, 0, 1, T, C.outline)
+		_save(mid, "res://assets/sprites/structures/%s_run_mid.png" % kind)
+		var end := _make_structure(kind)
+		_wall_top_surface(end, kind, 0, 7)
+		_save(end, "res://assets/sprites/structures/%s_run_end.png" % kind)
+
+
+## The top of a wall seen from above, rows y0..y1-1 between x 1 and T-2:
+## planks along the run for wood, capstones for masonry.
+func _wall_top_surface(img: Image, kind: String, y0: int, y1: int) -> void:
+	if kind == "wooden_wall":
+		for y in range(y0, y1):
+			for x in range(1, T - 1):
+				var p := (x - 1) / 10
+				var xx := (x - 1) % 10
+				var tone := (_hash(p, 3, 214) - 0.5) * 0.14
+				var joint := int(_hash(p, 4, 215) * 24.0) + 4
+				var col: Color = C.wood_light.lightened(tone)
+				if xx == 0:
+					col = C.wood_hi.lightened(tone)
+				elif xx == 9:
+					col = C.wood_dark
+				elif y == joint:
+					col = C.wood_deep
+				elif _hash(x, y / 3, 216) > 0.8:
+					col = C.wood
+				_px(img, x, y, col)
+			if y % 16 == 8:
+				for p in 3:
+					_px(img, 5 + p * 10, y, C.iron_dark)
+		return
+	var tones: Array = MAT["brick" if kind == "brick_wall" else "stone"]
+	var seed := 271 if kind == "brick_wall" else 261
+	for y in range(y0, y1):
+		var row := y / 8
+		for x in range(1, T - 1):
+			var col: Color = tones[3].lightened((_hash(x / 8, row, seed + 5) - 0.5) * 0.1)
+			if y % 8 == 7:
+				col = tones[1]
+			elif y % 8 == 0:
+				col = tones[4]
+			elif x == 1:
+				col = tones[4]
+			elif x == T - 2:
+				col = tones[2]
+			elif _hash(x, y, seed + 6) > 0.9:
+				col = tones[2]
+			_px(img, x, y, col)
 
 
 # ---------------------------------------------------------------- item icons
@@ -1214,10 +1717,10 @@ func _make_item_icons() -> void:
 	icons["forest_salad"] = _ic_bowl([LEAF5[3], LEAF5[2]], [BERRY[2], LEAF5[4], CAP5[3], BERRY[1]], false)
 	for id in icons:
 		var big: Image = icons[id]
-		_save(big, "res://assets/ui/items/%s.png" % id)
+		_save(big, "res://assets/ui/icons/items/%s.png" % id)
 		var small := big.duplicate() as Image
 		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
-		_save(small, "res://assets/ui/items/%s_s.png" % id)
+		_save(small, "res://assets/ui/icons/items/small/%s.png" % id)
 
 
 const BERRY := [Color8(110, 24, 52), Color8(168, 36, 70), Color8(214, 70, 96), Color8(250, 150, 160)]
@@ -2048,17 +2551,17 @@ const DCSS_ICONS := ["apple", "honey", "flatbread", "hunter_feast", "fruit_salad
 
 func _make_biome_art() -> void:
 	_import_creatures()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/crops"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/environment/crops"))
 	for crop in FarmingScript.CROPS:
 		var def: Dictionary = FarmingScript.CROPS[crop]
 		var col := _item_color(def.yield)
 		for stage in [1, 2]:
-			_save(_make_crop(def.shape, col, stage), "res://assets/sprites/crops/%s_%d.png" % [crop, stage])
+			_save(_make_crop(def.shape, col, stage), "res://assets/sprites/environment/crops/%s_%d.png" % [crop, stage])
 	_save(_make_structure_m10("loom"), "res://assets/sprites/structures/loom.png")
 	_save(_make_structure_m10("alchemy_table"), "res://assets/sprites/structures/alchemy_table.png")
 	var nodes := _biome_nodes()
 	for id in nodes:
-		_save(nodes[id], "res://assets/sprites/resources/%s.png" % id)
+		_save(nodes[id], "res://assets/sprites/environment/gatherables/%s.png" % id)
 	var icons := _biome_icons()
 	for id in DCSS_ICONS:
 		icons[id] = _dcss("items/" + id)
@@ -2066,10 +2569,10 @@ func _make_biome_art() -> void:
 	icons["alchemy_table"] = _make_structure_m10("alchemy_table")
 	for id in icons:
 		var big: Image = icons[id]
-		_save(big, "res://assets/ui/items/%s.png" % id)
+		_save(big, "res://assets/ui/icons/items/%s.png" % id)
 		var small := big.duplicate() as Image
 		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
-		_save(small, "res://assets/ui/items/%s_s.png" % id)
+		_save(small, "res://assets/ui/icons/items/small/%s.png" % id)
 
 
 ## Copies every vendored creature tile to assets/sprites/enemies.
@@ -2084,15 +2587,15 @@ func _import_creatures() -> void:
 			_save(_fit_creature(_dcss("monsters/" + id, false), EnemyCatalogScript.size_of(id)), "res://assets/sprites/enemies/" + f)
 
 
-const EnemyCatalogScript := preload("res://scripts/core/enemy_catalog.gd")
-const FarmingScript := preload("res://scripts/core/farming.gd")
+const EnemyCatalogScript := preload("res://scripts/data/enemy_catalog.gd")
+const FarmingScript := preload("res://scripts/systems/farming.gd")
 
 const STEM5 := [Color8(28, 60, 30), Color8(44, 88, 40), Color8(70, 124, 52), Color8(108, 160, 70), Color8(156, 200, 104)]
 
 
 ## Item colour read from the catalog source (ItemCatalog needs autoloads to compile).
 func _item_color(id: String) -> Color:
-	var src := FileAccess.get_file_as_string("res://scripts/core/item_catalog.gd")
+	var src := FileAccess.get_file_as_string("res://scripts/data/item_catalog.gd")
 	var re := RegEx.create_from_string('"%s": \\{[^\\n]*?"color": Color8\\((\\d+), (\\d+), (\\d+)\\)' % id)
 	var m := re.search(src)
 	if m == null:

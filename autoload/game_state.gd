@@ -37,6 +37,7 @@ var fog: Dictionary = {}
 ## Harvested Clearing props (cell -> true), so they stay gone across areas.
 var depleted_cells: Dictionary = {}
 ## Player-built structures in the Clearing (cell -> {"type": String, "open": bool}).
+## Something built on a floor keeps it as "floor" (the floor's type).
 var structures: Dictionary = {}
 ## Shared Stash (chest storage): never lost on death (see design spec).
 var stash := Inventory.new(STASH_SLOTS)
@@ -116,7 +117,8 @@ func meta_to_data() -> Dictionary:
 func meta_from_data(data: Dictionary) -> void:
 	remains = []
 	for r in data.get("remains", []):
-		remains.append({"area": String(r.area), "pos": [float(r.pos[0]), float(r.pos[1])], "items": Array(r.items)})
+		remains.append({"area": String(r.area), "pos": [float(r.pos[0]), float(r.pos[1])], "items": Array(r.items),
+			"dropped": bool(r.get("dropped", false))})
 	reached = _set_of(data.get("reached", []))
 	keys = _set_of(data.get("keys", []))
 	bosses_defeated = _set_of(data.get("bosses", []))
@@ -178,6 +180,19 @@ func run_dawn() -> Dictionary:
 	return r
 
 
+## Removes what is built on the cell, leaving the floor it stood on.
+## Returns the removed type ("" if none).
+func clear_structure(cell: Vector2i) -> String:
+	if not structures.has(cell):
+		return ""
+	var d: Dictionary = structures[cell]
+	if d.has("floor"):
+		structures[cell] = {"type": d.floor, "open": false, "planted": Farming.NOT_PLANTED}
+	else:
+		structures.erase(cell)
+	return d.type
+
+
 ## Mends damaged structures with a pool of hit points; returns how many.
 func mend_structures(pool: int) -> int:
 	var n := 0
@@ -219,7 +234,7 @@ func raid_while_away(night: int) -> int:
 		d.hp = int(d.get("hp", BuildCatalog.max_hp(d.type, bonus))) - blow
 		hit[cell] = true
 		if int(d.hp) <= 0:
-			structures.erase(cell)
+			clear_structure(cell)
 			targets.erase(cell)
 			wrecked += 1
 	if n > 0:
@@ -351,10 +366,15 @@ func travel(target: String) -> void:
 	came_from = area
 	area = target
 	arriving = true
+	change_scene(AREA_SCENES[target])
+
+
+## Switches scene, or hands the path to scene_changer when a test set one.
+func change_scene(path: String) -> void:
 	if scene_changer.is_valid():
-		scene_changer.call(AREA_SCENES[target])
+		scene_changer.call(path)
 	else:
-		get_tree().change_scene_to_file.call_deferred(AREA_SCENES[target])
+		get_tree().change_scene_to_file.call_deferred(path)
 
 
 func local_peer_id() -> int:

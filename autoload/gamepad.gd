@@ -85,8 +85,11 @@ func prompt(action: String) -> String:
 	return KeyBindings.key_label(KeyBindings.key_of(action))
 
 
-## True when a panel or the pause menu is showing, so the pad drives the cursor.
+## True when a panel, the pause menu or the title screen is showing, so the pad
+## drives the cursor.
 func ui_active() -> bool:
+	if get_tree().get_first_node_in_group("title_menu"):
+		return true
 	var menu := get_tree().get_first_node_in_group("settings_menu") as CanvasItem
 	if menu and menu.visible:
 		return true

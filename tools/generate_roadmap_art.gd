@@ -20,9 +20,9 @@ const GLOW := [Color8(40, 110, 110), Color8(70, 170, 160), Color8(120, 230, 210)
 
 
 func _init() -> void:
-	for dir in ["res://assets/sprites/structures", "res://assets/ui/items", "res://assets/sprites/props", "res://assets/sprites/npcs", "res://assets/sprites/enemies"]:
+	for dir in ["res://assets/sprites/structures", "res://assets/ui/icons/items/small", "res://assets/sprites/environment/landmarks", "res://assets/sprites/characters/survivors", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
-	_save(_remains(), "res://assets/sprites/remains.png")
+	_save(_remains(), "res://assets/sprites/environment/remains.png")
 	_sector_art()
 	print("Roadmap art generated.")
 	quit()
@@ -96,14 +96,14 @@ const ICON_RECOLORS := {
 func _sector_art() -> void:
 	for id in NODE_RECOLORS:
 		var r: Array = NODE_RECOLORS[id]
-		_save(_recolor("res://assets/sprites/resources/%s.png" % r[0], r[1], r[2], r[3], r[4]), "res://assets/sprites/resources/%s.png" % id)
+		_save(_recolor("res://assets/sprites/environment/gatherables/%s.png" % r[0], r[1], r[2], r[3], r[4]), "res://assets/sprites/environment/gatherables/%s.png" % id)
 	for id in ICON_RECOLORS:
 		var r: Array = ICON_RECOLORS[id]
-		_icon(_recolor("res://assets/ui/items/%s.png" % r[0], r[1], r[2], r[3], r[4]), id)
+		_icon(_recolor("res://assets/ui/icons/items/%s.png" % r[0], r[1], r[2], r[3], r[4]), id)
 	# Hand-drawn nodes for shapes no existing sprite has.
-	_save(_cactus(), "res://assets/sprites/resources/cactus.png")
-	_save(_ice_block(), "res://assets/sprites/resources/ice_block.png")
-	_save(_bone_spire(), "res://assets/sprites/resources/bone_spire.png")
+	_save(_cactus(), "res://assets/sprites/environment/gatherables/cactus.png")
+	_save(_ice_block(), "res://assets/sprites/environment/gatherables/ice_block.png")
+	_save(_bone_spire(), "res://assets/sprites/environment/gatherables/bone_spire.png")
 	for k in ["key_stone", "key_overgrowth", "key_desert", "key_ice", "key_volcano", "key_hell"]:
 		_icon(_fit32(_dcss(k, 28)), k)
 	var well := _fit32(_dcss("well", 30))
@@ -117,19 +117,17 @@ func _sector_art() -> void:
 	_icon(stone, "waystone")
 	_icon(_waterskin(false), "waterskin")
 	_icon(_waterskin(true), "waterskin_full")
-	_save(_sector_gate(), "res://assets/sprites/props/sector_gate.png")
+	_save(_sector_gate(), "res://assets/sprites/environment/landmarks/sector_gate.png")
 	var altar := _fit32(_dcss("skill_altar", 30))
 	_save(altar, "res://assets/sprites/structures/skill_altar.png")
 	_icon(altar, "skill_altar")
 	_icon(_memory_shard(), "memory_shard")
 	for s in ["statue_angel", "statue_dragon", "statue_guardian", "statue_hero", "statue_sword", "statue_twins", "column"]:
-		_save(_dcss(s, 36), "res://assets/sprites/props/landmark_%s.png" % s)
-	_save(_old_engine(), "res://assets/sprites/props/landmark_old_engine.png")
-	_save(_glyph_stone(false), "res://assets/sprites/props/glyph_stone.png")
-	_save(_glyph_stone(true), "res://assets/sprites/props/glyph_stone_read.png")
-	DirAccess.make_dir_recursive_absolute("res://assets/sprites/npcs")
-	for n in ["npc_human", "npc_elf", "npc_dwarf", "npc_halfling", "npc_tengu", "npc_deep_dwarf", "npc_faun", "npc_merfolk"]:
-		_save(_dcss(n, 30), "res://assets/sprites/npcs/%s.png" % n)
+		_save(_dcss(s, 36), "res://assets/sprites/environment/landmarks/landmark_%s.png" % s)
+	_save(_old_engine(), "res://assets/sprites/environment/landmarks/landmark_old_engine.png")
+	_save(_glyph_stone(false), "res://assets/sprites/environment/landmarks/glyph_stone.png")
+	_save(_glyph_stone(true), "res://assets/sprites/environment/landmarks/glyph_stone_read.png")
+	# Survivor sprites (npcs/) are drawn by generate_placeholder_art.gd in the player's style.
 	var bed := _bed()
 	_save(bed, "res://assets/sprites/structures/bed.png")
 	_icon(bed, "bed")
@@ -370,10 +368,10 @@ func _save(img: Image, path: String) -> void:
 
 
 func _icon(img: Image, id: String) -> void:
-	_save(img, "res://assets/ui/items/%s.png" % id)
+	_save(img, "res://assets/ui/icons/items/%s.png" % id)
 	var small := img.duplicate() as Image
 	small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
-	_save(small, "res://assets/ui/items/%s_s.png" % id)
+	_save(small, "res://assets/ui/icons/items/small/%s.png" % id)
 
 
 func _img(w: int, h: int) -> Image:

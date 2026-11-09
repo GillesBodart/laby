@@ -50,10 +50,10 @@ func _ready() -> void:
 	add_child(col)
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var shadow := Sprite2D.new()
-	shadow.texture = load("res://assets/sprites/shadow.png")
+	shadow.texture = load("res://assets/sprites/effects/shadow.png")
 	shadow.position = Vector2(0, -2)
 	add_child(shadow)
-	_sprite.texture = load("res://assets/sprites/npcs/%s.png" % cast().sprite)
+	_sprite.texture = load("res://assets/sprites/characters/survivors/%s.png" % cast().sprite)
 	_sprite.offset = Vector2(0, -_sprite.texture.get_height() / 2.0 + 2)
 	add_child(_sprite)
 	position = home + Vector2(randf_range(-20, 20), randf_range(-12, 12))

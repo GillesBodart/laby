@@ -134,3 +134,64 @@ func test_thirst_and_climate() -> void:
 	hp = s.health
 	s.tick(1.0, false, false)
 	check(s.health >= hp, "mild heat is bearable")
+
+
+func test_rooms_need_closed_walls_and_grant_buffs() -> void:
+	var st := {}
+	# A 3x3 inside ringed by walls, with a door on the south side.
+	for x in range(-1, 4):
+		for y in range(-1, 4):
+			if x == -1 or x == 3 or y == -1 or y == 3:
+				st[Vector2i(x, y)] = {"type": "wooden_wall"}
+	st[Vector2i(1, 3)] = {"type": "wooden_door", "open": true}
+	st[Vector2i(0, 0)] = {"type": "bed", "floor": "stone_floor"}
+	st[Vector2i(2, 0)] = {"type": "chest", "floor": "wooden_floor"}
+	var room := Rooms.find(st, Vector2i(1, 1))
+	check_eq(room.cells.size(), 9, "doors close rooms too")
+	check(room.contents.has("bed") and room.contents.has("chest"), "contents found")
+	check(not room.floored, "partly floored")
+	check_eq(Rooms.key(room), Rooms.key(Rooms.find(st, Vector2i(2, 2))), "same room from any tile")
+	var stats := Rooms.stats_of(room)
+	check_eq(stats.get("regen", 0), 50, "bed rests")
+	check_eq(stats.get("strength", 0), 5, "chest organises")
+	check(not stats.has("run_cost"), "no floor comfort yet")
+	for x in 3:
+		for y in 3:
+			var c := Vector2i(x, y)
+			if not st.has(c):
+				st[c] = {"type": "stone_floor"}
+	check(Rooms.find(st, Vector2i(1, 1)).floored, "fully floored")
+	check(Rooms.find(st, Vector2i(5, 5)).is_empty(), "outside is no room")
+	check(Rooms.find(st, Vector2i(-1, 0)).is_empty(), "a wall is no room")
+	st.erase(Vector2i(3, 1))
+	check(Rooms.find(st, Vector2i(1, 1)).is_empty(), "a gap opens the room")
+	# Too big to be a room: a 9x9 ring.
+	var big := {}
+	for i in range(-1, 10):
+		for c in [Vector2i(i, -1), Vector2i(i, 9), Vector2i(-1, i), Vector2i(9, i)]:
+			big[c] = {"type": "stone_wall"}
+	check(Rooms.find(big, Vector2i(4, 4)).is_empty(), "81 tiles is a yard")
+
+
+func test_room_buffs_add_up_then_expire() -> void:
+	var s := Survival.new()
+	var base := s.max_health()
+	s.add_room_buffs({"hp": 15, "dmg": 2}, 10.0)
+	check_eq(s.max_health(), base + 15, "cosy room raises max health")
+	check_eq(s.bonus("dmg"), 2, "stations make you handy")
+	s.add_room_buffs({"hp": 5}, 2.0)
+	check_eq(s.bonus("hp"), 15, "best value kept")
+	check_eq(Rooms.names_for(s.room_buffs), ["Handy", "Cosy"], "names shown on the HUD")
+	var data: Dictionary = JSON.parse_string(JSON.stringify(s.to_data()))
+	var t := Survival.new()
+	t.load_data(data)
+	check_eq(t.bonus("hp"), 15, "room buffs saved")
+	s.health = s.max_health()
+	s.tick(11.0, false, false)
+	check(s.room_buffs.is_empty(), "comfort wears off")
+	check(s.health <= s.max_health(), "health clamped to the lower cap")
+	s.hunger = 50.0
+	s.health = 10.0
+	s.sleep()
+	check_eq(s.health, s.max_health(), "sleep heals")
+	check_eq(s.hunger, 50.0 - Survival.SLEEP_HUNGER, "sleep makes you hungry")

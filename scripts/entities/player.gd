@@ -9,7 +9,7 @@ const WALK_SPEED := 144.0
 const RUN_SPEED := 230.0
 const ACCELERATION := 1800.0
 const FRICTION := 2400.0
-const SHEET := preload("res://assets/sprites/player.png")
+const SHEET := preload("res://assets/sprites/characters/player.png")
 const FRAME_SIZE := Vector2i(32, 32)
 const ANIMATIONS := {
 	"idle_down": {"row": 0, "frames": [0], "fps": 1.0},
@@ -37,6 +37,12 @@ const DODGE_SPEED := 340.0
 const DODGE_TIME := 0.26
 const DODGE_COOLDOWN := 0.35
 const DODGE_COST := 22.0
+## Room comfort lingers this long after stepping out (a night's sleep: a day).
+const ROOM_LINGER := 120.0
+const SLEEP_BUFF_SECONDS := 720.0
+## No sleeping with hostile creatures this close.
+const SLEEP_SAFE_RANGE := 8.0 * 32.0
+const ROOM_CHECK := 0.5
 
 @export var peer_id: int = GameState.OFFLINE_PEER_ID
 
@@ -61,6 +67,9 @@ var _dodge_time := 0.0
 var _dodge_cd := 0.0
 var _dodge_dir := Vector2.DOWN
 var _torch_hand: Node2D
+var _room_check := 0.0
+## First cell of the room the player stands in (to announce entering it).
+var _room_key = null
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -126,6 +135,7 @@ func _physics_process(delta: float) -> void:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	move_and_slide()
 	survival.tick(delta, state == State.MOVE, input.run)
+	_tick_room(delta)
 	_tick_climate(delta)
 	_tick_effects(delta)
 	_update_visuals()
@@ -167,6 +177,39 @@ func toggle_companions() -> void:
 	for c in mine:
 		c.set_mode(mode)
 	EventBus.notify.emit("Companions: %s" % ("follow me" if mode == "follow" else "stay here"))
+
+
+## Throws up to `amount` items of backpack slot `index` on the ground: they join
+## a nearby dropped pile (or start one) that E picks back up. Returns how many.
+func drop_slot(index: int, amount: int) -> int:
+	var stack := inventory.discard(index, amount)
+	if stack.is_empty():
+		if index >= 0 and index < inventory.slots.size() and not inventory.slots[index].is_empty():
+			EventBus.notify.emit("%s cannot be thrown away." % ItemCatalog.item_name(inventory.slots[index].id))
+		return 0
+	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+	var pile: Remains = null
+	for r in get_tree().get_nodes_in_group("remains"):
+		if r.entry.get("dropped", false) and r.global_position.distance_to(global_position) < 20.0:
+			pile = r
+			break
+	if pile != null:
+		_merge_into(pile.entry.items, stack)
+	else:
+		var entry := GameState.add_remains(GameState.area, global_position, [stack])
+		entry["dropped"] = true
+		if world != null:
+			world.spawn_remains(entry)
+	EventBus.item_feed.emit("drop", stack.id, stack.count)
+	return stack.count
+
+
+static func _merge_into(items: Array, stack: Dictionary) -> void:
+	for s in items:
+		if s.id == stack.id:
+			s.count = int(s.count) + int(stack.count)
+			return
+	items.append(stack)
 
 
 ## Uses a consumable from the backpack (food, medicine, potion). Returns
@@ -272,6 +315,64 @@ func _tick_climate(delta: float) -> void:
 				warm += 2
 				break
 	survival.tick_climate(delta, Sectors.climate_of(GameState.area), warm, equipment.stat("cool") + survival.bonus("cool"))
+
+
+## Room comfort: standing in a closed room keeps its buffs going (they
+## linger ROOM_LINGER s after leaving); entering one announces them.
+func _tick_room(delta: float) -> void:
+	_room_check -= delta
+	if _room_check > 0.0:
+		return
+	_room_check = ROOM_CHECK
+	var room := current_room()
+	var key = Rooms.key(room)
+	if not room.is_empty():
+		survival.add_room_buffs(Rooms.stats_of(room), ROOM_LINGER)
+	if key != _room_key and key != null and input.is_local():
+		EventBus.notify.emit("Room: %s" % Rooms.describe(room))
+	_room_key = key
+
+
+func cell() -> Vector2i:
+	return Vector2i((global_position / TileCatalog.TILE_SIZE).floor())
+
+
+## The closed room the player stands in ({} outside, or away from the Clearing).
+func current_room() -> Dictionary:
+	if GameState.area != "clearing":
+		return {}
+	return Rooms.find(GameState.structures, cell())
+
+
+## Why the player cannot sleep in the bed at `bed_cell` ("" if they can).
+func sleep_blocker(bed_cell: Vector2i) -> String:
+	if TimeSystem.phase() != DayClock.Phase.NIGHT:
+		return "You are not tired yet: beds are for the night"
+	if Rooms.find(GameState.structures, bed_cell).is_empty():
+		return "Too exposed to sleep: close the bed in a room of walls and a door"
+	if not get_tree().get_nodes_in_group("raiders").is_empty():
+		return "Raiders prowl the camp: you cannot sleep now"
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.has_method("_hostile") and e._hostile() and global_position.distance_to(e.global_position) < SLEEP_SAFE_RANGE:
+			return "You cannot sleep with enemies nearby"
+	return ""
+
+
+## Sleeps until morning: time skips to DAY_START, the night heals, and the
+## bed's room comfort lasts the whole next day.
+func try_sleep(bed_cell: Vector2i) -> bool:
+	var why := sleep_blocker(bed_cell)
+	if why != "":
+		EventBus.notify.emit(why)
+		return false
+	var room := Rooms.find(GameState.structures, bed_cell)
+	var minutes := fposmod(DayClock.DAY_START - TimeSystem.minute_of_day(), DayClock.MINUTES_PER_DAY)
+	TimeSystem.advance(minutes)
+	survival.add_room_buffs(Rooms.stats_of(room), SLEEP_BUFF_SECONDS)
+	survival.sleep()
+	EventBus.slept.emit()
+	EventBus.notify.emit("You sleep soundly until morning. %s" % Rooms.describe(room))
+	return true
 
 
 ## True when the tile just in front of the player is pond water.
@@ -718,7 +819,7 @@ func swing(item_id: String, on_impact := Callable()) -> void:
 		return
 	if _swing and _swing.is_valid():
 		_swing.kill()
-	var path := "res://assets/ui/items/%s.png" % item_id
+	var path := "res://assets/ui/icons/items/%s.png" % item_id
 	_tool_sprite.visible = item_id != "" and ResourceLoader.exists(path)
 	if _tool_sprite.visible:
 		_tool_sprite.texture = load(path)

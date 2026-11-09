@@ -371,7 +371,7 @@ func _alive_summons() -> int:
 func _summon() -> void:
 	if _def.summon == "" or _alive_summons() >= _def.summon_max:
 		return
-	var e: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	var e: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
 	e.setup(_def.summon)
 	e.position = position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
 	e._provoked = true
@@ -533,6 +533,9 @@ func tame(p: Player) -> bool:
 	var food := Taming.favourite(type_id)
 	var why := Taming.refusal(type_id, hp, max_hp, p.survival, p.inventory.count(food) > 0, GameState.party_of(p.peer_id).size())
 	if why != "":
+		var resting := GameState.party_of(p.peer_id).filter(func(c): return c.downed)
+		if why.begins_with("Your party is full") and not resting.is_empty():
+			why += " %s is still recovering in the Clearing." % resting[0].name
 		EventBus.notify.emit(why)
 		return false
 	p.inventory.remove(food, 1)

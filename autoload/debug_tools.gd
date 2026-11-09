@@ -1,7 +1,8 @@
 extends Node
 ## Developer helpers.
 ## - F3: toggle fast time (x30).
-## - Command line (after `--`):
+## - Command line (after `--`); any flag except --title skips the title screen:
+##     --title                  stay on the title screen (e.g. with --screenshot)
 ##     --seed=<int>             force world seed
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
@@ -13,6 +14,7 @@ extends Node
 ##     --journal                open the journal
 ##     --raid                   a walled Shelters camp under a night raid
 ##     --settlement[=camp]      a five-survivor camp, settlement panel open (unless camp)
+##     --house                  a floored hut (wall runs, chest and bed on the floor)
 ##     --menu=<page>            open the Esc menu (main, save, load, controls, sound)
 ##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
@@ -39,6 +41,8 @@ func _ready() -> void:
 	if _args.has("area") and GameState.AREA_SCENES.has(_args.area):
 		GameState.area = _args.area
 		get_tree().change_scene_to_file.call_deferred(GameState.area_scene())
+	elif not _args.is_empty() and not _args.has("title"):
+		_skip_title.call_deferred()
 	if _args.has("time"):
 		var hm: PackedStringArray = _args.time.split(":")
 		TimeSystem.set_time_of_day.call_deferred(int(hm[0]) * 60 + (int(hm[1]) if hm.size() > 1 else 0))
@@ -52,6 +56,8 @@ func _ready() -> void:
 		_raid.call_deferred()
 	if _args.has("settlement"):
 		_settlement.call_deferred()
+	if _args.has("house"):
+		_house.call_deferred()
 	if _args.has("map"):
 		_press_map.call_deferred()
 	if _args.has("menu"):
@@ -202,7 +208,7 @@ func _spawn(list: String) -> void:
 		return
 	var ids := Array(list.split(",", false)).filter(func(id): return EnemyCatalog.has(id))
 	for i in ids.size():
-		var e: Enemy = preload("res://scenes/world/props/enemy.tscn").instantiate()
+		var e: Enemy = preload("res://scenes/entities/enemy.tscn").instantiate()
 		e.setup(ids[i])
 		e.position = p.position + Vector2.RIGHT.rotated(TAU * i / ids.size()) * 70.0
 		p.get_parent().add_child(e)
@@ -213,6 +219,25 @@ func _open_menu(page: String) -> void:
 	var menu := get_tree().get_first_node_in_group("settings_menu")
 	if menu:
 		menu.open(page if page != "" else "main")
+
+
+## Any dev flag starts straight in the world (from the title screen only, so
+## other entry scenes such as the test runner are left alone).
+func _skip_title() -> void:
+	var scene := get_tree().current_scene
+	if scene and scene.scene_file_path == MainMenu.SCENE:
+		get_tree().change_scene_to_file(GameState.area_scene())
+
+
+## The World scene once it is current (past the title screen); null if it
+## never shows up.
+func _await_world() -> World:
+	for i in 30:
+		var world := get_tree().current_scene as World
+		if world and world.is_node_ready():
+			return world
+		await get_tree().process_frame
+	return null
 
 
 ## --map: opens the map overlay after the world is built.
@@ -234,7 +259,7 @@ func _press_action(action: String) -> void:
 
 ## --raid: walls, beds and a guard, then raiders arrive.
 func _raid() -> void:
-	var world := get_tree().current_scene as World
+	var world := await _await_world()
 	if world == null:
 		return
 	var fire := world.layout.campfire_cell
@@ -251,8 +276,37 @@ func _raid() -> void:
 		e.global_position = ClearingWorld.cell_center(fire) + Vector2(randf_range(-140, 140), randf_range(-90, -40))
 
 
+## --house: a floored hut right of the campfire, one wall material per side,
+## with a chest and a bed on the floor (checks wall joins and floor building).
+func _house() -> void:
+	var world := await _await_world()
+	if world == null:
+		return
+	var o := world.layout.campfire_cell + Vector2i(2, -3)
+	# Clear the trees and rocks in the way so the hut closes into a room.
+	for node in get_tree().get_nodes_in_group("gatherable"):
+		if node is Gatherable and Rect2i(o, Vector2i(6, 6)).has_point(node.cell):
+			GameState.depleted_cells[node.cell] = true
+			node.free()
+	for y in range(0, 6):
+		for x in range(0, 6):
+			var cell := o + Vector2i(x, y)
+			var edge := x == 0 or x == 5 or y == 0 or y == 5
+			world.clearing.place_structure(cell, "stone_floor" if x < 3 else "wooden_floor")
+			if not edge:
+				continue
+			var wall := "wooden_wall" if x == 5 else ("brick_wall" if x == 0 else "stone_wall")
+			if y == 5 and x == 2:
+				wall = "wooden_door"
+			world.clearing.place_structure(cell, wall)
+	world.clearing.place_structure(o + Vector2i(1, 1), "chest")
+	world.clearing.place_structure(o + Vector2i(4, 1), "bed")
+	world.clearing.place_structure(o + Vector2i(4, 3), "chest")
+
+
 ## --settlement: a lived-in camp with its panel open.
 func _settlement() -> void:
+	await _await_world()
 	GameState.survivors.clear()
 	for i in 5:
 		GameState.survivors.append({"cast": i, "role": Settlement.CAST[i].role})

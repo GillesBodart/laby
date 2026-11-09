@@ -3,14 +3,14 @@ extends Node2D
 ## Renders a ClearingLayout: fills the tile layers and spawns props.
 
 const PROP_SCENES := {
-	"tree": preload("res://scenes/world/props/tree.tscn"),
-	"rock": preload("res://scenes/world/props/rock.tscn"),
-	"bush": preload("res://scenes/world/props/bush.tscn"),
-	"campfire": preload("res://scenes/world/props/campfire.tscn"),
+	"tree": preload("res://scenes/props/tree.tscn"),
+	"rock": preload("res://scenes/props/rock.tscn"),
+	"bush": preload("res://scenes/props/bush.tscn"),
+	"campfire": preload("res://scenes/props/campfire.tscn"),
 }
 
-const RESOURCE_SCENE := preload("res://scenes/world/props/resource_node.tscn")
-const ENEMY_SCENE := preload("res://scenes/world/props/enemy.tscn")
+const RESOURCE_SCENE := preload("res://scenes/props/resource_node.tscn")
+const ENEMY_SCENE := preload("res://scenes/entities/enemy.tscn")
 const VARIANT_COUNT := 10
 ## type -> Array[Texture2D], filled in _ready from assets/sprites/<type>s/.
 var _prop_variants := {}
@@ -22,7 +22,10 @@ var _prop_variants := {}
 
 var layout: ClearingLayout
 var _structure_nodes := {} # cell -> Structure
+var _under_floors := {} # cell -> Sprite2D of the floor under a structure
 var _floors: Node2D
+var _roofs: Array[Roof] = []
+var _wall_edges: WallEdges
 
 
 func _ready() -> void:
@@ -33,10 +36,14 @@ func _ready() -> void:
 	_floors.name = "Floors"
 	add_child(_floors)
 	move_child(_floors, entities.get_index())
+	_wall_edges = WallEdges.new()
+	_wall_edges.name = "WallEdges"
+	add_child(_wall_edges)
+	move_child(_wall_edges, entities.get_index())
 	for type in ["tree", "rock"]:
 		var list: Array[Texture2D] = []
 		for i in VARIANT_COUNT:
-			list.append(load("res://assets/sprites/%ss/%s_%d.png" % [type, type, i]))
+			list.append(load("res://assets/sprites/environment/%ss/%s_%d.png" % [type, type, i]))
 		_prop_variants[type] = list
 
 
@@ -63,7 +70,8 @@ func build(new_layout: ClearingLayout) -> void:
 				continue
 			ground.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(id, cell))
 			if layout.is_wall(cell):
-				walls.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_coords(layout.get_wall(cell)))
+				walls.set_cell(cell, TileSetFactory.SOURCE_ID, TileCatalog.atlas_for(layout.get_wall(cell), cell))
+	_wall_edges.setup(layout)
 	_build_dirt()
 	_build_ponds()
 	for prop in layout.props:
@@ -88,6 +96,11 @@ func build(new_layout: ClearingLayout) -> void:
 	for entry in GameState.remains:
 		if entry.area == GameState.area:
 			spawn_remains(entry)
+
+
+## Redraws the wall rims after the walls moved.
+func refresh_wall_edges() -> void:
+	_wall_edges.refresh()
 
 
 ## Shows a GameState.remains entry; piles buried by moved walls are pushed
@@ -175,11 +188,19 @@ func _spawn_structures() -> void:
 	for node in get_tree().get_nodes_in_group("structures"):
 		node.free()
 	_structure_nodes.clear()
+	for sprite in _under_floors.values():
+		sprite.free()
+	_under_floors.clear()
 	if not layout.buildable:
+		for r in _roofs:
+			r.free()
+		_roofs.clear()
 		return
 	for cell in GameState.structures:
 		var d: Dictionary = GameState.structures[cell]
 		_add_structure_node(cell, d.type, d.open)
+		_add_under_floor(cell, d.get("floor", ""))
+	_rebuild_roofs()
 
 
 func _add_structure_node(cell: Vector2i, type: String, open: bool) -> void:
@@ -187,6 +208,49 @@ func _add_structure_node(cell: Vector2i, type: String, open: bool) -> void:
 	var parent := _floors if BuildCatalog.TYPES[type].layer == "floor" else entities
 	parent.add_child(s)
 	_structure_nodes[cell] = s
+
+
+## The floor drawn under something built on it (just a picture: the floor
+## itself returns once the thing on top is gone).
+func _add_under_floor(cell: Vector2i, floor_type: String) -> void:
+	if floor_type == "":
+		return
+	var sprite := Sprite2D.new()
+	sprite.texture = load(BuildCatalog.texture_path(floor_type))
+	sprite.position = cell_center(cell)
+	_floors.add_child(sprite)
+	_under_floors[cell] = sprite
+
+
+## One roof per closed room (rebuilt whenever something is built or removed).
+func _rebuild_roofs() -> void:
+	for r in _roofs:
+		r.free()
+	_roofs.clear()
+	var done := {}
+	for cell in GameState.structures:
+		if not Rooms.encloses(GameState.structures[cell].type):
+			continue
+		for n in [cell + Vector2i.LEFT, cell + Vector2i.RIGHT, cell + Vector2i.UP, cell + Vector2i.DOWN]:
+			if done.has(n):
+				continue
+			var room := Rooms.find(GameState.structures, n)
+			if room.is_empty():
+				done[n] = true
+				continue
+			for c in room.cells:
+				done[c] = true
+			var roof := Roof.create(room.cells, GameState.structures)
+			entities.add_child(roof)
+			_roofs.append(roof)
+
+
+## Walls redraw to join the walls above and below them.
+func _refresh_wall_neighbours(cell: Vector2i) -> void:
+	for c in [cell + Vector2i.UP, cell + Vector2i.DOWN]:
+		var s: Structure = _structure_nodes.get(c)
+		if s and BuildCatalog.is_wall(s.type):
+			s.refresh_look()
 
 
 func structure_at(cell: Vector2i) -> Structure:
@@ -197,7 +261,9 @@ func structure_at(cell: Vector2i) -> Structure:
 func build_blocker(cell: Vector2i, type: String) -> String:
 	if not layout.buildable or not layout.clearing_rect.has_point(cell):
 		return "Can only build inside the Clearing"
-	if GameState.structures.has(cell) or layout.is_wall(cell):
+	if GameState.structures.has(cell) and not _can_build_on(cell, type):
+		return "Occupied"
+	if layout.is_wall(cell):
 		return "Occupied"
 	if layout.get_ground(cell) == TileCatalog.Id.WATER:
 		return "Cannot build on water"
@@ -216,21 +282,42 @@ func build_blocker(cell: Vector2i, type: String) -> String:
 func place_structure(cell: Vector2i, type: String) -> bool:
 	if build_blocker(cell, type) != "":
 		return false
-	GameState.structures[cell] = {"type": type, "open": false, "planted": Farming.NOT_PLANTED}
+	var record := {"type": type, "open": false, "planted": Farming.NOT_PLANTED}
+	if GameState.structures.has(cell):
+		# Building on a floor: the floor stays underneath.
+		record["floor"] = GameState.structures[cell].type
+		_structure_nodes[cell].free()
+		_add_under_floor(cell, record.floor)
+	GameState.structures[cell] = record
 	_add_structure_node(cell, type, false)
+	_refresh_wall_neighbours(cell)
+	_rebuild_roofs()
 	GameState.check_tier()
 	return true
 
 
-## Removes the structure and returns its type ("" if none).
+func _can_build_on(cell: Vector2i, type: String) -> bool:
+	var d: Dictionary = GameState.structures[cell]
+	return not d.has("floor") and BuildCatalog.can_stand_on(d.type, type)
+
+
+## Removes the top structure and returns its type ("" if none). Something
+## built on a floor leaves the floor behind.
 func remove_structure(cell: Vector2i) -> String:
-	if not GameState.structures.has(cell):
+	var type := GameState.clear_structure(cell)
+	if type == "":
 		return ""
-	var type: String = GameState.structures[cell].type
-	GameState.structures.erase(cell)
 	if _structure_nodes.has(cell):
 		_structure_nodes[cell].queue_free()
 		_structure_nodes.erase(cell)
+	if _under_floors.has(cell):
+		_under_floors[cell].queue_free()
+		_under_floors.erase(cell)
+	if GameState.structures.has(cell):
+		var d: Dictionary = GameState.structures[cell]
+		_add_structure_node(cell, d.type, false)
+	_refresh_wall_neighbours(cell)
+	_rebuild_roofs()
 	return type
 
 
@@ -252,7 +339,10 @@ func get_save_data() -> Dictionary:
 	var built: Array = []
 	for c in GameState.structures:
 		var d: Dictionary = GameState.structures[c]
-		built.append({"cell": [c.x, c.y], "type": d.type, "open": d.open, "planted": d.get("planted", Farming.NOT_PLANTED), "crop": d.get("crop", Farming.DEFAULT_CROP)})
+		var entry := {"cell": [c.x, c.y], "type": d.type, "open": d.open, "planted": d.get("planted", Farming.NOT_PLANTED), "crop": d.get("crop", Farming.DEFAULT_CROP)}
+		if d.has("floor"):
+			entry["floor"] = d.floor
+		built.append(entry)
 	return {"depleted": cells, "structures": built}
 
 
@@ -266,7 +356,10 @@ func load_save_data(data: Dictionary) -> void:
 	GameState.structures = {}
 	for d in data.get("structures", []):
 		if BuildCatalog.TYPES.has(d.type):
-			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = {"type": String(d.type), "open": bool(d.open), "planted": float(d.get("planted", Farming.NOT_PLANTED)), "crop": String(d.get("crop", Farming.DEFAULT_CROP))}
+			var record := {"type": String(d.type), "open": bool(d.open), "planted": float(d.get("planted", Farming.NOT_PLANTED)), "crop": String(d.get("crop", Farming.DEFAULT_CROP))}
+			if BuildCatalog.can_stand_on(String(d.get("floor", "")), record.type):
+				record["floor"] = String(d.floor)
+			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = record
 	_spawn_structures()
 
 

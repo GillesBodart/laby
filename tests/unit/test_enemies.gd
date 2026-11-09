@@ -88,7 +88,7 @@ func test_resources_per_biome() -> void:
 			check(ResourceCatalog.has(t) or t in ["tree", "rock", "bush"], "%s is a resource node" % t)
 			if ResourceCatalog.has(t):
 				check(ItemCatalog.ITEMS.has(ResourceCatalog.NODES[t].item), "%s yields a known item" % t)
-				check(ResourceLoader.exists("res://assets/sprites/resources/%s.png" % t), "%s sprite" % t)
+				check(ResourceLoader.exists("res://assets/sprites/environment/gatherables/%s.png" % t), "%s sprite" % t)
 	var lab := LabyrinthGenerator.generate(5)
 	var kinds := {}
 	for p in lab.props:
