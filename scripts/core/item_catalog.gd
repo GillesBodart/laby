@@ -238,6 +238,7 @@ const ITEMS := {
 	"brimstone": {"name": "Brimstone", "stack": 40, "color": Color8(240, 190, 60), "desc": "Burning sulfur. Hellsteel flux."},
 	"blood_moss": {"name": "Blood Moss", "stack": 40, "color": Color8(170, 40, 50), "heal": 6.0, "desc": "Red moss that stops bleeding (+6 health)."},
 	# --- guardian keys (bound: never lost on death)
+	"memory_shard": {"name": "Memory Shard", "stack": 20, "color": Color8(172, 140, 226), "bound": true, "desc": "Bound. Dropped by elite creatures and guardians. Offer one at a Skill Altar to respec."},
 	"key_stone": {"name": "Stone Key", "stack": 1, "color": Color8(170, 182, 168), "bound": true, "desc": "Taken from the Stone Colossus. Opens the Overgrowth."},
 	"key_overgrowth": {"name": "Briar Key", "stack": 1, "color": Color8(90, 150, 60), "bound": true, "desc": "Taken from the Briar Hydra. Opens the Sunken Dunes."},
 	"key_desert": {"name": "Sun Key", "stack": 1, "color": Color8(250, 210, 80), "bound": true, "desc": "Taken from the Sun Wyrm. Opens the Rime Halls."},
@@ -313,6 +314,7 @@ const ITEMS := {
 	"farm_plot": {"name": "Farm Plot", "stack": 10, "color": Color8(110, 78, 50), "desc": "Place with B. E on it picks a seed to sow: berries, wheat, carrots, herbs, mushrooms..."},
 	"well": {"name": "Well", "stack": 5, "color": Color8(120, 126, 130), "desc": "Place with B. E drinks or fills a waterskin, anywhere."},
 	"standing_torch": {"name": "Standing Torch", "stack": 20, "color": Color8(245, 154, 58), "desc": "Place with B. Lights the night and scares off some creatures."},
+	"skill_altar": {"name": "Skill Altar", "stack": 1, "color": Color8(200, 190, 220), "desc": "Place with B. E opens the skill graph; offer a Memory Shard to unlearn every skill."},
 	"waystone": {"name": "Waystone", "stack": 2, "color": Color8(150, 200, 220), "desc": "Place with B. E travels to any sector already reached."},
 }
 
@@ -504,6 +506,7 @@ const RECIPES := [
 	{"id": "waterskin", "out": 1, "in": {"leather": 2, "rope": 1}, "station": "workbench"},
 	{"id": "standing_torch", "out": 1, "in": {"stick": 2, "torch": 1, "stone": 2}, "station": "workbench"},
 	{"id": "well", "out": 1, "in": {"stone": 14, "plank": 4, "rope": 2}, "station": "stonecutter"},
+	{"id": "skill_altar", "out": 1, "in": {"stone": 20, "crystal": 2, "glow_gland": 2}, "station": "stonecutter"},
 	{"id": "waystone", "out": 1, "in": {"sandstone": 8, "crystal": 2, "gold_ingot": 1}, "station": "stonecutter"},
 	{"id": "druid_staff", "out": 1, "in": {"living_root": 3, "moon_petal": 1, "plank": 2}, "station": "workbench"},
 	{"id": "mithril_ingot", "out": 1, "in": {"mithril_ore": 2, "coal": 2}, "station": "furnace"},

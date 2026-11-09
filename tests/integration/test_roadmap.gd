@@ -201,3 +201,34 @@ func test_torch_lights_and_wards_night_hunters() -> void:
 	jackal._provoked = true
 	check(not jackal._warded(player), "unless provoked")
 	world.free()
+
+func test_skill_altar_respecs_for_a_memory_shard() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var clearing: ClearingWorld = world.get_node("Clearing")
+	var player := _local_player()
+	var r := clearing.layout.clearing_rect
+	var cell := Vector2i(-1, -1)
+	var props := clearing.layout.prop_cells()
+	for y in range(r.position.y + 5, r.end.y):
+		for x in range(r.position.x + 5, r.end.x):
+			var c := Vector2i(x, y)
+			if cell.x < 0 and not props.has(c) and c != clearing.layout.campfire_cell and c != clearing.layout.spawn_cell:
+				cell = c
+	check(clearing.place_structure(cell, "skill_altar"), "altar placed")
+	var altar: Node2D = _tree().get_nodes_in_group("skill_altar")[0]
+	var panel: Control = _tree().get_nodes_in_group("ui_panels").filter(func(p): return p.has_method("open_at_altar"))[0]
+	player.survival.skill_points = 3
+	check(panel.learn("might"), "panel learns")
+	check(not panel.learn("w_berserk"), "keystone out of reach")
+	_face(player, altar.global_position)
+	check(player.find_interactable() == altar, "altar in reach")
+	altar.interact(player)
+	await _frames(1)
+	check(panel.visible, "altar opens the graph")
+	check(not panel.respec(), "respec needs a shard")
+	player.inventory.add(Survival.RESPEC_ITEM, 1)
+	check(panel.respec(), "respec with a shard")
+	check_eq(player.survival.skill_points, 3, "points refunded")
+	check_eq(player.inventory.count(Survival.RESPEC_ITEM), 0, "shard spent")
+	check(panel.node_at(panel.graph_to_screen(SkillGraph.position("vigor"))) == "vigor", "click finds nodes")
+	world.free()

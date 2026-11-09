@@ -247,13 +247,13 @@ func _tick_effects(delta: float) -> void:
 ## campfire or standing torch nearby counts as Warm 2.
 func _tick_climate(delta: float) -> void:
 	survival.thirst_enabled = GameState.thirst_unlocked()
-	var warm := equipment.stat("warm")
+	var warm := equipment.stat("warm") + survival.bonus("warm")
 	for group in ["campfire", "standing_torch"]:
 		for node in get_tree().get_nodes_in_group(group):
 			if global_position.distance_to(node.global_position) < HEAT_RANGE:
 				warm += 2
 				break
-	survival.tick_climate(delta, Sectors.climate_of(GameState.area), warm, equipment.stat("cool"))
+	survival.tick_climate(delta, Sectors.climate_of(GameState.area), warm, equipment.stat("cool") + survival.bonus("cool"))
 
 
 ## True when the tile just in front of the player is pond water.
@@ -302,6 +302,7 @@ func eat_best_food() -> bool:
 
 func gain_xp(amount: int) -> void:
 	var before := survival.level
+	amount = roundi(amount * (1.0 + survival.bonus("xp") / 100.0))
 	if survival.add_xp(amount) > 0:
 		EventBus.notify.emit("Level %d! +%d skill point" % [survival.level, survival.level - before])
 
@@ -333,9 +334,18 @@ func weapon_damage() -> int:
 	return BASE_DAMAGE + equipment.stat("dmg") + survival.damage_bonus()
 
 
-## Damage absorbed per hit by worn gear.
+## A melee hit, doubled on a critical (skill "crit" chance).
+func _melee_damage() -> int:
+	var dmg := weapon_damage()
+	if survival.bonus("crit") > 0 and randi() % 100 < survival.bonus("crit"):
+		HitChips.burst(get_parent(), global_position + facing * 20.0 + Vector2(0, -10), [Color8(255, 230, 120), Color.WHITE], 6)
+		return dmg * 2
+	return dmg
+
+
+## Damage absorbed per hit by worn gear and skills.
 func armor() -> int:
-	return equipment.stat("armor")
+	return equipment.stat("armor") + survival.bonus("armor")
 
 
 ## Best tool tier of a kind: carried in the backpack or held as the weapon.
@@ -373,13 +383,13 @@ func _attack() -> void:
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
 		if offset.length() <= ATTACK_RANGE and (offset.length() < 12.0 or offset.normalized().dot(facing) > 0.25):
-			node.take_damage(weapon_damage(), self)
+			node.take_damage(_melee_damage(), self)
 
 
 ## Shoots the ranged weapon toward the mouse (or the facing direction). Bows use the best
 ## arrow in the backpack; returns false (melee bash instead) when out of arrows.
 func _fire(kind: String) -> bool:
-	var dmg := weapon_damage()
+	var dmg := weapon_damage() + survival.bonus("ranged")
 	if kind == "arrow":
 		var best := ""
 		for s in inventory.slots:
@@ -410,7 +420,7 @@ func is_dodging() -> bool:
 
 ## Rolls toward `dir` (or the facing) with brief invulnerability, for stamina.
 func dodge(dir: Vector2) -> bool:
-	var cost := DODGE_COST * (1.0 - 0.2 * survival.rank("stamina"))
+	var cost := DODGE_COST * survival.stamina_cost_mult()
 	if _dodge_cd > 0.0 or is_dodging() or survival.is_dead() or survival.stamina < cost:
 		return false
 	survival.stamina -= cost
@@ -441,7 +451,7 @@ func _draw_torch() -> void:
 
 
 func block_chance() -> int:
-	return equipment.stat("block")
+	return equipment.stat("block") + survival.bonus("block")
 
 
 func take_damage(amount: int, source: Node2D = null) -> void:

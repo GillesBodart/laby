@@ -27,7 +27,8 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M12 Sectors: six labyrinth sectors north of the Clearing (Stone Labyrinth, Overgrowth, Sunken Dunes, Rime Halls, Cinder Forge, the Pit), each with 20+ creatures, 20+ resources, its own palette and a guardian boss in an arena; the boss drops a Key that unseals the north gate (the Pit gate needs all six, beyond it: the way out). Sector gear tiers (mithril, ember, hellsteel), staffs, ~285 items and ~210 recipes; waystones in every vestibule (and craftable) travel to any reached area | ✅ |
 | M13 Thirst & temperature: thirst wakes once you reach the desert (WT bar; drink at ponds/wells with **E**, fill waterskins); climates (desert/forge hot, ice cold) push body temperature (TP gauge) and hurt at the extreme unless you wear warm/cool gear, stand by a fire/torch or drink tonics | ✅ |
 | M14 Light & dodge: hold a Torch in the offhand for a wide warm light; night hunters will not approach a torch-bearer or anyone near a campfire / standing torch (unless provoked). **C** dodge-rolls (stamina, brief invulnerability) | ✅ |
-| M15 | Next: skill graph |
+| M15 Skill graph: radial passive tree (**K**) with a hub ring and six clusters (Warrior, Ranger, Survivor, Scholar, Beastmaster, Builder), multi-rank nodes, notables, hybrid bridges and sector-gated keystones with trade-offs; pan with drag, zoom with the wheel. Build a Skill Altar (stonecutter) to respec for a Memory Shard (elite/boss drop) | ✅ |
+| M16 | Next: taming & companions |
 
 ## Run
 

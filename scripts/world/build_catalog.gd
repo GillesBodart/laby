@@ -23,6 +23,7 @@ const TYPES := {
 	"well": {"solid": true, "layer": "entity", "group": "well"},
 	"standing_torch": {"solid": true, "layer": "entity", "group": "standing_torch", "light": 1.2},
 	"waystone": {"solid": true, "layer": "entity", "group": "waystone"},
+	"skill_altar": {"solid": true, "layer": "entity", "group": "skill_altar"},
 }
 
 

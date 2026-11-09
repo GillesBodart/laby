@@ -40,7 +40,7 @@ func _ready() -> void:
 	add_child(_sprite)
 	if is_farm():
 		add_child(_crop_sprite)
-	if type in ["well", "waystone"]:
+	if type in ["well", "waystone", "skill_altar"]:
 		add_to_group("interactable")
 	if def.has("light"):
 		_light = PointLight2D.new()
@@ -117,12 +117,20 @@ func farm_interact(player: Player, crop_id := "") -> bool:
 
 
 func interact_hint() -> String:
-	return "Drink / fill waterskins" if type == "well" else "Waystone: travel"
+	match type:
+		"well":
+			return "Drink / fill waterskins"
+		"skill_altar":
+			return "Skill Altar: skills / respec"
+	return "Waystone: travel"
 
 
 func interact(player: Player) -> void:
 	if type == "well":
 		player.drink_at_source()
+	elif type == "skill_altar":
+		if player.input.is_local():
+			EventBus.altar_used.emit(self)
 	elif player.input.is_local():
 		EventBus.waystone_used.emit(self)
 

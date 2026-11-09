@@ -34,13 +34,9 @@ const TEMP_RATE := 9.0
 const TEMP_HARM := 99.0
 const TEMP_DAMAGE := 2.5
 
-const SKILL_MAX_RANK := 3
-const SKILLS := {
-	"vigor": {"name": "Vigor", "desc": "+15 max health per rank"},
-	"might": {"name": "Might", "desc": "+3 attack damage per rank"},
-	"fleet": {"name": "Fleet foot", "desc": "+8% move speed per rank"},
-	"stamina": {"name": "Endurance", "desc": "-20% running cost per rank"},
-}
+## Skills live in SkillGraph (radial passive tree); `skills` holds node ranks.
+## Respec at a Skill Altar costs RESPEC_ITEM (a Bound resource).
+const RESPEC_ITEM := "memory_shard"
 
 var health := MAX_HEALTH
 
@@ -49,8 +45,10 @@ var stamina := MAX_STAMINA
 var xp := 0
 var level := 1
 var skill_points := 0
-## skill id -> rank.
+## skill node id -> rank (see SkillGraph).
 var skills := {}
+## Cached SkillGraph.totals(skills).
+var _bonus := {}
 ## Extra max health from worn gear (set by the Player, not saved here).
 var bonus_health := 0.0
 var thirst := MAX_THIRST
@@ -73,14 +71,23 @@ func rank(id: String) -> int:
 	return int(skills.get(id, 0))
 
 
+## Total skill-graph bonus for a stat ("hp", "dmg", "speed", ...).
+func bonus(stat: String) -> int:
+	return int(_bonus.get(stat, 0))
+
+
+func _pct(stat: String) -> float:
+	return clampf(1.0 - bonus(stat) / 100.0, 0.1, 2.0)
+
+
 func max_health() -> float:
-	return MAX_HEALTH + 15.0 * rank("vigor") + bonus_health
+	return maxf(MAX_HEALTH + bonus("hp") + bonus_health, 10.0)
 
 
 ## Strength characteristic: grows with levels and skills; every 10 points
 ## insure one backpack slot (kept on death).
 func strength() -> int:
-	return 10 + (level - 1) + 5 * rank("brawn")
+	return 10 + (level - 1) + bonus("strength")
 
 
 func insured_slots() -> int:
@@ -88,27 +95,51 @@ func insured_slots() -> int:
 
 
 func damage_bonus() -> int:
-	return 3 * rank("might")
+	return bonus("dmg")
 
 
 func speed_multiplier() -> float:
-	return 1.0 + 0.08 * rank("fleet")
+	return maxf(1.0 + bonus("speed") / 100.0, 0.3)
 
 
-func can_learn(id: String) -> bool:
-	return SKILLS.has(id) and skill_points > 0 and rank(id) < SKILL_MAX_RANK
+## Multiplier on running and dodge-roll stamina costs.
+func stamina_cost_mult() -> float:
+	return _pct("run_cost")
 
 
-## Spends one skill point; returns false if not allowed.
-func learn(id: String) -> bool:
-	if not can_learn(id):
+## Whether a node can take a rank now: points, max rank, reachability from
+## allocated nodes and its world gate (`reached` = GameState.reached).
+func can_learn(id: String, reached: Dictionary = {}) -> bool:
+	return SkillGraph.has(id) and skill_points >= SkillGraph.cost(id) \
+			and rank(id) < SkillGraph.max_rank(id) and SkillGraph.reachable(id, skills) \
+			and SkillGraph.gate_open(id, reached)
+
+
+## Spends skill points on one rank; returns false if not allowed.
+func learn(id: String, reached: Dictionary = {}) -> bool:
+	if not can_learn(id, reached):
 		return false
-	skill_points -= 1
+	var before := max_health()
+	skill_points -= SkillGraph.cost(id)
 	skills[id] = rank(id) + 1
-	if id == "vigor":
-		health += 15.0
+	_bonus = SkillGraph.totals(skills)
+	health = clampf(health + maxf(max_health() - before, 0.0), 0.0, max_health())
 	changed.emit()
 	return true
+
+
+## Refunds every allocated rank.
+func respec() -> int:
+	var refund := 0
+	for id in skills:
+		if SkillGraph.has(id):
+			refund += SkillGraph.cost(id) * int(skills[id])
+	skills = {}
+	_bonus = {}
+	skill_points += refund
+	health = minf(health, max_health())
+	changed.emit()
+	return refund
 
 
 func can_run() -> bool:
@@ -128,9 +159,9 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 	if is_dead():
 		return
 	var run_active := running and moving and can_run()
-	hunger = maxf(hunger - (HUNGER_DRAIN + (RUN_HUNGER_DRAIN if run_active else 0.0)) * delta, 0.0)
+	hunger = maxf(hunger - (HUNGER_DRAIN + (RUN_HUNGER_DRAIN if run_active else 0.0)) * _pct("hunger") * delta, 0.0)
 	if run_active:
-		stamina = maxf(stamina - RUN_COST * (1.0 - 0.2 * rank("stamina")) * delta, 0.0)
+		stamina = maxf(stamina - RUN_COST * stamina_cost_mult() * delta, 0.0)
 		_regen_wait = REGEN_DELAY
 		if stamina == 0.0:
 			_exhausted = true
@@ -142,7 +173,7 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 				_exhausted = false
 	if thirst_enabled:
 		var hot := 2.0 if temperature > 40.0 else 1.0
-		thirst = maxf(thirst - THIRST_DRAIN * hot * delta, 0.0)
+		thirst = maxf(thirst - THIRST_DRAIN * hot * _pct("thirst") * delta, 0.0)
 	if temperature < -40.0:
 		hunger = maxf(hunger - HUNGER_DRAIN * 0.5 * delta, 0.0)
 	warmth = maxf(warmth - delta, 0.0)
@@ -154,7 +185,7 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 	elif absf(temperature) >= TEMP_HARM:
 		damage(TEMP_DAMAGE * delta)
 	elif hunger >= REGEN_MIN_HUNGER and (not thirst_enabled or thirst >= REGEN_MIN_THIRST) and health < max_health():
-		health = minf(health + REGEN_RATE * delta, max_health())
+		health = minf(health + REGEN_RATE * (1.0 + bonus("regen") / 100.0) * delta, max_health())
 	changed.emit()
 
 
@@ -253,8 +284,9 @@ func load_data(data: Dictionary) -> void:
 	skill_points = int(data.get("skill_points", 0))
 	skills = {}
 	for k in data.get("skills", {}):
-		if SKILLS.has(k):
-			skills[k] = clampi(int(data.skills[k]), 0, SKILL_MAX_RANK)
+		if SkillGraph.has(k):
+			skills[k] = clampi(int(data.skills[k]), 0, SkillGraph.max_rank(k))
+	_bonus = SkillGraph.totals(skills)
 	health = clampf(float(data.get("health", MAX_HEALTH)), 0.0, max_health())
 	_exhausted = false
 	_regen_wait = 0.0

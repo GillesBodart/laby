@@ -83,6 +83,27 @@ func test_skills() -> void:
 	check_eq(t.health, 145.0, "health kept")
 
 
+func test_skill_graph_paths_gates_and_respec() -> void:
+	check_eq(SkillGraph.validate(), [], "graph data valid")
+	var s := Survival.new()
+	s.skill_points = 20
+	check(not s.learn("w_edge"), "cluster blocked until its hub root")
+	check(s.learn("might") and s.learn("w_edge"), "root opens the cluster")
+	check(s.learn("w_hide") and s.learn("w_guard"), "branches")
+	check(s.learn("w_crit") and s.learn("w_iron"), "notable then path")
+	check(not s.learn("w_berserk"), "keystone sealed before its sector")
+	check(s.learn("w_berserk", {"overgrowth": true}), "keystone opens once reached")
+	check_eq(s.damage_bonus(), 3 + 2 + 10, "damage stacks")
+	check_eq(s.bonus("armor"), 1 + 1 - 3, "keystone trade-off")
+	s.learn("fleet")
+	check(s.speed_multiplier() > 1.0, "speed bonus")
+	var spent := 20 - s.skill_points
+	check_eq(s.respec(), spent, "respec refunds every point")
+	check_eq(s.skill_points, 20, "points back")
+	check_eq(s.damage_bonus(), 0, "bonuses cleared")
+	check_eq(s.max_health(), Survival.MAX_HEALTH, "health cap back to base")
+
+
 func test_thirst_and_climate() -> void:
 	var s := Survival.new()
 	s.tick(100.0, false, false)

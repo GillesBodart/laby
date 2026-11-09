@@ -24,3 +24,5 @@ signal farm_plot_used(plot: Node)
 signal chest_used
 ## E on a waystone: the travel picker opens.
 signal waystone_used(stone: Node)
+## A Skill Altar was used: the skill graph opens with the respec offer.
+signal altar_used(altar: Node)

@@ -17,6 +17,7 @@ const GUARD_TURN := 3.2
 const GUARD_DOT := 0.35
 const REVEAL_DIST := 52.0
 const LIGHT_WARD := 110.0
+const ELITE_SHARD_CHANCE := 0.35
 const EFFECT_TIME := 4.0
 const WINDUP := {"melee": 0.28, "ambush": 0.12, "blink": 0.22, "hit_run": 0.08, "charge": 0.55,
 	"pounce": 0.35, "slam": 0.7, "ranged": 0.4, "summon": 0.6}
@@ -469,6 +470,10 @@ func _die(killer: Player) -> void:
 			if n > 0:
 				killer.inventory.add(d.id, n)
 				got.append("+%d %s" % [n, ItemCatalog.item_name(d.id)])
+		var shards := 2 if _def.boss else (1 if _def.elite and randf() < ELITE_SHARD_CHANCE else 0)
+		if shards > 0:
+			killer.inventory.add(Survival.RESPEC_ITEM, shards)
+			got.append("+%d %s" % [shards, ItemCatalog.item_name(Survival.RESPEC_ITEM)])
 		EventBus.notify.emit("%s defeated%s" % [_def.name, (": " + ", ".join(got)) if not got.is_empty() else ""])
 		killer.gain_xp(_def.xp)
 	if _def.boss:

@@ -118,6 +118,29 @@ func _sector_art() -> void:
 	_icon(_waterskin(false), "waterskin")
 	_icon(_waterskin(true), "waterskin_full")
 	_save(_sector_gate(), "res://assets/sprites/props/sector_gate.png")
+	var altar := _fit32(_dcss("skill_altar", 30))
+	_save(altar, "res://assets/sprites/structures/skill_altar.png")
+	_icon(altar, "skill_altar")
+	_icon(_memory_shard(), "memory_shard")
+
+
+## Pale violet crystal splinter with a bright core (Bound respec resource).
+func _memory_shard() -> Image:
+	var img := _img(32, 32)
+	var tones := [Color8(70, 44, 110), Color8(118, 82, 170), Color8(172, 140, 226), Color8(226, 212, 255)]
+	for y in range(5, 28):
+		var t := float(y - 5) / 22.0
+		var half := int(round(6.0 * (1.0 - absf(t - 0.4) / 0.6)))
+		for x in range(16 - half, 17 + half):
+			var side := float(x - 16) / maxf(half, 1)
+			var tone := 2 if side < -0.2 else (1 if side > 0.35 else 3)
+			if y > 22:
+				tone = maxi(tone - 1, 0)
+			_px(img, x - int(t * 3.0), y, tones[tone])
+	_rect(img, 14, 11, 2, 5, Color.WHITE)
+	_px(img, 22, 8, tones[3])
+	_px(img, 8, 20, tones[2])
+	return _outline(img)
 
 
 ## Loads a PNG and moves its colours: hue set (or kept when < 0), saturation

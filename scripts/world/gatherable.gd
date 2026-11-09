@@ -35,8 +35,11 @@ func hit(player: Player) -> void:
 		HitChips.burst(get_parent(), global_position + Vector2(0, -10), _chip_colors())
 	if _hits_left > 0:
 		return
-	var left := player.inventory.add(item_id, yield_amount)
-	EventBus.notify.emit("+%d %s" % [yield_amount - left, ItemCatalog.item_name(item_id)])
+	var amount := yield_amount
+	if player.survival.bonus("gather") > 0 and randi() % 100 < player.survival.bonus("gather"):
+		amount *= 2
+	var left := player.inventory.add(item_id, amount)
+	EventBus.notify.emit("+%d %s" % [amount - left, ItemCatalog.item_name(item_id)])
 	if left > 0:
 		EventBus.notify.emit("Backpack full!")
 	player.gain_xp(xp)
