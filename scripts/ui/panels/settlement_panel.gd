@@ -154,7 +154,9 @@ func _draw() -> void:
 		_box(r, CREAM, GOLD if i == _hover else BROWN)
 		var tex := _npc(c.sprite)
 		if tex:
-			draw_texture_rect_region(tex, Rect2(r.position + Vector2(2, 1), Vector2(14, 14)), Rect2(Vector2(0, 0), Vector2(tex.get_width(), tex.get_height() * 0.6)))
+			# Square crop around the head (the top ~60% of the 48 px figure).
+			var side := tex.get_width() * 0.6
+			draw_texture_rect_region(tex, Rect2(r.position + Vector2(2, 1), Vector2(14, 14)), Rect2(Vector2(tex.get_width() * 0.2, 0), Vector2(side, side)))
 		_text(r.position + Vector2(20, 12), c.name, 10, TEXT_DARK)
 		_text(r.position + Vector2(82, 12), String(s.role), 10, BROWN)
 	if _hover >= 0:

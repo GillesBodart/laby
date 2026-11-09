@@ -10,7 +10,7 @@ const RUN_SPEED := 230.0
 const ACCELERATION := 1800.0
 const FRICTION := 2400.0
 const SHEET := preload("res://assets/sprites/characters/player.png")
-const FRAME_SIZE := Vector2i(32, 32)
+const FRAME_SIZE := Vector2i(48, 48)
 const ANIMATIONS := {
 	"idle_down": {"row": 0, "frames": [0], "fps": 1.0},
 	"walk_down": {"row": 0, "frames": [1, 0, 2, 0], "fps": 8.0},
@@ -21,7 +21,7 @@ const ANIMATIONS := {
 }
 
 ## Body sprite rest position (feet on the node origin).
-const SPRITE_OFFSET := Vector2(0, -16)
+const SPRITE_OFFSET := Vector2(0, -23)
 ## Gathering/interaction reach, measured from a point just in front of the body.
 const REACH := 22.0
 const PROBE := 12.0
@@ -804,7 +804,7 @@ func _build_tool_sprite() -> void:
 	_tool_sprite.centered = false
 	# Item icons hold their grip near the bottom-left corner.
 	_tool_sprite.offset = Vector2(-7, -25)
-	_tool_sprite.scale = Vector2(0.62, 0.62)
+	_tool_sprite.scale = Vector2(0.8, 0.8)
 	_tool_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_tool_arm.add_child(_tool_sprite)
 	_tool_pivot.visible = false
@@ -828,19 +828,19 @@ func swing(item_id: String, on_impact := Callable()) -> void:
 	var strike := 75.0
 	_tool_pivot.scale = Vector2.ONE
 	_tool_pivot.z_index = 1
-	_tool_pivot.position = Vector2(4, -11)
+	_tool_pivot.position = Vector2(5, -13)
 	if facing == Vector2.LEFT:
 		_tool_pivot.scale = Vector2(-1, 1)
-		_tool_pivot.position = Vector2(-4, -11)
+		_tool_pivot.position = Vector2(-5, -13)
 	elif facing == Vector2.DOWN:
 		# From beside the right shoulder, sweeping down across the front of the body.
 		raise = -25.0
 		strike = 140.0
-		_tool_pivot.position = Vector2(6, -8)
+		_tool_pivot.position = Vector2(9, -12)
 	elif facing == Vector2.UP:
 		raise = 110.0
 		strike = -40.0
-		_tool_pivot.position = Vector2(4, -14)
+		_tool_pivot.position = Vector2(6, -18)
 		_tool_pivot.z_index = -1
 	_tool_arm.rotation_degrees = raise - 15.0
 	_tool_pivot.visible = true

@@ -132,6 +132,11 @@ func _init() -> void:
 		print("Survivors generated.")
 		quit()
 		return
+	if "--creatures" in OS.get_cmdline_user_args():
+		_import_creatures()
+		print("Creatures generated.")
+		quit()
+		return
 	for dir in ["res://assets/tilesets", "res://assets/sprites/characters", "res://assets/sprites/effects", "res://assets/sprites/environment/trees", "res://assets/sprites/environment/rocks", "res://assets/sprites/environment/gatherables", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/icons/items/small", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_save(_make_tileset(), Catalog.TEXTURE_PATH)
@@ -858,119 +863,270 @@ func _paint_gate_closed(img: Image) -> void:
 
 # ---------------------------------------------------------------- player
 
+## Character frames are 48x48: a chibi ~42 px tall (feet on row 46), drawn at
+## the same pixel density as the 32 px tiles - big head, clustered hair
+## strands, shaded clothing with folds, belt and gear.
+const CF := 48
+const BONE4 := [Color8(120, 104, 84), Color8(164, 148, 120), Color8(206, 192, 162), Color8(236, 228, 204)]
+const STEEL4 := [Color8(58, 62, 74), Color8(96, 102, 116), Color8(142, 148, 162), Color8(200, 206, 216)]
+
+
 ## dir: 0 down, 1 up, 2 side (right). step: 0 idle, 1/2 walking.
 func _make_player() -> Image:
-	var img := _new_image(T * 3, T * 3)
+	var img := _new_image(CF * 3, CF * 3)
 	for row in 3:
 		for col in 3:
-			var frame := _new_image(T, T)
-			_draw_player(frame, row, col)
+			var frame := _new_image(CF, CF)
+			_draw_hero(frame, row, col, {})
 			_ink(frame)
-			img.blit_rect(frame, Rect2i(0, 0, T, T), Vector2i(col * T, row * T))
+			img.blit_rect(frame, Rect2i(0, 0, CF, CF), Vector2i(col * CF, row * CF))
 	return img
 
 
-func _draw_player(f: Image, dir: int, step: int) -> void:
+func _cmask(test: Callable) -> Dictionary:
+	var m := {}
+	for y in CF:
+		for x in CF:
+			if test.call(Vector2(x + 0.5, y + 0.5)):
+				m[Vector2i(x, y)] = true
+	return m
+
+
+func _cm_ellipse(c: Vector2, rx: float, ry: float) -> Dictionary:
+	return _cmask(func(p: Vector2) -> bool: return pow((p.x - c.x) / rx, 2) + pow((p.y - c.y) / ry, 2) <= 1.0)
+
+
+func _cm_poly(pts: PackedVector2Array) -> Dictionary:
+	return _cmask(func(p: Vector2) -> bool: return Geometry2D.is_point_in_polygon(p, pts))
+
+
+func _cm_stroke(a: Vector2, b: Vector2, half: float) -> Dictionary:
+	return _cmask(func(p: Vector2) -> bool: return Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) <= half)
+
+
+## Cel shading lit from the upper left; tones = [deep, dark, mid, light].
+func _shade(img: Image, mask: Dictionary, tones: Array) -> void:
+	for p in mask:
+		var o := func(dx: int, dy: int) -> bool: return not mask.has(p + Vector2i(dx, dy))
+		var col: Color = tones[2]
+		if o.call(1, 0) or o.call(0, 1):
+			col = tones[1]
+		elif o.call(-1, 0) or o.call(0, -1):
+			col = tones[3]
+		elif o.call(2, 0) or o.call(1, 1) or o.call(0, 2):
+			col = tones[2].lerp(tones[1], 0.5)
+		_px(img, p.x, p.y, col)
+
+
+func _tones(base: Color, dark: Color, light: Color) -> Array:
+	return [dark.darkened(0.28), dark, base, light]
+
+
+## Hair: sphere lighting broken into strands radiating from the crown, a
+## glossy highlight arc, and darker tips where locks overlap the face.
+func _shade_hair(f: Image, m: Dictionary, c: Vector2, r: float, crown: Vector2, tones: Array) -> void:
+	var light := Vector3(-0.5, -0.75, 0.45).normalized()
+	for p in m:
+		var q := Vector2(p) + Vector2(0.5, 0.5)
+		var n := (q - c) / r
+		var nz := sqrt(maxf(0.0, 1.0 - minf(n.length_squared(), 1.0)))
+		var a := (q - crown).angle()
+		var strand := sin(a * 15.0)
+		var lit := Vector3(n.x, n.y, nz).dot(light) + strand * 0.16
+		var col: Color = tones[clampi(int((lit + 0.55) / 1.35 * 4.0), 0, 3)]
+		if absf(n.length() - 0.6) < 0.1 and n.y < -0.15 and n.x < 0.35 and strand > -0.4:
+			col = tones[3].lightened(0.2)
+		if not m.has(p + Vector2i(0, 1)):
+			col = tones[0]
+		_px(f, p.x, p.y, col)
+
+
+func _draw_hero(f: Image, dir: int, step: int, d: Dictionary) -> void:
 	var bob := 1 if step != 0 else 0
-	var swing := 0
-	if step == 1:
-		swing = 2
-	elif step == 2:
-		swing = -2
-	var cx := 16
+	var sw := 0 if step == 0 else (3 if step == 1 else -3)
+	var cx := 24.0
+	var hy := 15.0 + bob
+	var ty := 24 + bob
 	var side := dir == 2
+	var SK := _tones(P.skin, P.skin_dark, P.skin.lightened(0.14))
+	SK[0] = P.skin_deep
+	var TU := _tones(P.tunic, P.tunic_dark, P.tunic_light)
+	var PA := _tones(P.pants, P.pants_dark, P.pants.lightened(0.16))
+	var BO := _tones(P.boot, P.boot_dark, P.boot.lightened(0.22))
+	var PK := _tones(P.pack, P.pack_dark, P.pack.lightened(0.18))
+	var HA := [P.hair_dark.darkened(0.25), P.hair_dark, P.hair, P.hair_light]
+	var CL := _tones(P.cloth, P.cloth.darkened(0.25), P.cloth.lightened(0.18))
+	var player: bool = d.is_empty()
 
-	# Backpack behind the body (seen from the back and the side).
-	if dir == 1:
-		_box(f, 10, 13 + bob, 12, 11, P.pack, 0.1, 81)
-		_rect(f, 10, 17 + bob, 12, 1, P.pack_dark)
-		_box(f, 12, 22 + bob, 8, 3, P.pack_dark)
-	elif side:
-		_box(f, 6, 14 + bob, 6, 10, P.pack, 0.1, 81)
-		_rect(f, 6, 18 + bob, 6, 1, P.pack_dark)
+	# Long hair hangs behind the shoulders.
+	if d.get("long_hair", false) and dir == 0:
+		for s in [-1, 1]:
+			var m := _cm_poly(PackedVector2Array([Vector2(cx + s * 7, hy), Vector2(cx + s * 12, hy), Vector2(cx + s * 13.5, ty + 10), Vector2(cx + s * 8, ty + 11)]))
+			_shade_hair(f, m, Vector2(cx, hy), 14.0, Vector2(cx, hy - 11), HA)
 
-	# Legs.
-	var leg_y := 23
+	# Gear behind the body.
 	if side:
-		_leg(f, 13 + swing, leg_y, bob)
-		_leg(f, 16 - swing, leg_y, bob)
-	else:
-		_leg(f, 11, leg_y + (1 if swing > 0 else 0), bob)
-		_leg(f, 17, leg_y + (1 if swing < 0 else 0), bob)
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 12, ty), Vector2(cx - 5, ty), Vector2(cx - 5, ty + 12), Vector2(cx - 11, ty + 12), Vector2(cx - 12.5, ty + 10)])), PK)
+		_rect(f, int(cx) - 12, ty + 4, 7, 1, PK[0])
+		_rect(f, int(cx) - 10, ty + 5, 2, 2, P.gold)
+		if player:
+			_shade(f, _cm_ellipse(Vector2(cx - 8.5, ty - 0.5), 4.5, 2.5), CL)
+			_px(f, int(cx) - 9, ty - 1, CL[1])
 
-	# Torso.
-	var tw := 10 if side else 14
-	var tx := cx - tw / 2
-	_box(f, tx, 13 + bob, tw, 11, P.tunic, 0.12, 82)
-	_rect(f, tx + 1, 20 + bob, tw - 2, 2, P.pants_dark)
-	_rect(f, tx + 1, 20 + bob, tw - 2, 1, P.pants)
-	if not side:
-		_rect(f, cx - 1, 20 + bob, 3, 2, P.gold)
-		if dir == 0:
-			_rect(f, cx - 2, 13 + bob, 4, 2, P.cloth)
-			_px(f, cx, 15 + bob, P.cloth)
-	_rect(f, tx + 2, 14 + bob, 2, 3, P.tunic_light)
-
-	# Arms.
+	# Legs (feet on row 46); the far leg is shaded darker in profile.
+	var leg_top := 35
 	if side:
-		_arm(f, cx - 2, 14 + bob, swing)
+		var far := [PA[0], PA[0], PA[1], PA[2]]
+		var far_b := [BO[0], BO[0], BO[1], BO[2]]
+		_hero_leg(f, int(cx) - 3 - sw, leg_top, 0, far, far_b, true)
+		_hero_leg(f, int(cx) - 3 + sw, leg_top, 0, PA, BO, true)
 	else:
-		_arm(f, tx - 3, 14 + bob, -swing)
-		_arm(f, tx + tw, 14 + bob, swing)
+		_hero_leg(f, int(cx) - 6, leg_top, 2 if sw > 0 else 0, PA, BO, false)
+		_hero_leg(f, int(cx) + 1, leg_top, 2 if sw < 0 else 0, PA, BO, false)
+
+	# Torso: tunic flaring into a short skirt over the hips.
+	var tw := 5.5 if side else 8.0
+	var torso := _cm_poly(PackedVector2Array([Vector2(cx - tw, ty), Vector2(cx + tw, ty), Vector2(cx + tw, ty + 8), Vector2(cx + tw + 1, ty + 13.5), Vector2(cx - tw - 1, ty + 13.5), Vector2(cx - tw, ty + 8)]))
+	_shade(f, torso, TU)
+	var bx0 := int(cx - tw)
+	var bw := int(tw * 2)
+	_rect(f, bx0, ty + 8, bw, 1, PK[1])
+	_rect(f, bx0, ty + 9, bw, 1, PK[0])
+	for fx in ([-4, 3] if not side else [-1]):
+		for yy in range(ty + 10, ty + 13):
+			_px(f, int(cx) + fx, yy, TU[1])
+		_px(f, int(cx) + fx + 1, ty + 12, TU[3])
+	if dir == 0:
+		for r in 4:
+			_rect(f, int(cx) - 3 + r, ty + r, 6 - r * 2, 1, CL[2] if r < 2 else CL[1])
+		_rect(f, int(cx) - 1, ty, 2, 1, SK[1])
+		_rect(f, int(cx) - 2, ty + 8, 4, 2, P.gold)
+		_px(f, int(cx) - 1, ty + 8, P.gold.lightened(0.35))
+		_rect(f, int(cx) - 1, ty + 9, 2, 1, P.gold.darkened(0.35))
+		if player:
+			for sx in [-6, 4]:
+				_rect(f, int(cx) + sx, ty, 2, 8, PK[1])
+				_px(f, int(cx) + sx, ty, PK[3])
+	elif dir == 1:
+		_rect(f, int(cx) - 1, ty + 8, 2, 2, PK[2])
+	else:
+		_rect(f, int(cx) + 3, ty + 8, 2, 2, P.gold)
+		if player:
+			_rect(f, int(cx) - 3, ty, 2, 8, PK[1])
+	_rect(f, bx0 + 1, ty + 1, 1, 5, TU[3])
+
+	# Apron over the tunic (front view).
+	if d.has("apron") and dir == 0:
+		var a: Array = d.apron
+		var AP := _tones(a[1], a[0], a[1].lightened(0.15))
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 5, ty + 3), Vector2(cx + 5, ty + 3), Vector2(cx + 6, ty + 14.5), Vector2(cx - 6, ty + 14.5)])), AP)
+		for sx in [-5, 4]:
+			_rect(f, int(cx) + sx, ty, 1, 3, a[0])
+		_rect(f, int(cx) - 6, ty + 8, 12, 1, a[0].darkened(0.2))
+		_rect(f, int(cx) - 2, ty + 10, 4, 3, AP[1])
+		_rect(f, int(cx) - 2, ty + 10, 4, 1, AP[0])
+
+	# Arms: sleeve and hand, swinging against the stride.
+	if side:
+		_hero_arm(f, Vector2(cx + 0.5, ty + 2.5), Vector2(cx + 0.5 + sw * 1.2, ty + 11.0), TU, SK)
+	else:
+		var lift := sw * 0.5
+		_hero_arm(f, Vector2(cx - 10.0, ty + 2.5), Vector2(cx - 11.0, ty + 11.0 - lift), TU, SK)
+		_hero_arm(f, Vector2(cx + 10.0, ty + 2.5), Vector2(cx + 11.0, ty + 11.0 + lift), TU, SK)
+
+	# Backpack with bedroll, seen from behind.
+	if dir == 1 and player:
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 7, ty + 1), Vector2(cx + 7, ty + 1), Vector2(cx + 7.5, ty + 12), Vector2(cx + 6, ty + 13), Vector2(cx - 6, ty + 13), Vector2(cx - 7.5, ty + 12)])), PK)
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 7, ty + 1), Vector2(cx + 7, ty + 1), Vector2(cx + 7, ty + 5), Vector2(cx - 7, ty + 5)])), [PK[0], PK[1], PK[3], PK[3].lightened(0.1)])
+		_rect(f, int(cx) - 7, ty + 5, 14, 1, PK[0])
+		_rect(f, int(cx) - 1, ty + 5, 2, 2, P.gold)
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 4, ty + 8), Vector2(cx + 4, ty + 8), Vector2(cx + 4, ty + 12), Vector2(cx - 4, ty + 12)])), PK)
+		_rect(f, int(cx) - 4, ty + 8, 8, 1, PK[0])
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 9, ty - 3), Vector2(cx + 9, ty - 3), Vector2(cx + 9, ty + 1), Vector2(cx - 9, ty + 1)])), CL)
+		for sx in [-9, 8]:
+			_rect(f, int(cx) + sx, ty - 2, 1, 2, CL[0])
+		for sx in [-5, 4]:
+			_rect(f, int(cx) + sx, ty - 3, 1, 4, PK[1])
 
 	# Head.
-	var hy := 8 + bob
-	_blob(f, cx, hy, 7.0, 7.0, [P.skin_deep, P.skin_dark, P.skin, P.skin], 0.0, 83)
+	var hc := Vector2(cx + (1 if side else 0), hy)
 	if dir == 0:
-		_rect(f, cx - 4, hy + 1, 3, 3, P.outline)
-		_rect(f, cx + 2, hy + 1, 3, 3, P.outline)
-		_px(f, cx - 4, hy + 1, Color.WHITE)
-		_px(f, cx + 2, hy + 1, Color.WHITE)
-		_rect(f, cx - 1, hy + 4, 3, 1, P.skin_deep)
-		_rect(f, cx - 6, hy + 3, 2, 1, P.flower_r.lightened(0.2))
-		_rect(f, cx + 5, hy + 3, 2, 1, P.flower_r.lightened(0.2))
-		_hair_cap(f, cx, hy, 0)
+		for s in [-1, 1]:
+			_shade(f, _cm_ellipse(Vector2(cx + s * 10, hy + 2), 1.8, 2.5), SK)
+	_blob(f, hc.x, hc.y, 10.0, 9.4, [SK[1], SK[2], SK[2], SK[3]], 0.0, 83)
+	var crown := Vector2(cx, hy - 11)
+	if dir == 0:
+		var hair := _cmask(func(p: Vector2) -> bool:
+			if pow((p.x - cx) / 11.0, 2) + pow((p.y - hy + 1) / 10.5, 2) > 1.0:
+				return false
+			var k := posmod(int(floor(p.x)) - int(cx) + 2, 5)
+			var fringe: float = hy - 3 + [1, 3, 4, 2, 0][k]
+			return p.y < fringe or (absf(p.x - cx) > 8.5 and p.y < hy + 5))
+		if d.get("helmet", false):
+			hair = _mask_cut(hair, _cmask(func(p: Vector2) -> bool: return p.y < hy - 1))
+		_shade_hair(f, hair, Vector2(cx, hy - 1), 11.0, crown, HA)
+		_hero_face(f, cx, hy, d)
 	elif dir == 1:
-		_blob(f, cx, hy, 7.0, 7.0, [P.hair_dark, P.hair, P.hair, P.hair_light], 0.18, 84)
-		_rect(f, cx - 6, hy + 4, 12, 2, P.hair_dark)
+		var hair := _cmask(func(p: Vector2) -> bool:
+			var e := pow((p.x - cx) / 11.0, 2) + pow((p.y - hy + 1) / 10.5, 2)
+			var k := posmod(int(floor(p.x)) - int(cx) + 1, 4)
+			return e <= 1.0 and p.y < hy + 6 + [0, 2, 1, 2][k])
+		_shade_hair(f, hair, Vector2(cx, hy - 1), 11.0, crown, HA)
 	else:
-		_rect(f, cx + 2, hy + 1, 3, 3, P.outline)
-		_px(f, cx + 2, hy + 1, Color.WHITE)
-		_px(f, cx + 6, hy + 3, P.skin_dark)
-		_rect(f, cx + 1, hy + 5, 3, 1, P.skin_deep)
-		_hair_cap(f, cx - 1, hy, 1)
+		var hair := _cmask(func(p: Vector2) -> bool:
+			if pow((p.x - cx) / 10.8, 2) + pow((p.y - hy + 1) / 10.5, 2) > 1.0:
+				return false
+			var k := posmod(int(floor(p.x)) - int(cx), 4)
+			var fringe: float = hy - 3 + [2, 3, 1, 0][k]
+			return p.y < fringe or (p.x < cx + 1 and p.y < hy + 6))
+		_shade_hair(f, hair, Vector2(cx, hy - 1), 11.0, crown, HA)
+		_shade(f, _cm_ellipse(Vector2(cx + 1.5, hy + 2.5), 1.8, 2.3), SK)
+		_px(f, int(cx) + 1, hy + 2, SK[0])
+		var ex := int(cx) + 6
+		var ey := int(hy) + 1
+		_rect(f, ex, ey, 3, 1, P.outline)
+		_rect(f, ex, ey + 1, 2, 3, P.get("eye", Color8(58, 42, 36)))
+		_px(f, ex, ey + 1, Color.WHITE)
+		_px(f, ex + 1, ey + 3, P.get("eye", Color8(58, 42, 36)).lightened(0.3))
+		_px(f, int(cx) + 11, ey + 3, SK[2])
+		_px(f, int(cx) + 11, ey + 4, SK[1])
+		_rect(f, int(cx) + 8, ey + 6, 2, 1, SK[0])
+		_rect(f, ex - 1, ey + 5, 2, 1, P.flower_r.lightened(0.3))
 
 
-func _hair_cap(f: Image, cx: int, hy: int, mode: int) -> void:
-	var tones := [P.hair_dark, P.hair, P.hair, P.hair_light]
-	var light := Vector3(-0.5, -0.7, 0.55).normalized()
-	for y in range(hy - 8, hy + 1):
-		for x in range(cx - 8, cx + 9):
-			var nx := (x + 0.5 - cx) / 7.2
-			var ny := (y + 0.5 - hy) / 7.2
-			var d := nx * nx + ny * ny
-			if d > 1.0:
-				continue
-			var fringe := hy - 2 + int(round(sin(x * 0.9) * 1.2))
-			var in_hair := y <= fringe or (mode == 1 and x < cx - 2 and y <= hy + 4) or absf(nx) > 0.86 and y <= hy + 3
-			if not in_hair:
-				continue
-			var nz := sqrt(maxf(0.0, 1.0 - d))
-			var lit := Vector3(nx, ny, nz).dot(light) + (_hash(x, y, 85) - 0.5) * 0.2
-			f.set_pixel(x, y, tones[clampi(int((lit + 0.45) / 1.35 * 4), 0, 3)])
+func _hero_face(f: Image, cx: float, hy: float, d: Dictionary) -> void:
+	var eye: Color = P.get("eye", Color8(58, 42, 36))
+	var y0 := int(hy) + 1
+	for s in [-1, 1]:
+		var x0 := int(cx) - 7 if s < 0 else int(cx) + 4
+		_rect(f, x0, y0, 3, 1, P.outline)
+		_px(f, x0 - 1 if s < 0 else x0 + 3, y0 + 1, P.outline)
+		_rect(f, x0, y0 + 1, 3, 3, eye)
+		_rect(f, x0, y0 + 3, 3, 1, eye.lightened(0.28))
+		_px(f, x0 + (0 if s < 0 else 1), y0 + 1, Color.WHITE)
+		_px(f, x0 + (0 if s < 0 else 1), y0 + 2, Color(1, 1, 1).lerp(eye, 0.35))
+		_rect(f, x0 + (-1 if s < 0 else 2), y0 + 5, 2, 1, P.flower_r.lightened(0.3))
+	_px(f, int(cx) - 1, y0 + 4, P.skin_dark)
+	if not d.has("beak"):
+		_rect(f, int(cx) - 1, y0 + 6, 2, 1, P.skin_deep)
 
 
-func _leg(f: Image, x: int, y: int, bob: int) -> void:
-	_box(f, x, y, 4, 5, P.pants, 0.08, 86)
-	_box(f, x - 1, y + 5, 6, 3, P.boot, 0.06, 87)
-	_rect(f, x - 1, y + 7, 6, 1, P.boot_dark)
+func _hero_leg(f: Image, x: int, top: int, lift: int, pa: Array, bo: Array, profile: bool) -> void:
+	var bottom := 46 - lift
+	_shade(f, _cm_poly(PackedVector2Array([Vector2(x, top), Vector2(x + 5, top), Vector2(x + 5, bottom - 5), Vector2(x, bottom - 5)])), pa)
+	var toe := 2 if profile else 0
+	var boot := _cm_poly(PackedVector2Array([Vector2(x - 0.5, bottom - 6), Vector2(x + 5.5, bottom - 6), Vector2(x + 5.5 + toe, bottom - 2.5), Vector2(x + 5.5 + toe, bottom + 1), Vector2(x - 0.5, bottom + 1)]))
+	_shade(f, boot, bo)
+	_rect(f, x, bottom - 6, 6, 1, bo[3])
+	_rect(f, x - 1, bottom, 7 + toe, 1, bo[0])
 
 
-func _arm(f: Image, x: int, y: int, swing: int) -> void:
-	_box(f, x, y + swing / 2, 3, 6, P.tunic, 0.1, 88)
-	_rect(f, x, y + 5 + swing / 2, 3, 3, P.skin)
-	_px(f, x, y + 5 + swing / 2, P.skin_dark.lightened(0.2))
-	_rect(f, x, y + 7 + swing / 2, 3, 1, P.skin_dark)
+func _hero_arm(f: Image, s: Vector2, h: Vector2, tu: Array, sk: Array) -> void:
+	_shade(f, _cm_stroke(s, s.lerp(h, 0.72), 2.1), tu)
+	var cuff := s.lerp(h, 0.72)
+	_px(f, int(cuff.x) - 1, int(cuff.y), tu[1])
+	_px(f, int(cuff.x), int(cuff.y), tu[1])
+	_shade(f, _cm_ellipse(h, 2.1, 2.0), sk)
 
 
 # ---------------------------------------------------------------- survivors
@@ -982,14 +1138,14 @@ const NPCS := {
 		"hair": [Color8(44, 32, 28), Color8(70, 50, 40), Color8(98, 72, 54)], "beard": "short"},
 	"npc_elf": {"skin": [Color8(250, 222, 196), Color8(222, 184, 156), Color8(190, 148, 124)],
 		"hair": [Color8(196, 160, 72), Color8(234, 206, 120), Color8(250, 236, 170)],
-		"tunic": [Color8(62, 132, 112), Color8(40, 92, 80), Color8(100, 170, 140)], "ears": "pointed", "long_hair": true},
+		"tunic": [Color8(62, 132, 112), Color8(40, 92, 80), Color8(100, 170, 140)], "ears": "pointed", "long_hair": true, "eye": Color8(40, 110, 90)},
 	"npc_dwarf": {"hair": [Color8(130, 130, 130), Color8(176, 176, 172), Color8(216, 214, 206)],
 		"tunic": [Color8(88, 96, 140), Color8(60, 64, 100), Color8(120, 130, 172)], "beard": "long", "apron": [Color8(120, 80, 48), Color8(150, 104, 62)]},
 	"npc_halfling": {"hair": [Color8(150, 66, 30), Color8(196, 98, 44), Color8(226, 136, 70)],
 		"tunic": [Color8(200, 160, 60), Color8(150, 112, 40), Color8(230, 196, 96)], "apron": [Color8(206, 200, 184), Color8(240, 236, 222)]},
 	"npc_tengu": {"skin": [Color8(150, 140, 160), Color8(110, 100, 120), Color8(80, 72, 90)],
 		"hair": [Color8(30, 30, 44), Color8(52, 52, 74), Color8(84, 84, 112)],
-		"tunic": [Color8(64, 92, 150), Color8(42, 60, 104), Color8(96, 130, 190)], "beak": true},
+		"tunic": [Color8(64, 92, 150), Color8(42, 60, 104), Color8(96, 130, 190)], "beak": true, "eye": Color8(200, 150, 40)},
 	"npc_deep_dwarf": {"skin": [Color8(170, 176, 190), Color8(132, 138, 156), Color8(100, 104, 122)],
 		"hair": [Color8(70, 74, 84), Color8(110, 116, 128), Color8(170, 176, 186)],
 		"tunic": [Color8(96, 100, 108), Color8(60, 63, 72), Color8(150, 156, 164)], "beard": "long", "beard_tones": [Color8(196, 196, 196), Color8(232, 232, 228)], "helmet": true},
@@ -999,7 +1155,7 @@ const NPCS := {
 		"legs": [Color8(110, 76, 52), Color8(80, 54, 38)], "hooves": [Color8(44, 34, 30), Color8(28, 22, 20)], "horns": true},
 	"npc_merfolk": {"skin": [Color8(150, 204, 196), Color8(112, 170, 166), Color8(80, 132, 134)],
 		"hair": [Color8(30, 96, 110), Color8(44, 136, 146), Color8(84, 180, 180)],
-		"tunic": [Color8(214, 208, 190), Color8(170, 160, 140), Color8(240, 236, 222)], "ears": "fins", "long_hair": true},
+		"tunic": [Color8(214, 208, 190), Color8(170, 160, 140), Color8(240, 236, 222)], "ears": "fins", "long_hair": true, "eye": Color8(30, 80, 110)},
 }
 
 
@@ -1021,57 +1177,67 @@ func _make_npc(d: Dictionary) -> Image:
 	P.tunic = d.tunic[0]
 	P.tunic_dark = d.tunic[1]
 	P.tunic_light = d.tunic[2]
+	if d.has("eye"):
+		P.eye = d.eye
 	if d.has("legs"):
 		P.pants = d.legs[0]
 		P.pants_dark = d.legs[1]
 	if d.has("hooves"):
 		P.boot = d.hooves[0]
 		P.boot_dark = d.hooves[1]
-	var f := _new_image(T, T)
-	var cx := 16
-	var hy := 8
-	if d.get("long_hair", false):
-		for side in [-1, 1]:
-			_box(f, cx + side * 7 - 1, hy, 3, 10, P.hair, 0.1, 301)
-	_draw_player(f, 0, 0)
-	if d.has("apron"):
-		_rect(f, cx - 4, 15, 9, 8, d.apron[0])
-		_rect(f, cx - 3, 15, 7, 7, d.apron[1])
-		_rect(f, cx - 4, 15, 9, 1, d.apron[0])
+	var f := _new_image(CF, CF)
+	var cx := 24.0
+	var hy := 15.0
+	var HA := [P.hair_dark.darkened(0.25), P.hair_dark, P.hair, P.hair_light]
+	_draw_hero(f, 0, 0, d)
+	var head := _cm_ellipse(Vector2(cx, hy), 10.0, 9.4)
 	match d.get("beard", ""):
 		"short":
-			_rect(f, cx - 4, hy + 4, 9, 2, P.hair)
-			_rect(f, cx - 3, hy + 6, 7, 1, P.hair_dark)
-			_rect(f, cx - 1, hy + 4, 3, 1, P.skin_deep)
+			var m := _mask_add(_cmask(func(p: Vector2) -> bool: return head.has(Vector2i(p)) and p.y > hy + 4.5 and absf(p.x - cx) > 2.5 or head.has(Vector2i(p)) and p.y > hy + 7), _cm_ellipse(Vector2(cx, hy + 8.5), 6.0, 2.5))
+			_shade_hair(f, m, Vector2(cx, hy + 4), 9.0, Vector2(cx, hy + 2), HA)
+			_rect(f, int(cx) - 3, int(hy) + 5, 6, 1, HA[1])
+			_rect(f, int(cx) - 1, int(hy) + 6, 2, 1, P.skin_deep)
 		"long":
 			var bt: Array = d.get("beard_tones", [P.hair, P.hair_light])
-			_blob(f, cx, hy + 8, 6.0, 7.0, [P.hair_dark, bt[0], bt[0], bt[1]], 0.12, 302)
-			_rect(f, cx - 3, hy + 4, 7, 1, bt[1])
+			var BT := [P.hair_dark, bt[0].darkened(0.15), bt[0], bt[1]]
+			var m := _mask_add(_cmask(func(p: Vector2) -> bool: return head.has(Vector2i(p)) and p.y > hy + 4.5), _cm_poly(PackedVector2Array([Vector2(cx - 9, hy + 6), Vector2(cx + 9, hy + 6), Vector2(cx + 6, hy + 17), Vector2(cx, hy + 21), Vector2(cx - 6, hy + 17)])))
+			_shade_hair(f, m, Vector2(cx, hy + 8), 12.0, Vector2(cx, hy + 3), BT)
+			_rect(f, int(cx) - 4, int(hy) + 5, 8, 1, bt[1])
+			_rect(f, int(cx) - 1, int(hy) + 7, 2, 1, BT[0])
 	match d.get("ears", ""):
 		"pointed":
-			for side in [-1, 1]:
-				for i in 3:
-					_rect(f, cx + side * (7 + i) - (1 if side < 0 else 0), hy - i, 2, 2 if i < 2 else 1, P.skin_dark if i else P.skin)
+			for s in [-1, 1]:
+				_shade(f, _mask_add(_cm_stroke(Vector2(cx + s * 9.5, hy + 3), Vector2(cx + s * 15, hy - 3), 1.4), _cm_ellipse(Vector2(cx + s * 10, hy + 2.5), 1.8, 2.4)), [P.skin_deep, P.skin_dark, P.skin, P.skin.lightened(0.14)])
+				_px(f, int(cx + s * 11.5), int(hy) + 1, P.skin_deep)
 		"fins":
-			for side in [-1, 1]:
-				for i in 4:
-					_rect(f, cx + side * (7 + i / 2) - (1 if side < 0 else 0), hy - 1 + i, 2, 1, P.hair_light if i % 2 else P.hair)
+			for s in [-1, 1]:
+				var m := _cm_poly(PackedVector2Array([Vector2(cx + s * 9, hy - 1), Vector2(cx + s * 15.5, hy - 4), Vector2(cx + s * 13.5, hy + 1), Vector2(cx + s * 15.5, hy + 5), Vector2(cx + s * 9, hy + 5)]))
+				_shade(f, m, HA)
+				for k in 3:
+					_line(f, Vector2(cx + s * 9.5, hy + 1 + k), Vector2(cx + s * 14, hy - 3 + k * 4), HA[1])
 	if d.get("horns", false):
-		# Ram-like horns curling out of the hair at the temples.
-		for side in [-1, 1]:
-			_px(f, cx + side * 6, hy - 5, Color8(226, 214, 186))
-			_px(f, cx + side * 7, hy - 6, Color8(226, 214, 186))
-			_px(f, cx + side * 8, hy - 6, Color8(190, 176, 146))
-			_px(f, cx + side * 9, hy - 5, Color8(190, 176, 146))
-			_px(f, cx + side * 9, hy - 4, Color8(160, 146, 120))
-			_px(f, cx + side * 8, hy - 3, Color8(160, 146, 120))
+		# Ram horns curling out of the hair at the temples.
+		for s in [-1, 1]:
+			var pts := [Vector2(cx + s * 6, hy - 7), Vector2(cx + s * 10, hy - 11), Vector2(cx + s * 13.5, hy - 9), Vector2(cx + s * 14, hy - 5), Vector2(cx + s * 11.5, hy - 3.5)]
+			var m := {}
+			for i in pts.size() - 1:
+				m = _mask_add(m, _cm_stroke(pts[i], pts[i + 1], 2.0 - i * 0.35))
+			_shade(f, m, BONE4)
+			for i in range(1, pts.size() - 1):
+				_px(f, int(pts[i].x), int(pts[i].y), BONE4[0])
 	if d.get("beak", false):
-		_rect(f, cx - 2, hy + 3, 5, 2, Color8(232, 168, 60))
-		_rect(f, cx - 1, hy + 5, 3, 1, Color8(196, 120, 40))
-		_px(f, cx, hy + 6, Color8(150, 86, 34))
+		var OR := [Color8(150, 86, 34), Color8(196, 120, 40), Color8(232, 168, 60), Color8(250, 210, 120)]
+		_shade(f, _cm_poly(PackedVector2Array([Vector2(cx - 3.5, hy + 4), Vector2(cx + 3.5, hy + 4), Vector2(cx + 0.5, hy + 11), Vector2(cx - 0.5, hy + 11)])), OR)
+		_rect(f, int(cx) - 3, int(hy) + 6, 6, 1, OR[0])
+		_px(f, int(cx) - 2, int(hy) + 4, OR[3])
 	if d.get("helmet", false):
-		_rect(f, cx - 7, hy - 1, 15, 1, P.hair_dark)
-		_rect(f, cx, hy - 1, 1, 4, P.hair)
+		var m := _mask_add(_cmask(func(p: Vector2) -> bool: return pow((p.x - cx) / 11.5, 2) + pow((p.y - hy + 1) / 10.5, 2) <= 1.0 and p.y < hy - 1), _cm_poly(PackedVector2Array([Vector2(cx - 12.5, hy - 2.5), Vector2(cx + 12.5, hy - 2.5), Vector2(cx + 12.5, hy + 0.5), Vector2(cx - 12.5, hy + 0.5)])))
+		_shade(f, m, STEEL4)
+		for yy in range(int(hy) - 11, int(hy) - 2):
+			_px(f, int(cx) - 1, yy, STEEL4[3])
+			_px(f, int(cx), yy, STEEL4[1])
+		for rx in [-9, -5, 4, 8]:
+			_px(f, int(cx) + rx, int(hy) - 1, STEEL4[3])
 	_ink(f)
 	P = C.duplicate()
 	return f
@@ -2664,23 +2830,36 @@ func _make_crop(shape: String, col: Color, stage: int) -> Image:
 	return img
 
 
-## Crops a creature to its pixels and rescales it so its longest side is `size`:
-## scale2x first keeps edges crisp, then a filtered resize, hard alpha and our outline.
+## Catalog sizes were tuned for the old 32 px hero; creatures now stand next to
+## a 42 px one.
+const CREATURE_SCALE := 1.4
+
+
+## Crops a creature to its pixels and fits its longest side to the catalog size
+## (x CREATURE_SCALE). The source art is kept at its native 1:1 detail whenever
+## it fits, doubled with scale2x for the big ones; only tiny critters are
+## filtered down. Finished with the same rim light and outline as our sprites.
 func _fit_creature(src: Image, size: int) -> Image:
 	var used := src.get_used_rect()
 	var body := src.get_region(used)
-	var big := _scale2x(body)
-	var k := float(size - 2) / maxf(used.size.x, used.size.y)
-	var w := maxi(int(round(used.size.x * k)), 1)
-	var h := maxi(int(round(used.size.y * k)), 1)
-	big.resize(w, h, Image.INTERPOLATE_LANCZOS)
+	var target := mini(int(round(size * CREATURE_SCALE)), 88) - 2
+	var native := maxi(used.size.x, used.size.y)
+	var big := body
+	if target >= native * 1.75:
+		big = _scale2x(body)
+	elif target < native * 0.9:
+		var k := float(target) / native
+		big = _scale2x(body)
+		big.resize(maxi(int(round(used.size.x * k)), 1), maxi(int(round(used.size.y * k)), 1), Image.INTERPOLATE_LANCZOS)
+	var w := big.get_width()
+	var h := big.get_height()
 	var img := _new_image(w + 2, h + 2)
 	for y in h:
 		for x in w:
 			var c := big.get_pixel(x, y)
 			if c.a >= 0.5:
 				img.set_pixel(x + 1, y + 1, Color(c.r, c.g, c.b, 1.0))
-	_outline(img, C.outline)
+	_ink(img)
 	return img
 
 
