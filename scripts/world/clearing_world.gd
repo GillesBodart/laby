@@ -218,6 +218,7 @@ func place_structure(cell: Vector2i, type: String) -> bool:
 		return false
 	GameState.structures[cell] = {"type": type, "open": false, "planted": Farming.NOT_PLANTED}
 	_add_structure_node(cell, type, false)
+	GameState.check_tier()
 	return true
 
 

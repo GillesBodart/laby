@@ -314,6 +314,7 @@ const ITEMS := {
 	"farm_plot": {"name": "Farm Plot", "stack": 10, "color": Color8(110, 78, 50), "desc": "Place with B. E on it picks a seed to sow: berries, wheat, carrots, herbs, mushrooms..."},
 	"well": {"name": "Well", "stack": 5, "color": Color8(120, 126, 130), "desc": "Place with B. E drinks or fills a waterskin, anywhere."},
 	"standing_torch": {"name": "Standing Torch", "stack": 20, "color": Color8(245, 154, 58), "desc": "Place with B. Lights the night and scares off some creatures."},
+	"bed": {"name": "Straw Bed", "stack": 10, "color": Color8(200, 130, 100), "desc": "Place with B in the Clearing. Every bed lets one more survivor settle."},
 	"skill_altar": {"name": "Skill Altar", "stack": 1, "color": Color8(200, 190, 220), "desc": "Place with B. E opens the skill graph; offer a Memory Shard to unlearn every skill."},
 	"waystone": {"name": "Waystone", "stack": 2, "color": Color8(150, 200, 220), "desc": "Place with B. E travels to any sector already reached."},
 }
@@ -341,6 +342,7 @@ const RECIPES := [
 	{"id": "wooden_wall", "out": 2, "in": {"plank": 3, "stick": 1}, "station": "workbench"},
 	{"id": "wooden_floor", "out": 4, "in": {"plank": 2}, "station": "workbench"},
 	{"id": "wooden_door", "out": 1, "in": {"plank": 4, "stick": 2}, "station": "workbench"},
+	{"id": "bed", "out": 1, "in": {"plank": 3, "fiber": 8}, "station": "workbench"},
 	{"id": "furnace", "out": 1, "in": {"stone": 10, "clay": 4}, "station": "workbench"},
 	{"id": "tanning_rack", "out": 1, "in": {"stick": 6, "rope": 3}, "station": "workbench"},
 	{"id": "stonecutter", "out": 1, "in": {"stone": 8, "plank": 4}, "station": "workbench"},

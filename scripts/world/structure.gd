@@ -148,3 +148,62 @@ func _refresh() -> void:
 		var path := "res://assets/sprites/crops/%s_%d.png" % [crop(), stage]
 		_crop_sprite.texture = load(path) if stage > 0 and ResourceLoader.exists(path) else null
 	_collision.set_deferred("disabled", not def.solid or is_open)
+
+
+# ------------------------------------------------------------- raids
+
+## Best struct_hp bonus among the survivors who built the camp.
+static func toughness_bonus() -> float:
+	var best := 0.0
+	for p in GameState.players.values():
+		if is_instance_valid(p):
+			best = maxf(best, p.survival.bonus("struct_hp"))
+	return best
+
+
+func max_hp() -> int:
+	return BuildCatalog.max_hp(type, toughness_bonus())
+
+
+func hp() -> int:
+	return int(GameState.structures.get(cell, {}).get("hp", max_hp()))
+
+
+func is_damaged() -> bool:
+	return not fixed and max_hp() > 0 and hp() < max_hp()
+
+
+## Raider blow. At 0 hp the structure is wrecked (removed, nothing refunded).
+func damage(amount: int) -> void:
+	if fixed or max_hp() == 0 or not GameState.structures.has(cell):
+		return
+	var left := hp() - amount
+	GameState.structures[cell]["hp"] = left
+	HitChips.burst(get_parent(), global_position, [Color8(150, 110, 70), Color8(110, 100, 90)], 5)
+	if left <= 0:
+		EventBus.notify.emit("Raiders wrecked your %s!" % ItemCatalog.item_name(type))
+		var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+		if world:
+			world.remove_structure(cell)
+		return
+	queue_redraw()
+
+
+## Restores up to `amount` hp; returns how much was mended.
+func mend(amount: int) -> int:
+	if not is_damaged():
+		return 0
+	var add := mini(amount, max_hp() - hp())
+	GameState.structures[cell]["hp"] = hp() + add
+	if hp() >= max_hp():
+		GameState.structures[cell].erase("hp")
+	queue_redraw()
+	return add
+
+
+func _draw() -> void:
+	if not is_damaged():
+		return
+	var r := Rect2(-12, -21, 24, 3)
+	draw_rect(r, Color8(27, 20, 16))
+	draw_rect(Rect2(r.position + Vector2.ONE, Vector2((r.size.x - 2) * hp() / float(max_hp()), 1)), Color8(214, 160, 70))

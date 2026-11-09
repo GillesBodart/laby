@@ -24,7 +24,33 @@ const TYPES := {
 	"standing_torch": {"solid": true, "layer": "entity", "group": "standing_torch", "light": 1.2},
 	"waystone": {"solid": true, "layer": "entity", "group": "waystone"},
 	"skill_altar": {"solid": true, "layer": "entity", "group": "skill_altar"},
+	"bed": {"solid": true, "layer": "entity", "group": "bed"},
 }
+
+
+## Toughness against raiders (0 = floors, never targeted). onus is the
+## builder's struct_hp skill bonus in percent.
+static func max_hp(type: String, bonus := 0.0) -> int:
+	if not TYPES.has(type) or TYPES[type].layer == "floor":
+		return 0
+	var base := 50
+	if type in ["stone_wall", "brick_wall"]:
+		base = 160
+	elif type in ["wooden_wall", "wooden_door"]:
+		base = 80
+	return int(base * (1.0 + bonus / 100.0))
+
+
+## Item spent to mend a damaged structure: its recipe's main ingredient.
+static func repair_item(type: String) -> String:
+	for r in ItemCatalog.RECIPES:
+		if r.id == type:
+			var best := ""
+			for id in r.in:
+				if best == "" or int(r.in[id]) > int(r.in[best]):
+					best = id
+			return best
+	return type
 
 
 static func is_placeable(item_id: String) -> bool:

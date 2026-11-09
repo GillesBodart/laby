@@ -59,6 +59,11 @@ var journal: Dictionary = {}
 ## Map markers per area: area -> [{kind, cell: [x, y]}].
 var markers: Dictionary = {}
 
+## Survivors living in the Clearing: [{cast (Settlement.CAST index), role}].
+var survivors: Array = []
+## Highest settlement tier announced so far.
+var settlement_tier := 0
+
 const JOURNAL_KINDS := ["creatures", "resources", "glyphs", "places"]
 const MARKER_KINDS := ["danger", "resource", "door", "note"]
 
@@ -66,6 +71,8 @@ const MARKER_KINDS := ["danger", "resource", "door", "note"]
 func _ready() -> void:
 	if world_seed == 0:
 		new_game()
+	EventBus.day_started.connect(func(_day): run_dawn())
+	EventBus.night_started.connect(raid_while_away)
 
 
 func new_game(seed_value: int = 0) -> void:
@@ -94,13 +101,16 @@ func new_game(seed_value: int = 0) -> void:
 	companions = []
 	journal = {}
 	markers = {}
+	survivors = [{"cast": 0, "role": Settlement.CAST[0].role}]
+	settlement_tier = 0
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
 func meta_to_data() -> Dictionary:
 	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
 		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true),
-		"journal": journal.duplicate(true), "markers": markers.duplicate(true)}
+		"journal": journal.duplicate(true), "markers": markers.duplicate(true),
+		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier}
 
 
 func meta_from_data(data: Dictionary) -> void:
@@ -123,6 +133,12 @@ func meta_from_data(data: Dictionary) -> void:
 		var entries: Dictionary = j.get(kind, {})
 		for id in entries:
 			log_journal(kind, String(id), int(entries[id]))
+	survivors = []
+	for s in data.get("survivors", [{"cast": 0, "role": Settlement.CAST[0].role}]):
+		var ci := int(s.get("cast", -1))
+		if ci >= 0 and ci < Settlement.CAST.size() and Settlement.ROLES.has(String(s.get("role", ""))):
+			survivors.append({"cast": ci, "role": String(s.role)})
+	settlement_tier = int(data.get("settlement_tier", 0))
 	markers = {}
 	var m: Dictionary = data.get("markers", {})
 	for a in m:
@@ -135,6 +151,97 @@ func _set_of(list: Array) -> Dictionary:
 	for k in list:
 		out[String(k)] = true
 	return out
+
+
+## The settlement's dawn: eat, work, chart, welcome newcomers (see Settlement).
+func run_dawn() -> Dictionary:
+	var r := Settlement.dawn(survivors, structures, stash, bosses_defeated.size())
+	for i in int(r.chart):
+		_chart_somewhere()
+	var bits := PackedStringArray()
+	for id in r.gained:
+		bits.append("+%d %s" % [r.gained[id], ItemCatalog.item_name(id)])
+	if not bits.is_empty():
+		EventBus.notify.emit("Dawn at the camp: %s (in the Stash)." % ", ".join(bits))
+	for line in r.report:
+		EventBus.notify.emit(line)
+	var builders := survivors.filter(func(s): return s.role == "builder").size()
+	if builders > 0:
+		var mended := mend_structures(builders * Settlement.BUILDER_REPAIR)
+		if mended > 0:
+			EventBus.notify.emit("The builders mended %d damaged structure%s." % [mended, "" if mended == 1 else "s"])
+	if int(r.arrival) >= 0:
+		survivors.append({"cast": int(r.arrival), "role": Settlement.CAST[r.arrival].role})
+		EventBus.notify.emit("%s stumbles out of the maze at dawn and joins the camp!" % Settlement.CAST[r.arrival].name)
+		EventBus.settlement_changed.emit()
+	check_tier()
+	return r
+
+
+## Mends damaged structures with a pool of hit points; returns how many.
+func mend_structures(pool: int) -> int:
+	var n := 0
+	var bonus := Structure.toughness_bonus()
+	for cell in structures:
+		var d: Dictionary = structures[cell]
+		if pool <= 0:
+			break
+		if not d.has("hp"):
+			continue
+		var full := BuildCatalog.max_hp(d.type, bonus)
+		var add := mini(pool, full - int(d.hp))
+		pool -= add
+		d.hp = int(d.hp) + add
+		if int(d.hp) >= full:
+			d.erase("hp")
+		n += 1
+	get_tree().call_group("structures", "queue_redraw")
+	return n
+
+
+## A raid on the Clearing while nobody is home: damage lands on random
+## structures; the camp's defence soaks part of it. Returns structures wrecked.
+func raid_while_away(night: int) -> int:
+	if area == "clearing":
+		return 0
+	var defence := Settlement.defence(survivors, structures)
+	var n := Settlement.raid_size(Settlement.tier(structures, bosses_defeated.size()), night, defence)
+	var pool := Settlement.unattended_damage(n, defence)
+	var bonus := Structure.toughness_bonus()
+	var targets := structures.keys().filter(func(c): return BuildCatalog.max_hp(structures[c].type) > 0)
+	var hit := {}
+	var wrecked := 0
+	while pool > 0 and not targets.is_empty():
+		var cell: Vector2i = targets.pick_random()
+		var d: Dictionary = structures[cell]
+		var blow := mini(pool, 20)
+		pool -= blow
+		d.hp = int(d.get("hp", BuildCatalog.max_hp(d.type, bonus))) - blow
+		hit[cell] = true
+		if int(d.hp) <= 0:
+			structures.erase(cell)
+			targets.erase(cell)
+			wrecked += 1
+	if n > 0:
+		EventBus.notify.emit("Raiders struck the camp while you were away: %d structures damaged, %d wrecked." % [hit.size(), wrecked])
+	return wrecked
+
+## Announces a newly reached settlement tier.
+func check_tier() -> int:
+	var t := Settlement.tier(structures, bosses_defeated.size())
+	if t > settlement_tier:
+		settlement_tier = t
+		EventBus.notify.emit("The Clearing has grown into a %s! Room for %d survivors." % [Settlement.TIERS[t], Settlement.cap(t)])
+	return t
+
+
+## A cartographer charts a patch of a visited sector's fog.
+func _chart_somewhere() -> void:
+	var areas := fog.keys().filter(func(a): return Sectors.is_sector(a))
+	if areas.is_empty():
+		return
+	var f: FogMap = fog[areas.pick_random()]
+	f.reveal(Vector2i(randi_range(0, f.size.x - 1), randi_range(0, f.size.y - 1)), 7)
 
 
 ## Logs a journal entry (count = times seen); true when it is a new one.

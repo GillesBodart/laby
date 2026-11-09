@@ -47,6 +47,11 @@ var _flee_from := Vector2.ZERO
 var _summons: Array = []
 var _regen_acc := 0.0
 var _volley_cd := 3.0
+## Night raider (see Settlement.raid_size): marches on the camp, hits players
+## it meets and wrecks structures in its way.
+var raider := false
+var camp := Vector2.ZERO
+var _siege: Structure = null
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var collision: CollisionShape2D = $Collision
@@ -99,7 +104,7 @@ func _physics_process(delta: float) -> void:
 	if _dead:
 		return
 	var near := _nearest_player(SLEEP_DIST)
-	if near == null:
+	if near == null and not raider:
 		return
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_summon_cd = maxf(_summon_cd - delta, 0.0)
@@ -118,7 +123,7 @@ func _physics_process(delta: float) -> void:
 			_fire_volley()
 	match _state:
 		S.WANDER:
-			desired = _wander()
+			desired = _raid() if raider else _wander()
 		S.HIDDEN:
 			if global_position.distance_to(near.global_position) < REVEAL_DIST:
 				_reveal(near)
@@ -209,7 +214,8 @@ func _chase() -> Vector2:
 		if _target and _warded(_target):
 			_target = null
 		if _target == null:
-			_home = global_position
+			if not raider:
+				_home = global_position
 			_enter(S.WANDER, 0.5)
 			return Vector2.ZERO
 	var to := _target.global_position - global_position
@@ -417,6 +423,46 @@ func _nearest_player(radius: float) -> Player:
 		if d < best_d:
 			best_d = d
 			best = p
+	return best
+
+
+## Turns this creature into a raider heading for `camp_pos`.
+func make_raider(camp_pos: Vector2) -> void:
+	raider = true
+	camp = camp_pos
+	_provoked = true
+	add_to_group("raiders")
+
+
+func _raid() -> Vector2:
+	var t := _nearest_player(_def.aggro)
+	if t:
+		_target = t
+		_enter(S.CHASE, 0.0)
+		return Vector2.ZERO
+	if _siege == null or not is_instance_valid(_siege) or _siege.is_queued_for_deletion():
+		_siege = _nearest_structure()
+	var goal := _siege.global_position if _siege else camp
+	var to := goal - global_position
+	if _siege and to.length() < _def.radius + 24.0:
+		if _cooldown == 0.0:
+			_cooldown = _def.cooldown
+			_siege.damage(int(_def.damage) + 2)
+		return Vector2.ZERO
+	if to.length() < 8.0:
+		return Vector2.ZERO
+	return to.normalized() * _def.speed * 0.8
+
+
+func _nearest_structure() -> Structure:
+	var best: Structure = null
+	var best_d := INF
+	for s in get_tree().get_nodes_in_group("structures"):
+		if s is Structure and s.max_hp() > 0 and not s.is_queued_for_deletion():
+			var d: float = global_position.distance_squared_to(s.global_position)
+			if d < best_d:
+				best_d = d
+				best = s
 	return best
 
 

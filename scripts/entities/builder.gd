@@ -1,7 +1,7 @@
 class_name Builder
 extends Node2D
 ## Local build mode: B toggles, Q cycles the structure, F places (or toggles a
-## door), X removes the targeted structure and refunds its item.
+## door, or repairs raid damage), X removes the targeted structure and refunds its item.
 
 const REACH := 28.0
 
@@ -84,6 +84,8 @@ func primary() -> bool:
 		return false
 	var cell := target_cell()
 	var existing := world.structure_at(cell)
+	if existing and existing.is_damaged():
+		return repair(existing)
 	if existing:
 		world.toggle_structure(cell)
 		return true
@@ -97,6 +99,17 @@ func primary() -> bool:
 	if not player.inventory.remove(item, 1):
 		return false
 	return world.place_structure(cell, item)
+
+
+## F on a damaged structure: one of its main material mends it fully.
+func repair(s: Structure) -> bool:
+	var item := BuildCatalog.repair_item(s.type)
+	if not player.inventory.remove(item, 1):
+		EventBus.notify.emit("Repairing needs 1 %s" % ItemCatalog.item_name(item))
+		return false
+	s.mend(s.max_hp())
+	EventBus.notify.emit("%s repaired" % ItemCatalog.item_name(s.type))
+	return true
 
 
 func remove() -> bool:

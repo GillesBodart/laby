@@ -127,6 +127,12 @@ func _sector_art() -> void:
 	_save(_old_engine(), "res://assets/sprites/props/landmark_old_engine.png")
 	_save(_glyph_stone(false), "res://assets/sprites/props/glyph_stone.png")
 	_save(_glyph_stone(true), "res://assets/sprites/props/glyph_stone_read.png")
+	DirAccess.make_dir_recursive_absolute("res://assets/sprites/npcs")
+	for n in ["npc_human", "npc_elf", "npc_dwarf", "npc_halfling", "npc_tengu", "npc_deep_dwarf", "npc_faun", "npc_merfolk"]:
+		_save(_dcss(n, 30), "res://assets/sprites/npcs/%s.png" % n)
+	var bed := _bed()
+	_save(bed, "res://assets/sprites/structures/bed.png")
+	_icon(bed, "bed")
 
 
 ## Pale violet crystal splinter with a bright core (Bound respec resource).
@@ -280,6 +286,26 @@ func _sector_gate() -> Image:
 	_rect(img, 46, 30, 5, 2, GLOW[2])
 	return _outline(img)
 
+
+
+## Straw cot seen from above: wooden frame, mattress, pillow, wool blanket.
+func _bed() -> Image:
+	var img := _img(32, 32)
+	_box(img, 7, 3, 18, 27, WOOD, 61)
+	_rect(img, 9, 5, 14, 23, Color8(214, 190, 120))
+	for y in range(5, 28):
+		for x in range(9, 23):
+			if _hash(x, y, 62) > 0.82:
+				_px(img, x, y, Color8(186, 158, 92))
+	_rect(img, 10, 6, 12, 5, Color8(236, 230, 214))
+	_rect(img, 10, 10, 12, 1, Color8(196, 190, 176))
+	var wool := [Color8(80, 50, 46), Color8(132, 70, 60), Color8(170, 96, 76), Color8(200, 130, 100)]
+	_rect(img, 9, 14, 14, 13, wool[2])
+	_rect(img, 9, 14, 14, 2, wool[3])
+	for y in range(17, 27, 3):
+		_rect(img, 9, y, 14, 1, wool[1])
+	_rect(img, 22, 14, 1, 13, wool[0])
+	return _outline(img)
 
 
 ## Rusted machine half-swallowed by the maze: a big cog, pipes and a dead lamp.

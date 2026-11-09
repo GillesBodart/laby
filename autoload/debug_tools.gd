@@ -11,6 +11,8 @@ extends Node
 ##     --explore                reveal the sector, read its glyphs, sample markers,
 ##                              journal entries and a wall shift
 ##     --journal                open the journal
+##     --raid                   a walled Shelters camp under a night raid
+##     --settlement[=camp]      a five-survivor camp, settlement panel open (unless camp)
 ##     --menu=<page>            open the Esc menu (main, save, load, controls)
 ##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
@@ -46,6 +48,10 @@ func _ready() -> void:
 		_explore.call_deferred()
 	if _args.has("journal"):
 		_press_action.call_deferred("journal")
+	if _args.has("raid"):
+		_raid.call_deferred()
+	if _args.has("settlement"):
+		_settlement.call_deferred()
 	if _args.has("map"):
 		_press_map.call_deferred()
 	if _args.has("menu"):
@@ -224,6 +230,35 @@ func _press_action(action: String) -> void:
 	ev.action = action
 	ev.pressed = true
 	Input.parse_input_event(ev)
+
+
+## --raid: walls, beds and a guard, then raiders arrive.
+func _raid() -> void:
+	var world := get_tree().current_scene as World
+	if world == null:
+		return
+	var fire := world.layout.campfire_cell
+	for x in range(-3, 4):
+		world.clearing.place_structure(fire + Vector2i(x, 4), "wooden_wall")
+	world.clearing.place_structure(fire + Vector2i(3, -2), "bed")
+	world.clearing.place_structure(fire + Vector2i(4, -2), "bed")
+	world.clearing.place_structure(fire + Vector2i(5, -2), "workbench")
+	world.clearing.place_structure(fire + Vector2i(-2, -2), "standing_torch")
+	GameState.survivors.append({"cast": 5, "role": "guard"})
+	EventBus.settlement_changed.emit()
+	world.start_raid(4)
+	for e in get_tree().get_nodes_in_group("raiders"):
+		e.global_position = ClearingWorld.cell_center(fire) + Vector2(randf_range(-140, 140), randf_range(-90, -40))
+
+
+## --settlement: a lived-in camp with its panel open.
+func _settlement() -> void:
+	GameState.survivors.clear()
+	for i in 5:
+		GameState.survivors.append({"cast": i, "role": Settlement.CAST[i].role})
+	EventBus.settlement_changed.emit()
+	if _args.get("settlement") != "camp":
+		EventBus.survivor_talked.emit(null)
 
 
 ## --explore: a well-travelled sector for map and journal screenshots.

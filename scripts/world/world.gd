@@ -34,6 +34,10 @@ func _ready() -> void:
 	else:
 		SaveSystem.apply_to_tree(save)
 	spawn_companions()
+	spawn_survivors()
+	EventBus.settlement_changed.connect(spawn_survivors)
+	EventBus.night_started.connect(start_raid)
+	EventBus.day_started.connect(end_raid)
 	camera.follow(player)
 
 
@@ -99,6 +103,72 @@ func spawn_companions() -> void:
 			c.mode = "follow"
 		Companion.spawn(clearing.entities, c, owner_node, owner_node.global_position + Vector2(-16, 10))
 
+
+## The settlement's people live around the campfire, a little away from where
+## the player wakes up. Respawned whenever the settlement changes.
+func spawn_survivors() -> void:
+	if GameState.area != "clearing" or not layout.buildable:
+		return
+	for s in get_tree().get_nodes_in_group("survivors"):
+		s.remove_from_group("survivors")
+		s.remove_from_group("interactable")
+		s.queue_free()
+	var home := ClearingWorld.cell_center(layout.campfire_cell + Vector2i(-4, -1))
+	for i in GameState.survivors.size():
+		var offset := Vector2((i % 4) * 22 - 33, (i >> 2) * 20)
+		clearing.entities.add_child(Survivor.create(i, home + offset))
+
+
+## Attack styles that make sense for a creature storming a camp.
+const RAID_ATTACKS := ["melee", "charge", "pounce", "slam", "hit_run", "ranged", "blink"]
+
+
+## Nightfall in the Clearing: raiders come out of the maze (Settlement.raid_size).
+func start_raid(night: int) -> int:
+	if GameState.area != "clearing" or not layout.buildable:
+		return 0
+	var tier := Settlement.tier(GameState.structures, GameState.bosses_defeated.size())
+	var n := Settlement.raid_size(tier, night, Settlement.defence(GameState.survivors, GameState.structures))
+	if n == 0:
+		return 0
+	var camp := ClearingWorld.cell_center(layout.campfire_cell)
+	for spot in _raid_spawns(n):
+		var id := EnemyCatalog.pick("labyrinth", Settlement.raid_depth(tier), randf(),
+			func(d): return d.temper != "passive" and d.attack in RAID_ATTACKS)
+		if id == "":
+			continue
+		var e: Enemy = ClearingWorld.ENEMY_SCENE.instantiate()
+		e.setup(id)
+		e.position = spot
+		e.make_raider(camp)
+		clearing.entities.add_child(e)
+	EventBus.notify.emit("Night %d: %d raiders pour out of the maze toward the camp!" % [night, n])
+	return n
+
+
+## Free cells at the edge of the Clearing, far from the fire.
+func _raid_spawns(n: int) -> Array:
+	var r := layout.clearing_rect
+	var out := []
+	for i in 400:
+		if out.size() >= n:
+			break
+		var side := randi() % 4
+		var c := Vector2i(randi_range(r.position.x + 1, r.end.x - 2), r.position.y + 1 if side == 0 else r.end.y - 2)
+		if side >= 2:
+			c = Vector2i(r.position.x + 1 if side == 2 else r.end.x - 2, randi_range(r.position.y + 1, r.end.y - 2))
+		if layout.is_walkable(c) and not GameState.structures.has(c) and c.distance_to(layout.campfire_cell) > 8.0:
+			out.append(ClearingWorld.cell_center(c))
+	return out
+
+
+## Dawn: surviving raiders slink back into the maze.
+func end_raid(_day := 0) -> void:
+	var left := get_tree().get_nodes_in_group("raiders")
+	for e in left:
+		e.queue_free()
+	if not left.is_empty():
+		EventBus.notify.emit("At first light the raiders slink back into the maze.")
 
 func spawn_player(peer_id: int, at: Vector2) -> Player:
 	var player: Player = PLAYER_SCENE.instantiate()

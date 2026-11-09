@@ -438,3 +438,153 @@ func test_live_shift_moves_walls_and_glyphs_need_insight() -> void:
 	check(path.size() > 20, "a route to the arena exists after the shift")
 	world.free()
 	GameState.area = "clearing"
+
+func _structs(types: Dictionary) -> Dictionary:
+	var out := {}
+	var x := 0
+	for t in types:
+		for i in types[t]:
+			out[Vector2i(x, 0)] = {"type": t}
+			x += 1
+	return out
+
+
+func test_settlement_tiers_follow_structures() -> void:
+	check_eq(Settlement.tier({}), 0, "a lone camp")
+	var s := _structs({"bed": 2, "workbench": 1})
+	check_eq(Settlement.tier(s), 1, "beds and a workbench make shelters")
+	s = _structs({"bed": 4, "workbench": 1, "furnace": 1, "anvil": 1, "farm_plot": 4, "well": 1})
+	check_eq(Settlement.tier(s), 2, "a village")
+	check_eq(Settlement.missing(3, s).size(), 4, "fortification still needs beds, walls, door and torches")
+	s = _structs({"bed": 8, "workbench": 1, "furnace": 1, "anvil": 1, "cooking_pot": 1, "loom": 1, "stonecutter": 1,
+		"farm_plot": 8, "well": 1, "stone_wall": 30, "wooden_door": 1, "standing_torch": 4})
+	check_eq(Settlement.tier(s), 3, "a community needs a guardian slain")
+	check_eq(Settlement.tier(s, 1), 4, "...and then it is one")
+
+
+func test_settlement_dawn_feeds_works_and_welcomes() -> void:
+	var stash := Inventory.new(40)
+	stash.add("cooked_meat", 2)
+	stash.add("raw_meat", 3)
+	stash.add("herb", 2)
+	var people := [{"cast": 0, "role": "gatherer"}, {"cast": 1, "role": "cook"}, {"cast": 2, "role": "healer"}]
+	var s := _structs({"bed": 4, "workbench": 1, "furnace": 1, "anvil": 1, "farm_plot": 4, "well": 1})
+	var r := Settlement.dawn(people, s, stash)
+	check_eq(stash.count("raw_meat"), 0, "the cook used the raw meat")
+	check_eq(stash.count("cooked_meat"), 3, "two eaten (cooks don't), three cooked")
+	check_eq(stash.count("healing_potion"), 1, "healer brewed the herbs")
+	check_eq(stash.count("wood"), 3, "gatherer worked a full day")
+	check_eq(int(r.arrival), 3, "fed, housed and room to spare: Pip arrives")
+	var hungry := Inventory.new(40)
+	var r2 := Settlement.dawn([{"cast": 0, "role": "gatherer"}, {"cast": 1, "role": "gatherer"}], s, hungry)
+	check_eq(hungry.count("wood"), 2, "hungry camp works at half pace")
+	check_eq(int(r2.arrival), -1, "nobody joins a hungry camp")
+
+
+func test_survivors_live_in_the_clearing_and_persist() -> void:
+	var world: Node = await _start_world(10 * 60)
+	check_eq(GameState.survivors.size(), 1, "a new game starts with one survivor")
+	await _frames(2)
+	var npcs := _tree().get_nodes_in_group("survivors")
+	check_eq(npcs.size(), 1, "the survivor walks the camp")
+	var player := _local_player()
+	check(player.find_interactable() != npcs[0], "the survivor does not block the wake-up spot")
+	_face(player, npcs[0].global_position)
+	check(player.find_interactable() == npcs[0], "survivor can be talked to")
+	GameState.structures[Vector2i(1, 1)] = {"type": "bed", "open": false, "planted": Farming.NOT_PLANTED}
+	GameState.structures[Vector2i(2, 1)] = {"type": "bed", "open": false, "planted": Farming.NOT_PLANTED}
+	GameState.structures[Vector2i(3, 1)] = {"type": "workbench", "open": false, "planted": Farming.NOT_PLANTED}
+	GameState.stash.add("cooked_meat", 3)
+	TimeSystem.advance(24 * 60)
+	await _frames(2)
+	check_eq(GameState.survivors.size(), 2, "a newcomer arrived at dawn")
+	check_eq(_tree().get_nodes_in_group("survivors").size(), 2, "and walks the camp")
+	GameState.survivors[1].role = Settlement.next_role(GameState.survivors[1].role)
+	var data := SaveSystem.collect()
+	GameState.survivors = []
+	GameState.meta_from_data(JSON.parse_string(JSON.stringify(data)).meta)
+	check_eq(GameState.survivors.size(), 2, "survivors restored")
+	check_eq(String(GameState.survivors[1].role), "builder", "role kept")
+	world.free()
+
+func test_raid_rules_scale_with_tier_and_defence() -> void:
+	check_eq(Settlement.raid_size(0, 4, 0), 0, "a lone fire is left alone")
+	check_eq(Settlement.raid_size(2, 1, 0), 0, "no raid on the first night")
+	check_eq(Settlement.raid_size(2, 3, 0), 0, "raids come every other night")
+	check(Settlement.raid_size(3, 4, 0) > Settlement.raid_size(1, 4, 0), "bigger camps draw bigger raids")
+	check(Settlement.raid_size(3, 4, 24) < Settlement.raid_size(3, 4, 0), "defence thins them")
+	check(BuildCatalog.max_hp("stone_wall") > BuildCatalog.max_hp("wooden_wall"), "stone is tougher")
+	check_eq(BuildCatalog.max_hp("wooden_floor"), 0, "floors are not targets")
+	check(BuildCatalog.max_hp("wooden_wall", 25.0) > BuildCatalog.max_hp("wooden_wall"), "masonry skill toughens walls")
+	check_eq(BuildCatalog.repair_item("wooden_wall"), "plank", "walls are mended with their main material")
+
+
+func _shelters_camp(world: Node) -> void:
+	var fire: Vector2i = world.layout.campfire_cell
+	world.clearing.place_structure(fire + Vector2i(3, -3), "bed")
+	world.clearing.place_structure(fire + Vector2i(4, -3), "bed")
+	world.clearing.place_structure(fire + Vector2i(5, -3), "workbench")
+	world.clearing.place_structure(fire + Vector2i(3, 3), "wooden_wall")
+
+
+func test_night_raid_wrecks_and_guards_fight_back() -> void:
+	var world: Node = await _start_world(10 * 60)
+	_shelters_camp(world)
+	check_eq(GameState.settlement_tier, 1, "the camp became Shelters")
+	check_eq(world.start_raid(1), 0, "first night stays calm")
+	var n: int = world.start_raid(2)
+	check(n > 0, "second night brings raiders")
+	await _frames(1)
+	var raiders := _tree().get_nodes_in_group("raiders")
+	check_eq(raiders.size(), n, "raiders spawned")
+	var wall: Structure = world.clearing.structure_at(world.layout.campfire_cell + Vector2i(3, 3))
+	wall.damage(30)
+	check(wall.is_damaged(), "walls take damage")
+	wall.damage(999)
+	await _frames(1)
+	check(not GameState.structures.has(world.layout.campfire_cell + Vector2i(3, 3)), "and break")
+	var e: Enemy = raiders[0]
+	e._target = null
+	var bed: Structure = world.clearing.structure_at(world.layout.campfire_cell + Vector2i(3, -3))
+	e.global_position = bed.global_position + Vector2(0, 20)
+	_local_player().global_position = Vector2(-5000, -5000)
+	var hurt := func(): return GameState.structures.size() < 3 or GameState.structures.values().any(func(d): return d.has("hp"))
+	for i in 300:
+		await _tree().physics_frame
+		if hurt.call():
+			break
+	check(hurt.call(), "a raider batters the camp")
+	GameState.survivors[0].role = "guard"
+	var guard: Survivor = _tree().get_nodes_in_group("survivors")[0]
+	var r: Enemy = _tree().get_nodes_in_group("raiders").filter(func(x): return is_instance_valid(x))[0]
+	r.global_position = guard.home + Vector2(30, 0)
+	var hp_before := r.hp
+	for i in 420:
+		await _tree().physics_frame
+		if not is_instance_valid(r) or r.hp < hp_before:
+			break
+	check(not is_instance_valid(r) or r.hp < hp_before, "a guard strikes the raider")
+	world.end_raid()
+	await _frames(1)
+	check_eq(_tree().get_nodes_in_group("raiders").size(), 0, "raiders leave at dawn")
+	world.free()
+
+
+func test_raid_while_away_and_builders_mend() -> void:
+	GameState.new_game(9)
+	var s := _structs({"bed": 2, "workbench": 1, "wooden_wall": 6})
+	for c in s:
+		s[c]["open"] = false
+	GameState.structures = s
+	GameState.area = "labyrinth"
+	var before := GameState.structures.size()
+	GameState.raid_while_away(4)
+	var damaged := GameState.structures.values().filter(func(d): return d.has("hp")).size()
+	check(damaged > 0 or GameState.structures.size() < before, "the unattended camp got hit")
+	GameState.area = "clearing"
+	for c in GameState.structures:
+		GameState.structures[c]["hp"] = 10
+	GameState.survivors = [{"cast": 0, "role": "builder"}]
+	GameState.run_dawn()
+	var mended := GameState.structures.values().filter(func(d): return not d.has("hp")).size()
+	check(mended >= 1, "builders mend at dawn")

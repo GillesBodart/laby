@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cc6ilk3mdkh7m"
-path="res://.godot/imported/zz_s.png-ed44dbb7d7be25ce5b3c00b7f7b9c1ef.ctex"
+uid="uid://bs0u8do2wuu6"
+path="res://.godot/imported/npc_dwarf.png-e059dba60dede14aa77d2d02042bd244.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://zz_s.png"
-dest_files=["res://.godot/imported/zz_s.png-ed44dbb7d7be25ce5b3c00b7f7b9c1ef.ctex"]
+source_file="res://assets/sprites/npcs/npc_dwarf.png"
+dest_files=["res://.godot/imported/npc_dwarf.png-e059dba60dede14aa77d2d02042bd244.ctex"]
 
 [params]
 

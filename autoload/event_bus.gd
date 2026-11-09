@@ -26,3 +26,7 @@ signal chest_used
 signal waystone_used(stone: Node)
 ## A Skill Altar was used: the skill graph opens with the respec offer.
 signal altar_used(altar: Node)
+## Survivors joined, left or changed roles.
+signal settlement_changed
+## E on a survivor (opens the settlement panel).
+signal survivor_talked(survivor: Node)
