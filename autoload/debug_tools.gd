@@ -13,7 +13,7 @@ extends Node
 ##     --journal                open the journal
 ##     --raid                   a walled Shelters camp under a night raid
 ##     --settlement[=camp]      a five-survivor camp, settlement panel open (unless camp)
-##     --menu=<page>            open the Esc menu (main, save, load, controls)
+##     --menu=<page>            open the Esc menu (main, save, load, controls, sound)
 ##     --give [--panel] [--sort] sample items (open the backpack, sort it)
 ##     --station=<group>        with --give: open that station's recipe book
 ##     --spawn=<id>,<id>...     place creatures in a ring around the player

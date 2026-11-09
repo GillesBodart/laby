@@ -62,6 +62,7 @@ func _on_night_started(_night: int) -> void:
 ## Moves the walls live: the regions of the old and the new shift are copied
 ## from a freshly generated layout; walkers caught inside are pushed out.
 func apply_shift(shift: int) -> void:
+	Sound.play("shift", Vector2.INF, 0.0)
 	var fresh := LabyrinthGenerator.generate(GameState.world_seed, sector(), shift)
 	var rects: Array = []
 	for r in layout.shift_tiles + fresh.shift_tiles:

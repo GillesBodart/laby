@@ -142,6 +142,7 @@ func start_raid(night: int) -> int:
 		e.position = spot
 		e.make_raider(camp)
 		clearing.entities.add_child(e)
+	Sound.play("horn", Vector2.INF, 0.0)
 	EventBus.notify.emit("Night %d: %d raiders pour out of the maze toward the camp!" % [night, n])
 	return n
 

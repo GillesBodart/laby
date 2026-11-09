@@ -66,8 +66,10 @@ func rebind(action: String, key: Key) -> bool:
 
 func reset_defaults() -> void:
 	InputMap.load_from_project_settings()
-	if FileAccess.file_exists(settings_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(settings_path))
+	var cfg := ConfigFile.new()
+	if cfg.load(settings_path) == OK and cfg.has_section("keys"):
+		cfg.erase_section("keys")
+		cfg.save(settings_path)
 
 
 func save_bindings() -> void:

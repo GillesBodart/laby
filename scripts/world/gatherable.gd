@@ -31,6 +31,7 @@ func hit(player: Player) -> void:
 	var dmg := 1 + tier
 	_hits_left -= dmg
 	_shake()
+	Sound.play("chop" if tool_kind == "axe" else ("mine" if tool_kind == "pickaxe" else "pickup"), global_position)
 	if is_inside_tree():
 		HitChips.burst(get_parent(), global_position + Vector2(0, -10), _chip_colors())
 	if _hits_left > 0:

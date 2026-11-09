@@ -24,9 +24,17 @@ func test_rebind_swaps_conflicting_keys_and_persists() -> void:
 	InputMap.load_from_project_settings()
 	KeyBindings.load_bindings()
 	check_eq(KeyBindings.key_of("attack"), eat_key, "binding reloaded from settings file")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_PATH)
+	cfg.set_value("audio", "master", 3)
+	cfg.save(TEST_PATH)
 	_restore(saved)
 	check_eq(KeyBindings.key_of("attack"), attack_key, "reset restores default")
-	check(not FileAccess.file_exists(TEST_PATH), "reset deletes the settings file")
+	cfg = ConfigFile.new()
+	cfg.load(TEST_PATH)
+	check(not cfg.has_section("keys"), "reset forgets the key bindings")
+	check_eq(cfg.get_value("audio", "master", 0), 3, "reset keeps other settings")
+	DirAccess.remove_absolute(TEST_PATH)
 
 
 func test_rebind_rejects_escape_and_keeps_secondary_keys() -> void:

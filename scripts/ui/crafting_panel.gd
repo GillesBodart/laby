@@ -208,6 +208,8 @@ func craft(index: int) -> bool:
 	var ok := Crafting.craft(player.inventory, recipe, player.nearby_stations())
 	var item := ItemCatalog.item_name(recipe.id)
 	EventBus.notify.emit(("Crafted %s" % item) if ok else ("Cannot craft %s" % item))
+	if ok:
+		Sound.play("craft")
 	# Fresh gear goes straight on when its slot is free.
 	var slot := ItemCatalog.slot_of(recipe.id)
 	if ok and slot != "" and player.equipment.get_item(slot) == "":

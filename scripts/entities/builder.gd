@@ -88,6 +88,7 @@ func primary() -> bool:
 		return repair(existing)
 	if existing:
 		world.toggle_structure(cell)
+		Sound.play("door" if BuildCatalog.TYPES[existing.type].get("door", false) else "ui", existing.global_position)
 		return true
 	var item := selected_item()
 	if item == "":
@@ -98,6 +99,7 @@ func primary() -> bool:
 		return false
 	if not player.inventory.remove(item, 1):
 		return false
+	Sound.play("build", player.global_position)
 	return world.place_structure(cell, item)
 
 
@@ -108,6 +110,7 @@ func repair(s: Structure) -> bool:
 		EventBus.notify.emit("Repairing needs 1 %s" % ItemCatalog.item_name(item))
 		return false
 	s.mend(s.max_hp())
+	Sound.play("build", s.global_position)
 	EventBus.notify.emit("%s repaired" % ItemCatalog.item_name(s.type))
 	return true
 
@@ -124,6 +127,7 @@ func remove() -> bool:
 		EventBus.notify.emit("Backpack full!")
 		return false
 	world.remove_structure(cell)
+	Sound.play("build", player.global_position)
 	return true
 
 

@@ -20,9 +20,10 @@ const TEXT_LIGHT := Color8(238, 226, 196)
 const FADED := Color8(150, 126, 98)
 const GOLD := Color8(242, 210, 92)
 
-const MAIN := ["Resume", "Save game", "Load game", "Controls", "Quit game"]
+const MAIN := ["Resume", "Save game", "Load game", "Controls", "Sound", "Quit game"]
+const VOLUME_LABELS := {"master": "Master volume", "sfx": "Effects", "ambience": "Ambience"}
 
-## "main" | "save" | "load" | "controls"
+## "main" | "save" | "load" | "controls" | "sound"
 var page := "main"
 ## Action waiting for a key press ("" = none).
 var waiting := ""
@@ -81,6 +82,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode in [KEY_DOWN, KEY_UP]:
 			var n := _rows().size()
 			_hover = posmod((_hover if _hover >= 0 else -1) + (1 if event.physical_keycode == KEY_DOWN else -1), n)
+		elif event.physical_keycode in [KEY_LEFT, KEY_RIGHT] and page == "sound":
+			adjust(_hover, 1 if event.physical_keycode == KEY_RIGHT else -1)
 		elif event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE] and _hover >= 0:
 			activate(_hover)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -91,6 +94,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		var i := _row_at(get_local_mouse_position())
 		if i >= 0:
 			activate(i)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT \
+			and page == "sound":
+		adjust(_row_at(get_local_mouse_position()), -1)
+
+
+## Changes the volume on row i of the Sound page by d steps.
+func adjust(i: int, d: int) -> void:
+	if page != "sound" or i < 0 or i >= Sound.CHANNELS.size():
+		return
+	var ch: String = Sound.CHANNELS[i]
+	Sound.set_volume(ch, int(Sound.volume[ch]) + d)
+	Sound.play("ui")
 
 
 func back() -> void:
@@ -107,6 +122,7 @@ func activate(i: int) -> void:
 	var rows := _rows()
 	if i < 0 or i >= rows.size():
 		return
+	Sound.play("ui")
 	match page:
 		"main":
 			match i:
@@ -114,7 +130,15 @@ func activate(i: int) -> void:
 				1: _goto("save")
 				2: _goto("load")
 				3: _goto("controls")
-				4: get_tree().quit()
+				4: _goto("sound")
+				5: get_tree().quit()
+		"sound":
+			if i < Sound.CHANNELS.size():
+				# Click steps up and wraps; right-click / Left arrow steps down.
+				var ch: String = Sound.CHANNELS[i]
+				Sound.set_volume(ch, (int(Sound.volume[ch]) + 1) % 11)
+			else:
+				back()
 		"save", "load":
 			if i == SaveSystem.SLOTS:
 				back()
@@ -169,6 +193,12 @@ func _label(action: String) -> String:
 ## Row captions for the current page.
 func _rows() -> Array:
 	match page:
+		"sound":
+			var out := []
+			for ch in Sound.CHANNELS:
+				out.append(VOLUME_LABELS[ch])
+			out.append("Back")
+			return out
 		"save", "load":
 			var out := []
 			for s in SaveSystem.SLOTS:
@@ -187,7 +217,11 @@ func _rows() -> Array:
 func _row_rect(i: int) -> Rect2:
 	match page:
 		"main":
-			return Rect2(PANEL.position.x + 70, PANEL.position.y + 30 + i * 30, PANEL.size.x - 140, 24)
+			return Rect2(PANEL.position.x + 70, PANEL.position.y + 24 + i * 27, PANEL.size.x - 140, 22)
+		"sound":
+			if i == Sound.CHANNELS.size():
+				return Rect2(PANEL.get_center().x - 40, PANEL.position.y + 34 + i * 40, 80, 22)
+			return Rect2(PANEL.position.x + 18, PANEL.position.y + 26 + i * 40, PANEL.size.x - 36, 32)
 		"save", "load":
 			if i == SaveSystem.SLOTS:
 				return Rect2(PANEL.get_center().x - 40, PANEL.position.y + 32 + i * 38, 80, 22)
@@ -265,7 +299,7 @@ func _button(r: Rect2, caption: String, hot: bool, size_px := 12) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.03, 0.05, 0.08, 0.78))
 	var frame := WIDE if page == "controls" else PANEL
-	var titles := {"main": "PAUSED", "save": "SAVE GAME", "load": "LOAD GAME", "controls": "CONTROLS"}
+	var titles := {"main": "PAUSED", "save": "SAVE GAME", "load": "LOAD GAME", "controls": "CONTROLS", "sound": "SOUND"}
 	var title := Rect2(frame.get_center().x - 70, 10, 140, 24)
 	_box(title, CREAM, BROWN, 3)
 	_text_center(title.get_center().x, 28, titles[page], 16, TEXT_DARK)
@@ -275,6 +309,21 @@ func _draw() -> void:
 		"main":
 			for i in rows.size():
 				_button(_row_rect(i), rows[i], i == _hover, 14)
+		"sound":
+			for i in rows.size():
+				var r := _row_rect(i)
+				if i == Sound.CHANNELS.size():
+					_button(r, rows[i], i == _hover)
+					continue
+				var level := int(Sound.volume[Sound.CHANNELS[i]])
+				_box(r, CREAM if i == _hover else TAN, GOLD if i == _hover else BROWN, 3)
+				_text(r.position + Vector2(8, 13), rows[i], 12, TEXT_DARK)
+				_text(r.end - Vector2(28, 19), "%d" % level, 12, TEXT_DARK)
+				for p in 10:
+					var pip := Rect2(r.position.x + 8 + p * 21, r.position.y + 18, 18, 8)
+					draw_rect(pip, BROWN)
+					if p < level:
+						draw_rect(pip.grow(-1), GREEN if p < 7 else GOLD)
 		"save", "load":
 			for i in rows.size():
 				var r := _row_rect(i)
@@ -302,6 +351,8 @@ func _draw() -> void:
 			_button(_row_rect(n), rows[n], _hover == n, 11)
 			_button(_row_rect(n + 1), rows[n + 1], _hover == n + 1, 11)
 	var hint := "[Esc] back   [Click] select" if page != "main" else "[Esc] resume   [Click] select"
+	if page == "sound":
+		hint = "[Click]/[Right] louder   [Right-click]/[Left] softer   [Esc] back"
 	draw_rect(Rect2(0, 254, SIZE.x, 16), Color(0.03, 0.05, 0.08, 0.95))
 	if page == "controls" and status != "":
 		_text_center(frame.get_center().x, 264, status, 11, GOLD)

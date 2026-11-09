@@ -180,6 +180,7 @@ func damage(amount: int) -> void:
 	var left := hp() - amount
 	GameState.structures[cell]["hp"] = left
 	HitChips.burst(get_parent(), global_position, [Color8(150, 110, 70), Color8(110, 100, 90)], 5)
+	Sound.play("hit", global_position)
 	if left <= 0:
 		EventBus.notify.emit("Raiders wrecked your %s!" % ItemCatalog.item_name(type))
 		var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld

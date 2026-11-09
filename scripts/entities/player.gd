@@ -203,6 +203,7 @@ func use_item(id: String) -> bool:
 		inventory.add("waterskin", 1)
 	if it.get("cure", false):
 		effects.clear()
+	Sound.play("eat" if food > 0.0 and water <= 0.0 else "drink", global_position)
 	EventBus.notify.emit("Used %s." % ItemCatalog.item_name(id))
 	return true
 
@@ -296,6 +297,7 @@ func drink_at_source() -> void:
 		if left > 0:
 			inventory.add("waterskin", left)
 		msg.append("filled %d waterskin%s" % [skins - left, "" if skins - left == 1 else "s"])
+	Sound.play("drink", global_position)
 	EventBus.notify.emit(", ".join(msg) + "." if not msg.is_empty() else "Fresh water. You are not thirsty.")
 
 
@@ -313,6 +315,7 @@ func eat_best_food() -> bool:
 		return false
 	inventory.remove(best, 1)
 	survival.eat(ItemCatalog.food_of(best))
+	Sound.play("eat", global_position)
 	EventBus.notify.emit("Ate %s." % ItemCatalog.item_name(best))
 	return true
 
@@ -321,6 +324,7 @@ func gain_xp(amount: int) -> void:
 	var before := survival.level
 	amount = roundi(amount * (1.0 + survival.bonus("xp") / 100.0))
 	if survival.add_xp(amount) > 0:
+		Sound.play("level", global_position, 0.0)
 		EventBus.notify.emit("Level %d! +%d skill point" % [survival.level, survival.level - before])
 
 
@@ -396,6 +400,7 @@ func _attack() -> void:
 		return
 	_slash_time = 0.12
 	swing(weapon)
+	Sound.play("swing", global_position)
 	var center := global_position + Vector2(0, -8)
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
@@ -422,6 +427,7 @@ func _fire(kind: String) -> bool:
 	facing = _cardinal(dir)
 	var from := global_position + Vector2(0, -10) + dir * 6.0
 	Projectile.fire(get_parent(), from, dir, kind, 260.0 if kind == "arrow" else 220.0, dmg, "player", self)
+	Sound.play("shoot", global_position)
 	return true
 
 
@@ -446,6 +452,7 @@ func dodge(dir: Vector2) -> bool:
 	_dodge_time = DODGE_TIME
 	_dodge_cd = DODGE_TIME + DODGE_COOLDOWN
 	HitChips.burst(get_parent(), global_position, [Color8(150, 128, 96), Color8(110, 92, 70)], 6)
+	Sound.play("dodge", global_position)
 	var tw := create_tween()
 	sprite.scale = Vector2(1.25, 0.7)
 	sprite.modulate.a = 0.55
@@ -478,8 +485,10 @@ func take_damage(amount: int, source: Node2D = null) -> void:
 	if block_chance() > 0 and randi() % 100 < block_chance():
 		HitChips.burst(get_parent(), global_position + Vector2(0, -10), [Color8(220, 224, 232), Color8(160, 114, 68)], 5)
 		EventBus.notify.emit("Blocked!")
+		Sound.play("block", global_position)
 		return
 	survival.damage(maxi(amount - armor(), 1))
+	Sound.play("hurt", global_position)
 	if source:
 		velocity = (global_position - source.global_position).normalized() * 160.0
 	var tw := create_tween()

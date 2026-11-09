@@ -484,6 +484,7 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 	_bar = 4.0
 	if blocked:
 		HitChips.burst(get_parent(), global_position + Vector2(0, -12), [Color8(220, 224, 232), Color8(150, 156, 170)], 5)
+	Sound.play("block" if blocked else "hit", global_position)
 	if from != Vector2.INF:
 		_knock = (global_position - from).normalized() * KNOCKBACK * (0.3 if blocked else 1.0)
 	var attacker := _attacker(source)
@@ -540,6 +541,7 @@ func tame(p: Player) -> bool:
 	record.hp = maxi(hp, int(record.max_hp / 2))
 	HitChips.burst(get_parent(), global_position + Vector2(0, -10), [Color8(240, 120, 150), Color8(255, 220, 230)], 8)
 	Companion.spawn(get_parent(), record, p, global_position)
+	Sound.play("tame", global_position, 0.0)
 	EventBus.notify.emit("The %s eats from your hand. It will follow you." % _def.name)
 	p.gain_xp(int(_def.xp))
 	GameState.log_journal("creatures", type_id, 0)
@@ -554,6 +556,7 @@ func _guarding() -> bool:
 func _die(killer: Player) -> void:
 	_dead = true
 	HitChips.burst(get_parent(), global_position + Vector2(0, -8), [Color8(150, 40, 40), Color8(90, 30, 30), Color8(200, 200, 200)], 9)
+	Sound.play("death", global_position)
 	if killer:
 		var got := PackedStringArray()
 		for d in _def.drops:

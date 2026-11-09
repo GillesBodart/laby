@@ -83,5 +83,6 @@ func interact(player: Node) -> void:
 	if player.has_method("gain_xp"):
 		player.gain_xp(GLYPH_XP)
 	_refresh()
+	Sound.play("glyph", global_position, 0.0)
 	HitChips.burst(get_parent(), global_position + Vector2(0, -14), [Color8(150, 240, 200), Color8(90, 180, 150)], 10)
 	EventBus.notify.emit(Glyphs.text(id))
