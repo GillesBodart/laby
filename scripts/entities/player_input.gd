@@ -8,6 +8,8 @@ var move_vector := Vector2.ZERO
 var run := false
 var interact := false
 var attack := false
+## Set for one physics frame when the dodge key goes down.
+var dodge := false
 ## Direction from the player towards the mouse (ZERO until the mouse is used,
 ## then shots follow the cursor instead of the facing direction).
 var aim_dir := Vector2.ZERO
@@ -25,6 +27,7 @@ func _physics_process(_delta: float) -> void:
 	run = Input.is_action_pressed("run")
 	interact = Input.is_action_pressed("interact")
 	attack = Input.is_action_pressed("attack")
+	dodge = Input.is_action_just_pressed("dodge")
 	var body := get_parent() as Node2D
 	if _mouse_used and body:
 		aim_dir = (body.get_global_mouse_position() - body.global_position - Vector2(0, -10)).normalized()

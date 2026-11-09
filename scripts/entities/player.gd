@@ -33,6 +33,10 @@ const HURT_INVULNERABILITY := 0.6
 const BASE_DAMAGE := 8
 ## Campfires and standing torches warm the player within this distance.
 const HEAT_RANGE := 72.0
+const DODGE_SPEED := 340.0
+const DODGE_TIME := 0.26
+const DODGE_COOLDOWN := 0.35
+const DODGE_COST := 22.0
 
 @export var peer_id: int = GameState.OFFLINE_PEER_ID
 
@@ -53,6 +57,10 @@ var _tool_sprite: Sprite2D
 ## Status effects: name -> seconds left ("poison" drains health, "slow" hampers movement).
 var effects := {}
 var _poison_acc := 0.0
+var _dodge_time := 0.0
+var _dodge_cd := 0.0
+var _dodge_dir := Vector2.DOWN
+var _torch_hand: Node2D
 
 @onready var input: PlayerInput = $PlayerInput
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -79,6 +87,9 @@ func _ready() -> void:
 	survival.died.connect(_on_died)
 	GameState.register_player(self)
 	_build_tool_sprite()
+	_torch_hand = Node2D.new()
+	_torch_hand.draw.connect(_draw_torch)
+	add_child(_torch_hand)
 	if input.is_local():
 		add_child(Builder.new())
 
@@ -100,7 +111,13 @@ func _physics_process(delta: float) -> void:
 			if move == Vector2.ZERO:
 				state = State.IDLE
 
-	if state == State.MOVE:
+	_dodge_cd = maxf(_dodge_cd - delta, 0.0)
+	if input.dodge and not (input.is_local() and _ui_open()):
+		dodge(move)
+	if _dodge_time > 0.0:
+		_dodge_time = maxf(_dodge_time - delta, 0.0)
+		velocity = _dodge_dir * DODGE_SPEED
+	elif state == State.MOVE:
 		var speed := RUN_SPEED if input.run and survival.can_run() else WALK_SPEED
 		var slow := 0.55 if effects.has("slow") else 1.0
 		velocity = velocity.move_toward(move * speed * survival.speed_multiplier() * slow, ACCELERATION * delta)
@@ -382,12 +399,53 @@ func _fire(kind: String) -> bool:
 
 
 ## % chance that the worn shield stops a hit completely.
+## A held torch (offhand "light" stat).
+func holds_light() -> bool:
+	return equipment.stat("light") > 0
+
+
+func is_dodging() -> bool:
+	return _dodge_time > 0.0
+
+
+## Rolls toward `dir` (or the facing) with brief invulnerability, for stamina.
+func dodge(dir: Vector2) -> bool:
+	var cost := DODGE_COST * (1.0 - 0.2 * survival.rank("stamina"))
+	if _dodge_cd > 0.0 or is_dodging() or survival.is_dead() or survival.stamina < cost:
+		return false
+	survival.stamina -= cost
+	survival.changed.emit()
+	_dodge_dir = dir.normalized() if dir != Vector2.ZERO else facing
+	_dodge_time = DODGE_TIME
+	_dodge_cd = DODGE_TIME + DODGE_COOLDOWN
+	HitChips.burst(get_parent(), global_position, [Color8(150, 128, 96), Color8(110, 92, 70)], 6)
+	var tw := create_tween()
+	sprite.scale = Vector2(1.25, 0.7)
+	sprite.modulate.a = 0.55
+	tw.tween_property(sprite, "scale", Vector2.ONE, DODGE_TIME)
+	tw.parallel().tween_property(sprite, "modulate:a", 1.0, DODGE_TIME)
+	return true
+
+
+## Pixel torch held in the free hand, its flame flickering.
+func _draw_torch() -> void:
+	if not holds_light() or survival.is_dead():
+		return
+	var side := -1.0 if facing == Vector2.LEFT else 1.0
+	var base := Vector2(-9.0, -9.0) if facing == Vector2.UP else Vector2(9.0 * side, -8.0)
+	var h := _torch_hand
+	h.draw_rect(Rect2(base + Vector2(-1, -6), Vector2(2, 7)), Color8(110, 74, 42))
+	var f := 1.0 if (Time.get_ticks_msec() / 120) % 2 == 0 else 0.0
+	h.draw_rect(Rect2(base + Vector2(-2, -10 - f), Vector2(4, 4 + f)), Color8(236, 120, 40))
+	h.draw_rect(Rect2(base + Vector2(-1, -9), Vector2(2, 2)), Color8(255, 222, 110))
+
+
 func block_chance() -> int:
 	return equipment.stat("block")
 
 
 func take_damage(amount: int, source: Node2D = null) -> void:
-	if _hurt_timer > 0.0 or survival.is_dead():
+	if _hurt_timer > 0.0 or is_dodging() or survival.is_dead():
 		return
 	_hurt_timer = HURT_INVULNERABILITY
 	if block_chance() > 0 and randi() % 100 < block_chance():
@@ -546,7 +604,16 @@ func _update_visuals() -> void:
 	if sprite.animation != anim:
 		sprite.play(anim)
 	sprite.speed_scale = 1.5 if input.run and survival.can_run() else 1.0
-	light.energy = 0.55 * LightingCurve.darkness_at(TimeSystem.minute_of_day())
+	var dark := LightingCurve.darkness_at(TimeSystem.minute_of_day())
+	if holds_light():
+		light.energy = 1.15 * dark * randf_range(0.92, 1.0)
+		light.texture_scale = 3.4
+		light.color = Color(1.0, 0.82, 0.58)
+	else:
+		light.energy = 0.55 * dark
+		light.texture_scale = 1.8
+		light.color = Color(0.78, 0.84, 1.0)
+	_torch_hand.queue_redraw()
 
 
 func _on_discovered(id: String) -> void:

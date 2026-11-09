@@ -26,7 +26,8 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M11 Death rules: dying drops your non-insured backpack into a remains pile at the spot (saved; walk back and press **E** to recover it). Strength (10 + level + Brawn) insures 1 slot per 10 points (green padlocked slots, kept by SORT); bound items (keys, relics) are never lost | ✅ |
 | M12 Sectors: six labyrinth sectors north of the Clearing (Stone Labyrinth, Overgrowth, Sunken Dunes, Rime Halls, Cinder Forge, the Pit), each with 20+ creatures, 20+ resources, its own palette and a guardian boss in an arena; the boss drops a Key that unseals the north gate (the Pit gate needs all six, beyond it: the way out). Sector gear tiers (mithril, ember, hellsteel), staffs, ~285 items and ~210 recipes; waystones in every vestibule (and craftable) travel to any reached area | ✅ |
 | M13 Thirst & temperature: thirst wakes once you reach the desert (WT bar; drink at ponds/wells with **E**, fill waterskins); climates (desert/forge hot, ice cold) push body temperature (TP gauge) and hurt at the extreme unless you wear warm/cool gear, stand by a fire/torch or drink tonics | ✅ |
-| M14 | Next: torch light & dodge roll |
+| M14 Light & dodge: hold a Torch in the offhand for a wide warm light; night hunters will not approach a torch-bearer or anyone near a campfire / standing torch (unless provoked). **C** dodge-rolls (stamina, brief invulnerability) | ✅ |
+| M15 | Next: skill graph |
 
 ## Run
 
@@ -39,7 +40,7 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 
 Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book, on an empty farm plot to pick a seed (click or 1-9), on a ripe one to harvest · **Space** attack (bows shoot toward the mouse cursor once it has moved, otherwise straight ahead) · **R** eat berries · **M** map · **K** skills · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls, category chips filter the book, SORT tidies the backpack) · **H** drink / use a potion · **B** build mode (**Q** next item, **F** place / toggle door, **X** remove + refund) · **E** / **G** on a chest opens the Stash window (click a stack to move it across, right-click moves one, 1 stores materials, 2 takes all) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, quit). Keys listed are defaults.
 
-Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=desert` (clearing or any sector), `--give [--panel] [--sort] [--station=anvil]`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--die` (die with a full pack and stand at the remains), `--screenshot=out.png --screenshot-frames=60`.
+Debug args (after `--`): `--seed=123`, `--time=21:30`, `--at=36,14` (tile cell), `--area=desert` (clearing or any sector), `--give [--panel] [--sort] [--station=anvil]`, `--spawn=dusk_jackal,thicket_archer`, `--swing=down,iron_pickaxe[,0.14]` (repeat a swing, or freeze it that many seconds in), `--farm=wheat,apple [--panel]` (a seed-picker plot plus ripe plots of those crops), `--equip=torch,iron_sword` (give and equip), `--die` (die with a full pack and stand at the remains), `--screenshot=out.png --screenshot-frames=60`.
 
 ## Architecture
 

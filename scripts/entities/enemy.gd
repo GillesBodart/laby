@@ -16,6 +16,7 @@ const LEASH := 1.8
 const GUARD_TURN := 3.2
 const GUARD_DOT := 0.35
 const REVEAL_DIST := 52.0
+const LIGHT_WARD := 110.0
 const EFFECT_TIME := 4.0
 const WINDUP := {"melee": 0.28, "ambush": 0.12, "blink": 0.22, "hit_run": 0.08, "charge": 0.55,
 	"pounce": 0.35, "slam": 0.7, "ranged": 0.4, "summon": 0.6}
@@ -161,6 +162,20 @@ func _hostile() -> bool:
 	return _def.temper != "passive" and (_provoked or EnemyCatalog.is_hostile(type_id, _night()))
 
 
+## Night hunters shy from light: a held torch, or a campfire / standing torch
+## near their prey. Provoking them breaks the spell.
+func _warded(p: Node2D) -> bool:
+	if _def.temper != "nocturnal" or _provoked:
+		return false
+	if p.has_method("holds_light") and p.holds_light():
+		return true
+	for group in ["campfire", "standing_torch"]:
+		for n in get_tree().get_nodes_in_group(group):
+			if n.global_position.distance_to(p.global_position) < LIGHT_WARD:
+				return true
+	return false
+
+
 func _wander() -> Vector2:
 	if _def.temper == "passive":
 		var p := _nearest_player(56.0)
@@ -170,7 +185,7 @@ func _wander() -> Vector2:
 			return Vector2.ZERO
 	elif _hostile():
 		var t := _nearest_player(_def.aggro)
-		if t:
+		if t and not _warded(t):
 			_target = t
 			_enter(S.CHASE, 0.0)
 			return Vector2.ZERO
@@ -185,8 +200,11 @@ func _wander() -> Vector2:
 
 func _chase() -> Vector2:
 	if _target == null or not is_instance_valid(_target) or _target.survival.is_dead() \
-			or global_position.distance_to(_target.global_position) > _def.aggro * LEASH or not _hostile():
+			or global_position.distance_to(_target.global_position) > _def.aggro * LEASH or not _hostile() \
+			or _warded(_target):
 		_target = _nearest_player(_def.aggro) if _hostile() else null
+		if _target and _warded(_target):
+			_target = null
 		if _target == null:
 			_home = global_position
 			_enter(S.WANDER, 0.5)

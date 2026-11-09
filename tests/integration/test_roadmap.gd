@@ -156,3 +156,48 @@ func test_water_sources_and_waterskins() -> void:
 	check(player.use_item("warming_tonic"), "tonics are always drinkable")
 	check(player.survival.warmth > 0.0, "warmth buff on")
 	world.free()
+
+
+func test_dodge_roll_dodges_and_costs_stamina() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	var start := player.global_position
+	var stamina := player.survival.stamina
+	check(player.dodge(Vector2.RIGHT), "rolls")
+	check(player.survival.stamina < stamina, "costs stamina")
+	check(not player.dodge(Vector2.RIGHT), "no chained rolls")
+	var hp := player.survival.health
+	player.take_damage(20)
+	check_eq(player.survival.health, hp, "untouchable mid-roll")
+	await _frames(20)
+	check(player.global_position.x - start.x > 40.0, "the roll carries the player")
+	player.take_damage(20)
+	check(player.survival.health < hp, "vulnerable again after")
+	player.survival.stamina = 5.0
+	await _frames(40)
+	player.survival.stamina = 5.0
+	check(not player.dodge(Vector2.LEFT), "too tired to roll")
+	world.free()
+
+
+func test_torch_lights_and_wards_night_hunters() -> void:
+	var world: Node = await _start_world(23 * 60)
+	var player := _local_player()
+	for fire in _tree().get_nodes_in_group("campfire"):
+		player.global_position = fire.global_position + Vector2(0, 400)
+	var jackal: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	jackal.setup("dusk_jackal")
+	player.get_parent().add_child(jackal)
+	jackal.global_position = player.global_position + Vector2(60, 0)
+	check(not jackal._warded(player), "darkness leaves you exposed")
+	await _frames(2)
+	var dark_scale := player.light.texture_scale
+	player.inventory.add("torch", 1)
+	check(player.equipment.equip(player.inventory, "torch"), "torch held in the offhand")
+	await _frames(2)
+	check(player.holds_light(), "holding light")
+	check(player.light.texture_scale > dark_scale, "light reaches further")
+	check(jackal._warded(player), "the jackal keeps its distance")
+	jackal._provoked = true
+	check(not jackal._warded(player), "unless provoked")
+	world.free()

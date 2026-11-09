@@ -15,6 +15,7 @@ extends RefCounted
 ##   ranged - projectile fired by a weapon ("arrow" uses arrows from the backpack, "bolt" is free)
 ##   arrow  - bonus damage of an arrow (ammunition, not equippable)
 ##   block  - % chance for a shield (offhand) to stop a hit completely
+##   light  - held light (torch): bigger light radius, wards off night hunters
 ##   bound  - never lost on death (Keys, Relics)
 
 const ITEMS := {
@@ -84,7 +85,7 @@ const ITEMS := {
 	"copper_ingot": {"name": "Copper Ingot", "stack": 40, "color": Color8(214, 132, 80), "desc": "Smelted copper."},
 	"iron_ingot": {"name": "Iron Ingot", "stack": 40, "color": Color8(190, 194, 202), "desc": "Smelted iron."},
 	"leather": {"name": "Leather", "stack": 40, "color": Color8(132, 84, 52), "desc": "Cured hide for armor."},
-	"torch": {"name": "Torch", "stack": 20, "color": Color8(245, 154, 58), "desc": "Lights the way in the dark."},
+	"torch": {"name": "Torch", "stack": 20, "color": Color8(245, 154, 58), "slot": "offhand", "light": 1, "desc": "Offhand. Lights the way and keeps night hunters at bay."},
 	"flour": {"name": "Flour", "stack": 40, "color": Color8(240, 232, 214), "desc": "Milled wheat. Bread and pies."},
 	"glass": {"name": "Glass", "stack": 40, "color": Color8(180, 220, 230), "desc": "Molten sand, cooled clear."},
 	"glass_vial": {"name": "Glass Vial", "stack": 20, "color": Color8(200, 232, 240), "desc": "Empty flask for potions."},

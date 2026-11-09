@@ -14,6 +14,7 @@ extends Node
 ##     --spawn=<id>,<id>...     place creatures in a ring around the player
 ##     --swing=<dir>[,<item>[,<sec>]]  swing a tool facing up/down/left/right;
 ##                              with <sec>, freeze the pose that many seconds in
+##     --equip=<id>,<id>...     give and equip items (e.g. torch)
 ##     --die                    die with a full pack, then stand at the remains
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
@@ -49,6 +50,8 @@ func _ready() -> void:
 		_spawn.call_deferred(_args.spawn)
 	if _args.has("farm"):
 		_farm.call_deferred(_args.farm)
+	if _args.has("equip"):
+		_equip.call_deferred(_args.equip)
 	if _args.has("die"):
 		_die.call_deferred()
 	if _args.has("swing"):
@@ -113,6 +116,17 @@ func _farm(list: String) -> void:
 			for s in get_tree().get_nodes_in_group("farm_plot"):
 				if s.cell == cell:
 					s.farm_interact(p)
+
+
+func _equip(list: String) -> void:
+	await get_tree().create_timer(0.3).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p == null:
+		return
+	for id in list.split(",", false):
+		if ItemCatalog.ITEMS.has(id):
+			p.inventory.add(id, 1)
+			p.equipment.equip(p.inventory, id)
 
 
 ## --die: the player falls with a full pack, then faces the remains.
