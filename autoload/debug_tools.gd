@@ -15,6 +15,7 @@ extends Node
 ##     --swing=<dir>[,<item>[,<sec>]]  swing a tool facing up/down/left/right;
 ##                              with <sec>, freeze the pose that many seconds in
 ##     --equip=<id>,<id>...     give and equip items (e.g. torch)
+##     --tame=<id>,<id>...      tamed companions at the player's side
 ##     --die                    die with a full pack, then stand at the remains
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
@@ -52,6 +53,8 @@ func _ready() -> void:
 		_farm.call_deferred(_args.farm)
 	if _args.has("equip"):
 		_equip.call_deferred(_args.equip)
+	if _args.has("tame"):
+		_tame.call_deferred(_args.tame)
 	if _args.has("die"):
 		_die.call_deferred()
 	if _args.has("swing"):
@@ -127,6 +130,20 @@ func _equip(list: String) -> void:
 		if ItemCatalog.ITEMS.has(id):
 			p.inventory.add(id, 1)
 			p.equipment.equip(p.inventory, id)
+
+
+## --tame: companions of the given species join the local player.
+func _tame(list: String) -> void:
+	await get_tree().create_timer(0.3).timeout
+	var p: Player = GameState.players.get(GameState.local_peer_id())
+	if p == null:
+		return
+	var i := 0
+	for id in list.split(",", false):
+		if EnemyCatalog.has(id):
+			var rec := GameState.add_companion(id, p.peer_id)
+			Companion.spawn(p.get_parent(), rec, p, p.global_position + Vector2(-20 + 40 * i, 14))
+			i += 1
 
 
 ## --die: the player falls with a full pack, then faces the remains.

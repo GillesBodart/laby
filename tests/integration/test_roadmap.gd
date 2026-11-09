@@ -232,3 +232,87 @@ func test_skill_altar_respecs_for_a_memory_shard() -> void:
 	check_eq(player.inventory.count(Survival.RESPEC_ITEM), 0, "shard spent")
 	check(panel.node_at(panel.graph_to_screen(SkillGraph.position("vigor"))) == "vigor", "click finds nodes")
 	world.free()
+
+func test_taming_rules_scale_with_beastmaster() -> void:
+	check_eq(Taming.tier("hare"), 1, "critters are tier 1")
+	check_eq(Taming.tier("sun_wyrm"), -1, "guardians never tame")
+	check_eq(Taming.favourite("hare"), "carrot", "species favourite")
+	check_eq(Taming.favourite("tusk_boar"), "potato", "boar favourite")
+	check_eq(Taming.favourite("dusk_jackal"), "raw_meat", "hunters want meat")
+	var s := Survival.new()
+	check_eq(Taming.max_tier(s), 1, "non-Beastmasters tame the weakest tier")
+	check(Taming.refusal("bramble_bear", 10, 90, s, true, 0).contains("too wild"), "bear too wild")
+	s.skill_points = 10
+	for id in ["stamina", "b_calm", "b_bond", "b_track", "b_tamer"]:
+		check(s.learn(id), "learn " + id)
+	check_eq(Taming.max_tier(s), 3, "Beastmaster raises the tier")
+	check_eq(Taming.party_cap(s), 2, "and the party cap")
+	check(Taming.refusal("bramble_bear", 80, 90, s, true, 0).contains("Weaken"), "must be weakened")
+	check_eq(Taming.refusal("bramble_bear", 40, 90, s, true, 0), "", "weakened bear tames")
+	check(Taming.refusal("bramble_bear", 40, 90, s, true, 2).contains("full"), "party cap enforced")
+
+
+func test_tamed_companion_follows_fights_and_persists() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	for fire in _tree().get_nodes_in_group("campfire"):
+		player.global_position = fire.global_position + Vector2(0, 300)
+	var hare: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	hare.setup("hare")
+	player.get_parent().add_child(hare)
+	hare.global_position = player.global_position + Vector2(0, -18)
+	player.facing = Vector2.UP
+	await _frames(1)
+	hare.global_position = player.global_position + Vector2(0, -18)
+	check(player.find_interactable() == hare, "gentle creature can be fed")
+	check(not hare.tame(player), "no carrot, no friend")
+	player.inventory.add("carrot", 2)
+	check(hare.tame(player), "tamed with its favourite food")
+	check_eq(player.inventory.count("carrot"), 1, "food eaten")
+	await _frames(2)
+	check_eq(GameState.party_of(player.peer_id).size(), 1, "recorded in the party")
+	var pet: Companion = player.companions()[0]
+	player.global_position += Vector2(120, 0)
+	await _frames(40)
+	check(pet.global_position.distance_to(player.global_position) < 60.0, "companion follows")
+	var rat: Enemy = load("res://scenes/world/props/enemy.tscn").instantiate()
+	rat.setup("cave_rat")
+	player.get_parent().add_child(rat)
+	rat.global_position = player.global_position + Vector2(40, 0)
+	await _frames(1)
+	rat._target = player
+	rat._provoked = true
+	var rat_hp := rat.hp
+	await _frames(90)
+	check(not is_instance_valid(rat) or rat.hp < rat_hp, "companion attacks hunters")
+	player.toggle_companions()
+	check(pet.is_staying(), "V: stay")
+	var data: Dictionary = JSON.parse_string(JSON.stringify(GameState.meta_to_data()))
+	GameState.companions = []
+	GameState.meta_from_data(data)
+	check_eq(GameState.companions.size(), 1, "companions saved")
+	check_eq(String(GameState.companions[0].type), "hare", "species kept")
+	world.free()
+	GameState.companions[0].downed = true
+	world = await _start_world(10 * 60)
+	check(_tree().get_nodes_in_group("companions").is_empty(), "new game clears companions")
+	world.free()
+
+
+func test_downed_companion_recovers_in_the_clearing() -> void:
+	GameState.new_game(2024)
+	TimeSystem.reset()
+	TimeSystem.set_time_of_day(10 * 60)
+	var rec := GameState.add_companion("hare", GameState.local_peer_id())
+	rec.downed = true
+	rec.hp = 0
+	var world: Node = load(WORLD_SCENE).instantiate()
+	_tree().root.add_child(world)
+	await _frames(2)
+	check(not rec.downed and rec.hp == rec.max_hp, "healed back home")
+	check_eq(_tree().get_nodes_in_group("companions").size(), 1, "back at your side")
+	var pet: Companion = _tree().get_nodes_in_group("companions")[0]
+	pet.take_damage(999)
+	await _frames(1)
+	check(rec.downed, "downed after a beating")
+	world.free()

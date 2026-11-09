@@ -33,6 +33,7 @@ func _ready() -> void:
 		greet()
 	else:
 		SaveSystem.apply_to_tree(save)
+	spawn_companions()
 	camera.follow(player)
 
 
@@ -80,6 +81,23 @@ func _update_fog() -> void:
 
 func portal_message(_target: String) -> String:
 	return "You step into the Labyrinth..."
+
+
+## Brings each survivor's companions along. Downed ones rest in the Clearing
+## and are back on their feet once their owner returns there.
+func spawn_companions() -> void:
+	for c in GameState.companions:
+		var owner_node: Player = GameState.players.get(int(c.owner))
+		if owner_node == null:
+			continue
+		if c.downed and GameState.area == "clearing":
+			c.downed = false
+			c.hp = c.max_hp
+		if c.downed:
+			continue
+		if c.get("mode", "follow") == "stay" and GameState.area != "clearing":
+			c.mode = "follow"
+		Companion.spawn(clearing.entities, c, owner_node, owner_node.global_position + Vector2(-16, 10))
 
 
 func spawn_player(peer_id: int, at: Vector2) -> Player:

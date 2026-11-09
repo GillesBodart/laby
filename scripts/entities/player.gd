@@ -150,6 +150,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		eat_best_food()
 	elif input.is_local() and event.is_action_pressed("drink"):
 		drink_best_potion()
+	elif input.is_local() and event.is_action_pressed("companion"):
+		toggle_companions()
+
+
+func companions() -> Array:
+	return get_tree().get_nodes_in_group("companions").filter(func(c): return c.owner_player == self)
+
+
+## V: every companion switches between following and guarding its spot.
+func toggle_companions() -> void:
+	var mine := companions()
+	if mine.is_empty():
+		return
+	var mode := "follow" if mine[0].is_staying() else "stay"
+	for c in mine:
+		c.set_mode(mode)
+	EventBus.notify.emit("Companions: %s" % ("follow me" if mode == "follow" else "stay here"))
 
 
 ## Uses a consumable from the backpack (food, medicine, potion). Returns

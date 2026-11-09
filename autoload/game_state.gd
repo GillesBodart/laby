@@ -52,6 +52,8 @@ var keys: Dictionary = {}
 var bosses_defeated: Dictionary = {}
 ## Set once the players walk out of the Pit's last gate.
 var escaped := false
+## Tamed creatures: [{type, name, owner, hp, max_hp, level, xp, mode, downed}].
+var companions: Array = []
 
 
 func _ready() -> void:
@@ -82,12 +84,13 @@ func new_game(seed_value: int = 0) -> void:
 	keys = {}
 	bosses_defeated = {}
 	escaped = false
+	companions = []
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
 func meta_to_data() -> Dictionary:
 	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
-		"bosses": bosses_defeated.keys(), "escaped": escaped}
+		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true)}
 
 
 func meta_from_data(data: Dictionary) -> void:
@@ -98,6 +101,12 @@ func meta_from_data(data: Dictionary) -> void:
 	keys = _set_of(data.get("keys", []))
 	bosses_defeated = _set_of(data.get("bosses", []))
 	escaped = bool(data.get("escaped", false))
+	companions = []
+	for c in data.get("companions", []):
+		if EnemyCatalog.has(String(c.get("type", ""))):
+			companions.append({"type": String(c.type), "name": String(c.get("name", "")), "owner": int(c.get("owner", 1)),
+				"hp": int(c.hp), "max_hp": int(c.max_hp), "level": int(c.get("level", 1)), "xp": int(c.get("xp", 0)),
+				"mode": String(c.get("mode", "follow")), "downed": bool(c.get("downed", false))})
 
 
 func _set_of(list: Array) -> Dictionary:
@@ -105,6 +114,19 @@ func _set_of(list: Array) -> Dictionary:
 	for k in list:
 		out[String(k)] = true
 	return out
+
+
+## Companions owned by a survivor (downed ones included).
+func party_of(peer_id: int) -> Array:
+	return companions.filter(func(c): return int(c.owner) == peer_id)
+
+
+func add_companion(type: String, peer_id: int) -> Dictionary:
+	var hp := int(EnemyCatalog.def(type).hp)
+	var c := {"type": type, "name": String(EnemyCatalog.def(type).name), "owner": peer_id, "hp": hp, "max_hp": hp,
+		"level": 1, "xp": 0, "mode": "follow", "downed": false}
+	companions.append(c)
+	return c
 
 
 ## Records a slain guardian and grants its sector's Key.

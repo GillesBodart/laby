@@ -123,6 +123,14 @@ dodge={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"device":-1,"physical_keycode":67)]
 }
+companion={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":86)]
+}
+journal={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":74)]
+}
 stash={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"device":-1,"physical_keycode":71)]

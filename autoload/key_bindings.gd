@@ -10,7 +10,7 @@ const ACTIONS := [
 	["move_up", "Move up"], ["move_down", "Move down"], ["move_left", "Move left"],
 	["move_right", "Move right"], ["run", "Run"], ["interact", "Gather / use"],
 	["attack", "Attack"], ["dodge", "Dodge roll"], ["eat", "Eat"], ["drink", "Drink potion"], ["inventory", "Backpack"], ["map", "Map"],
-	["skills", "Skills"], ["stash", "Stash"], ["build_toggle", "Build mode"],
+	["skills", "Skills"], ["journal", "Journal"], ["companion", "Companions follow/stay"], ["stash", "Stash"], ["build_toggle", "Build mode"],
 	["build_next", "Next building"], ["build_place", "Place / door"],
 	["build_remove", "Remove building"], ["quick_save", "Quick save"], ["quick_load", "Quick load"],
 ]

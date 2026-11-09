@@ -63,6 +63,8 @@ func _ready() -> void:
 	if _def.is_empty():
 		setup(type_id)
 	add_to_group("enemies")
+	if Taming.tier(type_id) >= 0:
+		add_to_group("interactable")
 	sprite.texture = load(EnemyCatalog.sprite_path(type_id))
 	# Feet on the node origin whatever the creature's size; shadow follows its width.
 	var tex_size := sprite.texture.get_size()
@@ -438,8 +440,9 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 		HitChips.burst(get_parent(), global_position + Vector2(0, -12), [Color8(220, 224, 232), Color8(150, 156, 170)], 5)
 	if from != Vector2.INF:
 		_knock = (global_position - from).normalized() * KNOCKBACK * (0.3 if blocked else 1.0)
-	if source is Player:
-		_target = source
+	var attacker := _attacker(source)
+	if attacker:
+		_target = attacker
 	if _state == S.HIDDEN:
 		_reveal(_target)
 	if _def.temper == "passive":
@@ -451,7 +454,50 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 			_enter(S.CHASE, 0.0)
 	_provoked = _provoked or _def.temper != "passive"
 	if hp <= 0:
-		_die(source as Player)
+		_die(attacker)
+
+
+## The survivor credited for a hit: the player, or the owner of a companion.
+func _attacker(source: Node2D) -> Player:
+	if source is Player:
+		return source
+	if source is Companion:
+		return source.owner_player
+	return null
+
+
+# ------------------------------------------------------------- taming
+
+## Weakened (or gentle) creatures accept their favourite food from a survivor.
+func can_interact(_p: Node) -> bool:
+	return not _dead and Taming.receptive(type_id, hp, max_hp)
+
+
+func interact_hint() -> String:
+	return "Tame %s (%s)" % [_def.name, ItemCatalog.item_name(Taming.favourite(type_id))]
+
+
+func interact(p: Player) -> void:
+	tame(p)
+
+
+## Feeds the creature; on success it becomes the survivor's companion.
+func tame(p: Player) -> bool:
+	var food := Taming.favourite(type_id)
+	var why := Taming.refusal(type_id, hp, max_hp, p.survival, p.inventory.count(food) > 0, GameState.party_of(p.peer_id).size())
+	if why != "":
+		EventBus.notify.emit(why)
+		return false
+	p.inventory.remove(food, 1)
+	_dead = true
+	var record := GameState.add_companion(type_id, p.peer_id)
+	record.hp = maxi(hp, int(record.max_hp / 2))
+	HitChips.burst(get_parent(), global_position + Vector2(0, -10), [Color8(240, 120, 150), Color8(255, 220, 230)], 8)
+	Companion.spawn(get_parent(), record, p, global_position)
+	EventBus.notify.emit("The %s eats from your hand. It will follow you." % _def.name)
+	p.gain_xp(int(_def.xp))
+	queue_free()
+	return true
 
 
 func _guarding() -> bool:
