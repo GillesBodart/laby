@@ -76,7 +76,7 @@ func _draw_prompt(player: Player) -> void:
 	var thing := player.find_interactable()
 	if thing == null or not thing.has_method("interact_hint"):
 		return
-	var text := "[%s] %s" % [KeyBindings.key_label(KeyBindings.key_of("interact")), thing.interact_hint()]
+	var text := "[%s] %s" % [Gamepad.prompt("interact"), thing.interact_hint()]
 	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0
 	var r := Rect2(240.0 - w / 2.0, 222, w, 15)
 	draw_rect(r, BG)

@@ -28,9 +28,23 @@ func _physics_process(_delta: float) -> void:
 	interact = Input.is_action_pressed("interact")
 	attack = Input.is_action_pressed("attack")
 	dodge = Input.is_action_just_pressed("dodge")
+	if Gamepad.driving_ui():
+		# The pad is steering a menu cursor: its sticks and buttons are not for the survivor.
+		move_vector = Vector2.ZERO
+		run = false
+		interact = false
+		attack = false
+		dodge = false
+		return
 	var body := get_parent() as Node2D
-	if _mouse_used and body:
+	var aim := Gamepad.aim_vector(Vector2(Input.get_joy_axis(0, JOY_AXIS_RIGHT_X), Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)))
+	if aim != Vector2.ZERO:
+		aim_dir = aim
+		_mouse_used = false
+	elif _mouse_used and body:
 		aim_dir = (body.get_global_mouse_position() - body.global_position - Vector2(0, -10)).normalized()
+	else:
+		aim_dir = Vector2.ZERO
 
 
 func _input(event: InputEvent) -> void:

@@ -66,6 +66,7 @@ func rebind(action: String, key: Key) -> bool:
 
 func reset_defaults() -> void:
 	InputMap.load_from_project_settings()
+	Gamepad.add_pad_events()
 	var cfg := ConfigFile.new()
 	if cfg.load(settings_path) == OK and cfg.has_section("keys"):
 		cfg.erase_section("keys")

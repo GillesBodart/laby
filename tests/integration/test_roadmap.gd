@@ -588,3 +588,69 @@ func test_raid_while_away_and_builders_mend() -> void:
 	GameState.run_dawn()
 	var mended := GameState.structures.values().filter(func(d): return not d.has("hp")).size()
 	check(mended >= 1, "builders mend at dawn")
+
+func _pad(button: JoyButton) -> void:
+	for down in [true, false]:
+		var ev := InputEventJoypadButton.new()
+		ev.button_index = button
+		ev.pressed = down
+		Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	await _frames(1)
+
+
+func test_gamepad_bindings_survive_reset() -> void:
+	var has_a := func() -> bool:
+		for ev in InputMap.action_get_events("attack"):
+			if ev is InputEventJoypadButton and ev.button_index == JOY_BUTTON_A:
+				return true
+		return false
+	check(has_a.call(), "A attacks")
+	var saved: String = KeyBindings.settings_path
+	KeyBindings.settings_path = "user://test_pad_settings.cfg"
+	KeyBindings.reset_defaults()
+	KeyBindings.settings_path = saved
+	check(has_a.call(), "pad bindings kept after a controls reset")
+	check(KeyBindings.key_of("attack") != KEY_NONE, "keyboard key still primary")
+	var moves := 0
+	for ev in InputMap.action_get_events("move_left"):
+		if ev is InputEventJoypadMotion and ev.axis == JOY_AXIS_LEFT_X and ev.axis_value < 0.0:
+			moves += 1
+	check_eq(moves, 1, "left stick moves, added once")
+
+
+func test_gamepad_start_pauses_and_b_backs_out() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var menu := _tree().get_first_node_in_group("settings_menu")
+	await _pad(JOY_BUTTON_START)
+	check(menu.visible and _tree().paused, "Start opens the pause menu")
+	check(Gamepad.driving_ui(), "the pad now steers the menu")
+	menu.activate(4)
+	check_eq(menu.page, "sound", "sound page")
+	await _pad(JOY_BUTTON_B)
+	check_eq(menu.page, "main", "B goes back")
+	await _pad(JOY_BUTTON_START)
+	check(not menu.visible and not _tree().paused, "Start resumes")
+	var crafting: Control = _tree().get_nodes_in_group("ui_panels").filter(
+		func(p): return p.get_script().resource_path.ends_with("crafting_panel.gd"))[0]
+	crafting.visible = true
+	await _pad(JOY_BUTTON_B)
+	check(not crafting.visible, "B closes an open panel")
+	check(not menu.visible, "without opening the pause menu")
+	_tree().paused = false
+	Gamepad.using_pad = false
+	world.free()
+
+
+func test_gamepad_stick_shaping() -> void:
+	check_eq(Gamepad.cursor_vector(Vector2(0.1, 0.1), Vector2.ZERO), Vector2.ZERO, "dead zone")
+	check(Gamepad.cursor_vector(Vector2(1, 0), Vector2.ZERO).is_equal_approx(Vector2(1, 0)), "full tilt")
+	check(Gamepad.cursor_vector(Vector2(1, 0), Vector2(0, -1)).y < 0.0, "d-pad overrides the stick")
+	check_eq(Gamepad.aim_vector(Vector2(0.2, 0.1)), Vector2.ZERO, "resting right stick does not aim")
+	check(Gamepad.aim_vector(Vector2(0, 0.9)).is_equal_approx(Vector2.DOWN), "right stick aims")
+	var was: bool = Gamepad.using_pad
+	Gamepad.using_pad = true
+	check_eq(Gamepad.prompt("interact"), "X", "prompts name the pad button")
+	Gamepad.using_pad = false
+	check(Gamepad.prompt("interact") != "X", "prompts name the key")
+	Gamepad.using_pad = was

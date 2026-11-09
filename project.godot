@@ -23,6 +23,7 @@ TimeSystem="*res://autoload/time_system.gd"
 SaveSystem="*res://autoload/save_system.gd"
 KeyBindings="*res://autoload/key_bindings.gd"
 Sound="*res://autoload/sound.gd"
+Gamepad="*res://autoload/gamepad.gd"
 DebugTools="*res://autoload/debug_tools.gd"
 
 [display]
