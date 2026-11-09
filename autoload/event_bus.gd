@@ -22,3 +22,5 @@ signal station_used(station: String)
 ## E on an empty farm plot: the seed picker opens for it.
 signal farm_plot_used(plot: Node)
 signal chest_used
+## E on a waystone: the travel picker opens.
+signal waystone_used(stone: Node)

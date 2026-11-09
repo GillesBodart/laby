@@ -22,9 +22,12 @@ func _ready() -> void:
 	if layout.fogged:
 		fog = GameState.fog_for(GameState.area, layout.size)
 
-	var arrival := layout.return_cell if GameState.arriving else layout.spawn_cell
+	var arrival := layout.spawn_cell
+	if GameState.arriving:
+		arrival = layout.arrivals.get(GameState.came_from, layout.return_cell)
 	GameState.arriving = false
 	var player := spawn_player(GameState.local_peer_id(), ClearingWorld.cell_center(arrival))
+	setup_area()
 	var save := GameState.take_pending_save()
 	if save.is_empty():
 		greet()
@@ -38,6 +41,11 @@ func make_layout() -> ClearingLayout:
 	return ClearingGenerator.generate(GameState.world_seed)
 
 
+## Override in other areas: extra nodes once the map and the player exist.
+func setup_area() -> void:
+	pass
+
+
 func greet() -> void:
 	if GameState.inventories.is_empty():
 		EventBus.notify.emit("You wake up in the Clearing. The walls are... enormous.")
@@ -45,14 +53,19 @@ func greet() -> void:
 
 func _physics_process(_delta: float) -> void:
 	_update_fog()
-	if layout.portal_target == "" or GameState.area == layout.portal_target:
-		return
-	for player in GameState.players.values():
-		var cell := clearing.walls.local_to_map(clearing.walls.to_local(player.global_position))
-		if layout.portal_rect.has_point(cell):
-			EventBus.notify.emit(portal_message())
-			GameState.travel(layout.portal_target)
-			return
+	for portal in layout.all_portals():
+		if portal.target == GameState.area:
+			continue
+		for player in GameState.players.values():
+			var cell := clearing.walls.local_to_map(clearing.walls.to_local(player.global_position))
+			if portal.rect.has_point(cell):
+				enter_portal(portal.target)
+				return
+
+
+func enter_portal(target: String) -> void:
+	EventBus.notify.emit(portal_message(target))
+	GameState.travel(target)
 
 
 func _update_fog() -> void:
@@ -65,7 +78,7 @@ func _update_fog() -> void:
 			fog.reveal(cell, REVEAL_RADIUS)
 
 
-func portal_message() -> String:
+func portal_message(_target: String) -> String:
 	return "You step into the Labyrinth..."
 
 

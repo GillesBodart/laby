@@ -31,6 +31,8 @@ const ATTACK_COOLDOWN := 0.45
 const ATTACK_RANGE := 36.0
 const HURT_INVULNERABILITY := 0.6
 const BASE_DAMAGE := 8
+## Campfires and standing torches warm the player within this distance.
+const HEAT_RANGE := 72.0
 
 @export var peer_id: int = GameState.OFFLINE_PEER_ID
 
@@ -107,6 +109,7 @@ func _physics_process(delta: float) -> void:
 		velocity = velocity.move_toward(Vector2.ZERO, FRICTION * delta)
 	move_and_slide()
 	survival.tick(delta, state == State.MOVE, input.run)
+	_tick_climate(delta)
 	_tick_effects(delta)
 	_update_visuals()
 	_gather_timer = maxf(_gather_timer - delta, 0.0)
@@ -142,7 +145,10 @@ func use_item(id: String) -> bool:
 	var heal: float = it.get("heal", 0.0)
 	var cures: bool = it.get("cure", false) and not effects.is_empty()
 	var stamina: float = it.get("stamina", 0.0)
-	var useful := cures or (heal > 0.0 and survival.health < survival.max_health()) \
+	var water: float = it.get("water", 0.0)
+	var buff: bool = it.get("warmth", 0.0) > 0.0 or it.get("chill", 0.0) > 0.0
+	var useful := cures or buff or (heal > 0.0 and survival.health < survival.max_health()) \
+		or (water > 0.0 and survival.thirst < Survival.MAX_THIRST - 0.5) \
 		or (food > 0.0 and survival.hunger < Survival.MAX_HUNGER - 0.5) \
 		or (stamina > 0.0 and survival.stamina < Survival.MAX_STAMINA)
 	if not useful:
@@ -155,6 +161,12 @@ func use_item(id: String) -> bool:
 		survival.heal(heal)
 	if stamina > 0.0:
 		survival.restore_stamina(stamina)
+	if water > 0.0:
+		survival.drink(water)
+	survival.warmth = maxf(survival.warmth, it.get("warmth", 0.0))
+	survival.chill = maxf(survival.chill, it.get("chill", 0.0))
+	if id == "waterskin_full":
+		inventory.add("waterskin", 1)
 	if it.get("cure", false):
 		effects.clear()
 	EventBus.notify.emit("Used %s." % ItemCatalog.item_name(id))
@@ -176,6 +188,8 @@ func drink_best_potion() -> bool:
 			score += 200.0
 		if it.get("stamina", 0.0) > 0.0 and survival.stamina < 20.0:
 			score += 30.0
+		if survival.thirst_enabled and survival.thirst < 70.0:
+			score += it.get("water", 0.0)
 		if score > best_score:
 			best_score = score
 			best = s.id
@@ -210,6 +224,45 @@ func _tick_effects(delta: float) -> void:
 		tint = Color(0.75, 0.85, 1.2)
 	if _hurt_timer <= 0.0:
 		sprite.modulate = tint
+
+
+## Body temperature: the sector climate against worn warm/cool gear; a
+## campfire or standing torch nearby counts as Warm 2.
+func _tick_climate(delta: float) -> void:
+	survival.thirst_enabled = GameState.thirst_unlocked()
+	var warm := equipment.stat("warm")
+	for group in ["campfire", "standing_torch"]:
+		for node in get_tree().get_nodes_in_group(group):
+			if global_position.distance_to(node.global_position) < HEAT_RANGE:
+				warm += 2
+				break
+	survival.tick_climate(delta, Sectors.climate_of(GameState.area), warm, equipment.stat("cool"))
+
+
+## True when the tile just in front of the player is pond water.
+func facing_water() -> bool:
+	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+	if world == null or world.layout == null:
+		return false
+	var probe := global_position + Vector2(0, -6) + facing * (PROBE + 8.0)
+	var cell := Vector2i((probe / TileCatalog.TILE_SIZE).floor())
+	return world.layout.get_ground(cell) == TileCatalog.Id.WATER
+
+
+## Drinks your fill at a pond or well and fills every empty waterskin.
+func drink_at_source() -> void:
+	var msg := []
+	if survival.thirst < Survival.MAX_THIRST - 0.5:
+		survival.drink(Survival.MAX_THIRST)
+		msg.append("You drink deeply")
+	var skins := inventory.count("waterskin")
+	if skins > 0:
+		inventory.remove("waterskin", skins)
+		var left := inventory.add("waterskin_full", skins)
+		if left > 0:
+			inventory.add("waterskin", left)
+		msg.append("filled %d waterskin%s" % [skins - left, "" if skins - left == 1 else "s"])
+	EventBus.notify.emit(", ".join(msg) + "." if not msg.is_empty() else "Fresh water. You are not thirsty.")
 
 
 ## Eats the most nourishing food in the backpack. Returns whether anything was eaten.
@@ -362,6 +415,10 @@ func _try_gather(pressed := false) -> void:
 	if thing:
 		_gather_timer = 0.3
 		thing.interact(self)
+		return
+	if pressed and facing_water():
+		_gather_timer = 0.3
+		drink_at_source()
 		return
 	var target := find_gatherable()
 	if target:

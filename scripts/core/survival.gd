@@ -1,6 +1,7 @@
 class_name Survival
 extends RefCounted
-## Pure-data survival model: health, hunger, stamina and XP/levels.
+## Pure-data survival model: health, hunger, thirst, body temperature,
+## stamina and XP/levels.
 ## No nodes; the Player ticks it and the HUD reads it.
 
 signal changed
@@ -21,6 +22,17 @@ const STAMINA_REGEN := 16.0
 const REGEN_DELAY := 0.8
 ## Once exhausted, running needs this much stamina back.
 const RECOVER_THRESHOLD := 25.0
+const MAX_THIRST := 100.0
+## Thirst lasts about a day in mild sectors; heat doubles it.
+const THIRST_DRAIN := 0.13
+const DEHYDRATE_DAMAGE := 1.5
+const REGEN_MIN_THIRST := 30.0
+## Body temperature -100 (freezing) .. +100 (burning). Each point of unprotected climate stress
+## pushes it 55 further from 0; past +-TEMP_HARM it hurts.
+const TEMP_PER_STRESS := 55.0
+const TEMP_RATE := 9.0
+const TEMP_HARM := 99.0
+const TEMP_DAMAGE := 2.5
 
 const SKILL_MAX_RANK := 3
 const SKILLS := {
@@ -41,6 +53,13 @@ var skill_points := 0
 var skills := {}
 ## Extra max health from worn gear (set by the Player, not saved here).
 var bonus_health := 0.0
+var thirst := MAX_THIRST
+## Thirst only drains once enabled (the players have reached the desert).
+var thirst_enabled := false
+var temperature := 0.0
+## Seconds left of the Warming Tonic / Cooling Draught buffs.
+var warmth := 0.0
+var chill := 0.0
 
 var _exhausted := false
 var _regen_wait := 0.0
@@ -121,10 +140,46 @@ func tick(delta: float, moving: bool, running: bool) -> void:
 			stamina = minf(stamina + STAMINA_REGEN * delta, MAX_STAMINA)
 			if _exhausted and stamina >= RECOVER_THRESHOLD:
 				_exhausted = false
+	if thirst_enabled:
+		var hot := 2.0 if temperature > 40.0 else 1.0
+		thirst = maxf(thirst - THIRST_DRAIN * hot * delta, 0.0)
+	if temperature < -40.0:
+		hunger = maxf(hunger - HUNGER_DRAIN * 0.5 * delta, 0.0)
+	warmth = maxf(warmth - delta, 0.0)
+	chill = maxf(chill - delta, 0.0)
 	if is_starving():
 		damage(STARVE_DAMAGE * delta)
-	elif hunger >= REGEN_MIN_HUNGER and health < max_health():
+	elif is_dehydrated():
+		damage(DEHYDRATE_DAMAGE * delta)
+	elif absf(temperature) >= TEMP_HARM:
+		damage(TEMP_DAMAGE * delta)
+	elif hunger >= REGEN_MIN_HUNGER and (not thirst_enabled or thirst >= REGEN_MIN_THIRST) and health < max_health():
 		health = minf(health + REGEN_RATE * delta, max_health())
+	changed.emit()
+
+
+func is_dehydrated() -> bool:
+	return thirst_enabled and thirst <= 0.0
+
+
+## Climate stress left after protection: climate -2..+2 against the worn
+## warm/cool points (buffs count as 2). Positive = heat, negative = cold.
+func climate_stress(climate: int, warm: int, cool: int) -> int:
+	if climate > 0:
+		return maxi(climate - cool - (2 if chill > 0.0 else 0), 0)
+	if climate < 0:
+		return -maxi(-climate - warm - (2 if warmth > 0.0 else 0), 0)
+	return 0
+
+
+## Moves the body temperature toward what the climate dictates.
+func tick_climate(delta: float, climate: int, warm: int, cool: int) -> void:
+	var target := clampf(climate_stress(climate, warm, cool) * TEMP_PER_STRESS, -100.0, 100.0)
+	temperature = move_toward(temperature, target, TEMP_RATE * delta)
+
+
+func drink(amount: float) -> void:
+	thirst = minf(thirst + amount, MAX_THIRST)
 	changed.emit()
 
 
@@ -156,6 +211,8 @@ func damage(amount: float) -> void:
 func revive() -> void:
 	health = max_health()
 	hunger = 60.0
+	thirst = 60.0
+	temperature = 0.0
 	stamina = MAX_STAMINA
 	_exhausted = false
 	_regen_wait = 0.0
@@ -180,12 +237,17 @@ func to_data() -> Dictionary:
 	return {
 		"health": health, "hunger": hunger, "stamina": stamina,
 		"xp": xp, "level": level, "skill_points": skill_points, "skills": skills.duplicate(),
+		"thirst": thirst, "temperature": temperature, "warmth": warmth, "chill": chill,
 	}
 
 
 func load_data(data: Dictionary) -> void:
 	hunger = clampf(float(data.get("hunger", MAX_HUNGER)), 0.0, MAX_HUNGER)
 	stamina = clampf(float(data.get("stamina", MAX_STAMINA)), 0.0, MAX_STAMINA)
+	thirst = clampf(float(data.get("thirst", MAX_THIRST)), 0.0, MAX_THIRST)
+	temperature = clampf(float(data.get("temperature", 0.0)), -100.0, 100.0)
+	warmth = maxf(float(data.get("warmth", 0.0)), 0.0)
+	chill = maxf(float(data.get("chill", 0.0)), 0.0)
 	xp = int(data.get("xp", 0))
 	level = maxi(int(data.get("level", 1)), 1)
 	skill_points = int(data.get("skill_points", 0))

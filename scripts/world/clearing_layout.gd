@@ -24,6 +24,16 @@ var campfire_cell: Vector2i
 var portal_rect: Rect2i
 var portal_target := ""
 var return_cell: Vector2i
+## Several exits (sectors): [{"rect": Rect2i, "target": String}]; when empty
+## the single portal_rect/portal_target pair is used.
+var portals: Array = []
+## Arrival cell by the area the players come from (falls back to return_cell).
+var arrivals: Dictionary = {}
+## Sealed gate before the north exit: {"rect": Rect2i, "keys": Array[String]}.
+var sector_gate: Dictionary = {}
+## Guardian of a sector: {"type": String, "cell": Vector2i}, in arena_rect.
+var boss: Dictionary = {}
+var arena_rect: Rect2i
 ## Whether the player may build here (only the Clearing).
 var buildable := false
 ## Whether unexplored cells are hidden on the map (the Labyrinth).
@@ -65,6 +75,14 @@ func set_wall(cell: Vector2i, id: int) -> void:
 
 func is_wall(cell: Vector2i) -> bool:
 	return get_wall(cell) != NO_TILE
+
+
+func all_portals() -> Array:
+	if not portals.is_empty():
+		return portals
+	if portal_target == "":
+		return []
+	return [{"rect": portal_rect, "target": portal_target}]
 
 
 func gate_cells() -> Array[Vector2i]:

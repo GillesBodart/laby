@@ -44,6 +44,9 @@ func _ready() -> void:
 	var seed_panel := Control.new()
 	seed_panel.set_script(preload("res://scripts/ui/seed_panel.gd"))
 	add_child(seed_panel)
+	var waystone_panel := Control.new()
+	waystone_panel.set_script(preload("res://scripts/ui/waystone_panel.gd"))
+	add_child(waystone_panel)
 	# Added last so it sees Esc after panels had the chance to close themselves.
 	var menu := Control.new()
 	menu.set_script(preload("res://scripts/ui/settings_menu.gd"))

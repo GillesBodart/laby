@@ -44,6 +44,7 @@ var _sprite_y := -14.0
 var _flee_from := Vector2.ZERO
 var _summons: Array = []
 var _regen_acc := 0.0
+var _volley_cd := 3.0
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var collision: CollisionShape2D = $Collision
@@ -106,6 +107,11 @@ func _physics_process(delta: float) -> void:
 			hp = mini(hp + int(_regen_acc), max_hp)
 			_regen_acc = fmod(_regen_acc, 1.0)
 	var desired := Vector2.ZERO
+	if not _def.volley.is_empty() and _target and is_instance_valid(_target) and _state != S.WANDER:
+		_volley_cd -= delta
+		if _volley_cd <= 0.0:
+			_volley_cd = _def.volley.get("every", 5.0)
+			_fire_volley()
 	match _state:
 		S.WANDER:
 			desired = _wander()
@@ -317,6 +323,19 @@ func _shoot(t: Player) -> void:
 		Projectile.fire(get_parent(), from, aim.rotated(a), pr.kind, pr.speed, _def.damage, "enemy", self, pr.get("effect", _def.effect))
 
 
+## Boss ring attack: `count` projectiles fanned over +-spread around the target.
+func _fire_volley() -> void:
+	var v: Dictionary = _def.volley
+	var from := global_position + Vector2(0, -12)
+	var aim := (_target.global_position - from).normalized()
+	var n: int = v.get("count", 8)
+	var spread: float = v.get("spread", PI)
+	for i in n:
+		var a := lerpf(-spread, spread, i / float(n)) if spread >= PI - 0.01 else lerpf(-spread, spread, i / float(maxi(n - 1, 1)))
+		Projectile.fire(get_parent(), from, aim.rotated(a), v.kind, v.speed, int(_def.damage * 0.6), "enemy", self, v.get("effect", ""))
+	HitChips.burst(get_parent(), from, Projectile.COLORS.get(v.kind, Projectile.COLORS.arrow), 10)
+
+
 func _alive_summons() -> int:
 	_summons = _summons.filter(func(w): return w.get_ref() != null)
 	return _summons.size()
@@ -434,6 +453,8 @@ func _die(killer: Player) -> void:
 				got.append("+%d %s" % [n, ItemCatalog.item_name(d.id)])
 		EventBus.notify.emit("%s defeated%s" % [_def.name, (": " + ", ".join(got)) if not got.is_empty() else ""])
 		killer.gain_xp(_def.xp)
+	if _def.boss:
+		GameState.defeat_boss(type_id)
 	queue_free()
 
 
@@ -477,9 +498,9 @@ func _draw() -> void:
 	if _guarding() and _target and _state != S.HIDDEN:
 		var a := _guard.angle()
 		draw_arc(Vector2(0, -8), _def.radius + 5.0, a - 0.7, a + 0.7, 6, Color(0.85, 0.88, 0.95, 0.55), 2.0)
-	if (_bar > 0.0 or _def.elite) and _state != S.HIDDEN and hp < max_hp:
-		var w := 20.0 if not _def.elite else 28.0
+	if (_bar > 0.0 or _def.elite or _def.boss) and _state != S.HIDDEN and hp < max_hp:
+		var w := 20.0 if not (_def.elite or _def.boss) else (48.0 if _def.boss else 28.0)
 		var r := Rect2(-w / 2.0, _sprite_y * 2.0 - 6.0, w, 3.0)
 		draw_rect(r, Color8(27, 20, 16))
 		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(float(hp) / max_hp, 0.0, 1.0), 1.0)),
-			Color8(206, 62, 62) if not _def.elite else Color8(232, 170, 60))
+			Color8(206, 62, 62) if not (_def.elite or _def.boss) else (Color8(190, 90, 230) if _def.boss else Color8(232, 170, 60)))

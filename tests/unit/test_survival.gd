@@ -81,3 +81,35 @@ func test_skills() -> void:
 	t.load_data(s.to_data())
 	check_eq(t.rank("vigor"), 3, "saved ranks")
 	check_eq(t.health, 145.0, "health kept")
+
+
+func test_thirst_and_climate() -> void:
+	var s := Survival.new()
+	s.tick(100.0, false, false)
+	check_eq(s.thirst, Survival.MAX_THIRST, "thirst sleeps until the desert")
+	s.thirst_enabled = true
+	s.tick(100.0, false, false)
+	check(s.thirst < Survival.MAX_THIRST, "thirst drains once enabled")
+	s.thirst = 0.0
+	var hp := s.health
+	s.tick(1.0, false, false)
+	check(s.health < hp, "dehydration hurts")
+	s.drink(999.0)
+	check_eq(s.thirst, Survival.MAX_THIRST, "drinking is capped")
+	check_eq(s.climate_stress(2, 0, 0), 2, "the forge is deadly bare")
+	check_eq(s.climate_stress(2, 0, 1), 1, "cool gear helps")
+	check_eq(s.climate_stress(-1, 1, 0), 0, "a coat is enough for the ice")
+	s.warmth = 60.0
+	check_eq(s.climate_stress(-2, 0, 0), 0, "warming buff counts as 2")
+	s.warmth = 0.0
+	for i in 30:
+		s.tick_climate(1.0, 2, 0, 0)
+	check_eq(s.temperature, 100.0, "body heats to the extreme")
+	hp = s.health
+	s.tick(1.0, false, false)
+	check(s.health < hp, "extreme heat hurts")
+	for i in 30:
+		s.tick_climate(1.0, 1, 0, 0)
+	hp = s.health
+	s.tick(1.0, false, false)
+	check(s.health >= hp, "mild heat is bearable")

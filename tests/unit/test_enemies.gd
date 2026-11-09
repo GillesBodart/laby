@@ -6,7 +6,7 @@ func test_catalog_sane() -> void:
 		var d := EnemyCatalog.def(id)
 		check(d.hp > 0 and (d.speed > 0.0 or d.attack == "ranged"), "%s stats" % id)
 		check(d.damage > 0 or d.temper == "passive" or d.attack == "summon", "%s can hurt" % id)
-		check(d.biome in ["forest", "labyrinth"], "%s biome" % id)
+		check(d.biome == "forest" or Sectors.is_sector(d.biome), "%s biome" % id)
 		for drop in d.drops:
 			check(ItemCatalog.ITEMS.has(drop.id), "%s drop %s exists" % [id, drop.id])
 		if d.attack == "ranged":
@@ -17,7 +17,7 @@ func test_catalog_sane() -> void:
 
 
 func test_rosters_are_varied() -> void:
-	for biome in ["forest", "labyrinth"]:
+	for biome in ["forest"] + Sectors.ORDER:
 		var ids := EnemyCatalog.roster(biome)
 		check(ids.size() >= 20, "%s has 20+ creatures (%d)" % [biome, ids.size()])
 		var styles := {}
@@ -79,9 +79,13 @@ func test_clearing_wildlife_keeps_camp_safe() -> void:
 
 
 func test_resources_per_biome() -> void:
-	for list in [ResourceCatalog.FOREST, ResourceCatalog.LABYRINTH]:
+	var lists := [ResourceCatalog.FOREST]
+	for s in Sectors.ORDER:
+		lists.append(Sectors.resource_types(s))
+	for list in lists:
 		check(list.size() >= 20, "20 resources per biome")
 		for t in list:
+			check(ResourceCatalog.has(t) or t in ["tree", "rock", "bush"], "%s is a resource node" % t)
 			if ResourceCatalog.has(t):
 				check(ItemCatalog.ITEMS.has(ResourceCatalog.NODES[t].item), "%s yields a known item" % t)
 				check(ResourceLoader.exists("res://assets/sprites/resources/%s.png" % t), "%s sprite" % t)

@@ -1,8 +1,9 @@
 class_name LabyrinthGenerator
 extends RefCounted
-## Deterministically builds the first labyrinth sector (Stone biome) from a
-## seed: a perfect maze (recursive backtracker) with a few loops and a short
-## vestibule at the bottom leading back to the Clearing.
+## Deterministically builds a labyrinth sector (see Sectors) from a seed: a
+## perfect maze (recursive backtracker) with a few loops, a short vestibule
+## at the bottom leading back south, and a guardian's arena at the top whose
+## sealed gate opens north onto the next sector.
 
 const COLS := 20
 const ROWS := 14
@@ -14,31 +15,30 @@ const LOOP_CHANCE := 0.08
 const ENEMY_CHANCE := 0.14
 const RESOURCE_CHANCE := 0.55
 const SECOND_CHANCE := 0.2
-## Labyrinth resource table: [node type, weight, minimum depth].
-const RESOURCES := [
-	["rubble", 6.0, 0.0], ["ore_coal", 7.0, 0.0], ["ore_copper", 6.0, 0.0], ["ore_tin", 4.0, 0.1],
-	["ore_iron", 4.0, 0.4], ["ore_silver", 2.5, 0.55], ["ore_gold", 1.5, 0.75], ["ore_crystal", 1.2, 0.8],
-	["quartz", 2.0, 0.35], ["obsidian", 1.5, 0.85], ["sulfur", 2.0, 0.25], ["saltpeter", 2.0, 0.25],
-	["glowcap", 3.0, 0.2], ["cave_moss", 4.0, 0.0], ["vines", 3.5, 0.0], ["bone_pile", 3.0, 0.1],
-	["scrap_heap", 2.5, 0.3], ["machine", 1.2, 0.5], ["shadow_orchid", 0.8, 0.65], ["cobweb", 3.0, 0.15],
-	["grass", 2.0, 0.0], ["mushroom", 1.5, 0.0],
-]
+## Resource table of the Stone sector: [node type, weight, minimum depth].
+const RESOURCES: Array = Sectors.DATA.labyrinth.resources
 const SAFE_RADIUS := 4 # maze cells around the entrance with no enemies
 const SEED_SALT := 7919
+const SECTOR_SALT := 104729
+## Maze cells merged into the guardian's arena (top centre).
+const ARENA := Rect2i(8, 0, 4, 2)
 
 const Id := TileCatalog.Id
 
 var _rng := RandomNumberGenerator.new()
 var _layout: ClearingLayout
 var _solid: Dictionary = {}
+var _sector := "labyrinth"
 
 
 static func map_size() -> Vector2i:
 	return Vector2i(COLS * PITCH + 4, ROWS * PITCH + 4 + VESTIBULE_ROWS)
 
 
-static func generate(seed_value: int) -> ClearingLayout:
-	return LabyrinthGenerator.new()._generate(seed_value)
+static func generate(seed_value: int, sector := "labyrinth") -> ClearingLayout:
+	var g := LabyrinthGenerator.new()
+	g._sector = sector
+	return g._generate(seed_value)
 
 
 ## Top-left tile of a maze cell's open 3x3 area.
@@ -47,7 +47,7 @@ static func cell_origin(mc: Vector2i) -> Vector2i:
 
 
 func _generate(seed_value: int) -> ClearingLayout:
-	_rng.seed = seed_value + SEED_SALT
+	_rng.seed = seed_value + SEED_SALT + Sectors.index_of(_sector) * SECTOR_SALT
 	var size := map_size()
 	_layout = ClearingLayout.new(size)
 	for y in size.y:
@@ -60,16 +60,38 @@ func _generate(seed_value: int) -> ClearingLayout:
 	var o := cell_origin(entry)
 	var vestibule := Rect2i(o.x, o.y + OPEN, OPEN, size.y - 3 - (o.y + OPEN))
 	_carve(vestibule)
+	var a0 := cell_origin(ARENA.position)
+	var a1 := cell_origin(ARENA.end - Vector2i.ONE) + Vector2i(OPEN, OPEN)
+	var arena := Rect2i(a0, a1 - a0)
+	_carve(arena)
+	var north := cell_origin(Vector2i(COLS / 2, 0))
+	_carve(Rect2i(north.x, 1, OPEN, BORDER - 1))
 	_layout.clearing_rect = Rect2i(o, Vector2i(OPEN, OPEN))
 	_paint_ground()
 	WallResolver.resolve(_layout, _solid, _rng)
 
+	var back := Sectors.prev_of(_sector)
 	_layout.portal_rect = Rect2i(o.x, size.y - 5, OPEN, 2)
-	_layout.portal_target = "clearing"
+	_layout.portal_target = back
 	_layout.fogged = true
 	_layout.return_cell = Vector2i(o.x + 1, o.y + OPEN + 1)
 	_layout.spawn_cell = _layout.return_cell
 	_layout.campfire_cell = _layout.return_cell
+	var forward := Sectors.next_of(_sector)
+	if forward == "":
+		forward = "escape"
+	_layout.portals = [
+		{"rect": _layout.portal_rect, "target": back},
+		{"rect": Rect2i(north.x, 1, OPEN, 1), "target": forward},
+	]
+	_layout.arrivals = {back: _layout.return_cell, forward: Vector2i(north.x + 1, BORDER + 1)}
+	var info := Sectors.info(_sector)
+	var keys: Array = [info.key]
+	if forward == "escape":
+		keys = Sectors.ORDER.map(func(s): return Sectors.DATA[s].key)
+	_layout.sector_gate = {"rect": Rect2i(north.x, BORDER - 1, OPEN, 1), "keys": keys}
+	_layout.boss = {"type": info.boss, "cell": arena.get_center()}
+	_layout.arena_rect = arena
 	_place_enemies(entry)
 	_place_resources(entry)
 	return _layout
@@ -82,9 +104,9 @@ func _place_enemies(entry: Vector2i) -> void:
 			var mc := Vector2i(mx, my)
 			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
 			var roll := _rng.randf()
-			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE:
+			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE or ARENA.has_point(mc):
 				continue
-			var type := EnemyCatalog.type_for_depth(dist / max_dist * 1.4, _rng.randf())
+			var type := EnemyCatalog.pick(_sector, dist / max_dist * 1.4, _rng.randf())
 			var o := cell_origin(mc)
 			_layout.enemy_spawns.append({"type": type, "cell": o + Vector2i(1, 1)})
 
@@ -101,7 +123,7 @@ func _place_resources(entry: Vector2i) -> void:
 			var depth := dist / max_dist * 1.4
 			var first := _rng.randi_range(0, 3)
 			var rolls := [_rng.randf(), _rng.randf()]
-			if dist <= 1:
+			if dist <= 1 or ARENA.has_point(mc):
 				continue
 			for k in 2:
 				if rolls[k] > (RESOURCE_CHANCE if k == 0 else SECOND_CHANCE):
@@ -111,17 +133,18 @@ func _place_resources(entry: Vector2i) -> void:
 
 
 func _pick_resource(depth: float) -> String:
+	var table: Array = Sectors.info(_sector).resources
 	var total := 0.0
-	for r in RESOURCES:
+	for r in table:
 		if depth >= r[2]:
 			total += r[1]
 	var x := _rng.randf() * total
-	for r in RESOURCES:
+	for r in table:
 		if depth >= r[2]:
 			x -= r[1]
 			if x <= 0.0:
 				return r[0]
-	return "rubble"
+	return table[0][0]
 
 func _carve(rect: Rect2i) -> void:
 	for y in range(rect.position.y, rect.end.y):
@@ -181,5 +204,5 @@ func _paint_ground() -> void:
 	for y in _layout.size.y:
 		for x in _layout.size.x:
 			var cell := Vector2i(x, y)
-			if not _solid.has(cell) and _rng.randf() < 0.18:
+			if not _solid.has(cell) and _rng.randf() < Sectors.info(_sector).moss:
 				_layout.set_ground(cell, Id.MAZE_FLOOR_MOSS)

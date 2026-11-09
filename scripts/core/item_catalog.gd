@@ -147,20 +147,20 @@ const ITEMS := {
 	"bone_charm": {"name": "Bone Charm", "stack": 1, "color": Color8(232, 224, 200), "slot": "amulet", "hp": 20, "desc": "Amulet. +20 max health."},
 	"crystal_amulet": {"name": "Crystal Amulet", "stack": 1, "color": Color8(120, 220, 240), "slot": "amulet", "hp": 40, "armor": 1, "desc": "Amulet. +40 max health, absorbs 1."},
 	"wool_tunic": {"name": "Wool Tunic", "stack": 1, "color": Color8(196, 170, 140), "slot": "body", "armor": 1, "hp": 10, "desc": "Body. Absorbs 1, +10 max health."},
-	"fur_coat": {"name": "Fur Coat", "stack": 1, "color": Color8(118, 84, 56), "slot": "body", "armor": 3, "hp": 15, "desc": "Body. Absorbs 3, +15 max health."},
+	"fur_coat": {"name": "Fur Coat", "stack": 1, "color": Color8(118, 84, 56), "slot": "body", "armor": 3, "hp": 15, "warm": 1, "desc": "Body. Absorbs 3, +15 max health. Warm 1."},
 	"scale_vest": {"name": "Scale Vest", "stack": 1, "color": Color8(80, 150, 90), "slot": "body", "armor": 4, "desc": "Body. Absorbs 4 damage."},
 	"bronze_armor": {"name": "Bronze Armor", "stack": 1, "color": Color8(200, 150, 70), "slot": "body", "armor": 5, "desc": "Body. Absorbs 5 damage."},
 	"chitin_armor": {"name": "Chitin Armor", "stack": 1, "color": Color8(110, 70, 50), "slot": "body", "armor": 6, "hp": 10, "desc": "Body. Absorbs 6, +10 max health."},
 	"silk_robe": {"name": "Silk Robe", "stack": 1, "color": Color8(200, 60, 140), "slot": "body", "armor": 2, "hp": 35, "desc": "Body. Absorbs 2, +35 max health."},
 	"obsidian_plate": {"name": "Obsidian Plate", "stack": 1, "color": Color8(54, 36, 74), "slot": "body", "armor": 9, "desc": "Body. Absorbs 9 damage."},
-	"straw_hat": {"name": "Straw Hat", "stack": 1, "color": Color8(222, 186, 92), "slot": "head", "hp": 5, "desc": "Head. +5 max health. Keeps the sun off."},
-	"fur_hood": {"name": "Fur Hood", "stack": 1, "color": Color8(118, 84, 56), "slot": "head", "armor": 1, "hp": 8, "desc": "Head. Absorbs 1, +8 max health."},
+	"straw_hat": {"name": "Straw Hat", "stack": 1, "color": Color8(222, 186, 92), "slot": "head", "hp": 5, "cool": 1, "desc": "Head. +5 max health. Cool 1: keeps the sun off."},
+	"fur_hood": {"name": "Fur Hood", "stack": 1, "color": Color8(118, 84, 56), "slot": "head", "armor": 1, "hp": 8, "warm": 1, "desc": "Head. Absorbs 1, +8 max health. Warm 1."},
 	"bronze_helm": {"name": "Bronze Helm", "stack": 1, "color": Color8(200, 150, 70), "slot": "head", "armor": 2, "hp": 5, "desc": "Head. Absorbs 2, +5 max health."},
 	"chitin_helm": {"name": "Chitin Helm", "stack": 1, "color": Color8(110, 70, 50), "slot": "head", "armor": 3, "desc": "Head. Absorbs 3 damage."},
 	"horned_helm": {"name": "Horned Helm", "stack": 1, "color": Color8(220, 206, 170), "slot": "head", "armor": 4, "dmg": 2, "desc": "Head. Absorbs 4, +2 damage."},
 	"obsidian_helm": {"name": "Obsidian Helm", "stack": 1, "color": Color8(54, 36, 74), "slot": "head", "armor": 4, "hp": 5, "desc": "Head. Absorbs 4, +5 max health."},
 	"reed_sandals": {"name": "Reed Sandals", "stack": 1, "color": Color8(170, 160, 96), "slot": "feet", "hp": 5, "desc": "Feet. +5 max health."},
-	"fur_boots": {"name": "Fur Boots", "stack": 1, "color": Color8(118, 84, 56), "slot": "feet", "armor": 1, "hp": 12, "desc": "Feet. Absorbs 1, +12 max health."},
+	"fur_boots": {"name": "Fur Boots", "stack": 1, "color": Color8(118, 84, 56), "slot": "feet", "armor": 1, "hp": 12, "warm": 1, "desc": "Feet. Absorbs 1, +12 max health. Warm 1."},
 	"bronze_boots": {"name": "Bronze Boots", "stack": 1, "color": Color8(200, 150, 70), "slot": "feet", "armor": 2, "hp": 5, "desc": "Feet. Absorbs 2, +5 max health."},
 	"obsidian_boots": {"name": "Obsidian Boots", "stack": 1, "color": Color8(54, 36, 74), "slot": "feet", "armor": 3, "hp": 15, "desc": "Feet. Absorbs 3, +15 max health."},
 	"wooden_shield": {"name": "Wooden Shield", "stack": 1, "color": Color8(160, 114, 68), "slot": "offhand", "armor": 1, "block": 10, "desc": "Offhand. Absorbs 1, 10% chance to block a hit."},
@@ -207,6 +207,93 @@ const ITEMS := {
 	"healing_potion": {"name": "Healing Potion", "stack": 10, "color": Color8(210, 56, 70), "heal": 50.0, "desc": "Red and sweet (+50 health)."},
 	"greater_potion": {"name": "Greater Potion", "stack": 10, "color": Color8(200, 60, 200), "heal": 100.0, "cure": true, "desc": "Glows violet (+100 health, cures poison)."},
 	"antidote": {"name": "Antidote", "stack": 10, "color": Color8(80, 200, 110), "cure": true, "heal": 5.0, "desc": "Cures poison and slowness."},
+	# --- sector resources (Overgrowth, Dunes, Rime Halls, Cinder Forge, Pit)
+	"thorn": {"name": "Thorn", "stack": 40, "color": Color8(90, 150, 60), "desc": "Wicked briar spike. Arrowheads and traps."},
+	"living_root": {"name": "Living Root", "stack": 20, "color": Color8(120, 150, 70), "desc": "Still twitches. Druids carve staves from it."},
+	"moon_petal": {"name": "Moon Petal", "stack": 20, "color": Color8(190, 220, 250), "desc": "Glows under the stars. Potent elixirs."},
+	"royal_jelly": {"name": "Royal Jelly", "stack": 10, "color": Color8(250, 236, 170), "food": 20.0, "heal": 20.0, "desc": "Hive queen's food (+20 food, +20 health)."},
+	"amber": {"name": "Amber", "stack": 20, "color": Color8(230, 150, 40), "desc": "Fossil resin with a tiny insect inside."},
+	"sunstone": {"name": "Sunstone", "stack": 10, "color": Color8(250, 210, 80), "desc": "Warm to the touch, even at night."},
+	"fossil": {"name": "Fossil", "stack": 20, "color": Color8(210, 196, 160), "desc": "Bones of something that walked here before the walls."},
+	"salt": {"name": "Salt", "stack": 40, "color": Color8(240, 240, 236), "desc": "Cures meat. Jerky keeps forever."},
+	"sandstone": {"name": "Sandstone", "stack": 40, "color": Color8(214, 176, 120), "desc": "Soft golden stone. Easy to carve."},
+	"cactus_pulp": {"name": "Cactus Pulp", "stack": 40, "color": Color8(110, 170, 90), "food": 3.0, "water": 20.0, "desc": "Wet and bitter (+20 water, +3 food)."},
+	"dates": {"name": "Dates", "stack": 40, "color": Color8(150, 90, 50), "food": 14.0, "water": 4.0, "desc": "Sticky palm fruit (+14 food)."},
+	"ice": {"name": "Ice", "stack": 40, "color": Color8(190, 230, 250), "water": 12.0, "desc": "Chew it for water (+12) or brew cooling draughts."},
+	"frost_crystal": {"name": "Frost Crystal", "stack": 20, "color": Color8(140, 200, 250), "desc": "Never melts. Frost staves and rings."},
+	"mithril_ore": {"name": "Mithril Ore", "stack": 40, "color": Color8(170, 220, 230), "desc": "Feather-light silver-blue ore. Needs an obsidian pickaxe."},
+	"snowberry": {"name": "Snowberries", "stack": 40, "color": Color8(230, 240, 250), "food": 9.0, "water": 3.0, "desc": "Frozen berries (+9 food)."},
+	"frost_pelt": {"name": "Frost Pelt", "stack": 20, "color": Color8(220, 230, 240), "desc": "Thick white fur. Parkas and snow boots."},
+	"basalt": {"name": "Basalt", "stack": 40, "color": Color8(70, 66, 70), "desc": "Dense volcanic rock."},
+	"magma_core": {"name": "Magma Core", "stack": 20, "color": Color8(250, 120, 40), "desc": "A still-molten heart. Fire weapons."},
+	"ash": {"name": "Ash", "stack": 40, "color": Color8(150, 146, 146), "desc": "Fine grey ash. Fireproofs cloth."},
+	"ember_ore": {"name": "Ember Ore", "stack": 40, "color": Color8(210, 80, 50), "desc": "Glowing red ore. Needs an obsidian pickaxe."},
+	"fire_petal": {"name": "Fire Petal", "stack": 20, "color": Color8(250, 110, 50), "desc": "Hot as a coal. Warming tonics and spice."},
+	"fire_gland": {"name": "Fire Gland", "stack": 20, "color": Color8(240, 90, 40), "desc": "From fire-breathing beasts."},
+	"demon_horn": {"name": "Demon Horn", "stack": 10, "color": Color8(150, 40, 40), "desc": "Black-red horn of a Pit dweller."},
+	"soul_shard": {"name": "Soul Shard", "stack": 20, "color": Color8(150, 236, 220), "desc": "Whispers when held."},
+	"cursed_bone": {"name": "Cursed Bone", "stack": 40, "color": Color8(190, 170, 200), "desc": "Bone stained violet. Cold."},
+	"hellsteel_ore": {"name": "Hellsteel Ore", "stack": 40, "color": Color8(130, 50, 50), "desc": "The hardest metal. Needs a mithril pickaxe."},
+	"brimstone": {"name": "Brimstone", "stack": 40, "color": Color8(240, 190, 60), "desc": "Burning sulfur. Hellsteel flux."},
+	"blood_moss": {"name": "Blood Moss", "stack": 40, "color": Color8(170, 40, 50), "heal": 6.0, "desc": "Red moss that stops bleeding (+6 health)."},
+	# --- guardian keys (bound: never lost on death)
+	"key_stone": {"name": "Stone Key", "stack": 1, "color": Color8(170, 182, 168), "bound": true, "desc": "Taken from the Stone Colossus. Opens the Overgrowth."},
+	"key_overgrowth": {"name": "Briar Key", "stack": 1, "color": Color8(90, 150, 60), "bound": true, "desc": "Taken from the Briar Hydra. Opens the Sunken Dunes."},
+	"key_desert": {"name": "Sun Key", "stack": 1, "color": Color8(250, 210, 80), "bound": true, "desc": "Taken from the Sun Wyrm. Opens the Rime Halls."},
+	"key_ice": {"name": "Rime Key", "stack": 1, "color": Color8(140, 200, 250), "bound": true, "desc": "Taken from the Hoarfrost Dragon. Opens the Cinder Forge."},
+	"key_volcano": {"name": "Forge Key", "stack": 1, "color": Color8(250, 120, 40), "bound": true, "desc": "Taken from the Forgeheart Giant. Opens the Pit."},
+	"key_hell": {"name": "Pit Key", "stack": 1, "color": Color8(150, 40, 40), "bound": true, "desc": "Taken from the Pit Lord. With all six Keys, the last gate opens."},
+	# --- sector materials
+	"mithril_ingot": {"name": "Mithril Ingot", "stack": 40, "color": Color8(170, 220, 230), "desc": "Light as cloth, hard as iron."},
+	"ember_ingot": {"name": "Ember Ingot", "stack": 40, "color": Color8(230, 100, 50), "desc": "Forever warm metal."},
+	"hellsteel_ingot": {"name": "Hellsteel Ingot", "stack": 40, "color": Color8(130, 50, 50), "desc": "Forged in the Pit's fire."},
+	"waterskin": {"name": "Waterskin", "stack": 5, "color": Color8(132, 88, 54), "desc": "Empty. Fill it at a pond or a well (E)."},
+	"waterskin_full": {"name": "Full Waterskin", "stack": 5, "color": Color8(70, 140, 190), "water": 50.0, "desc": "H drinks it (+50 water)."},
+	# --- sector gear (warm / cool: protection against cold / heat)
+	"mithril_axe": {"name": "Mithril Axe", "stack": 1, "color": Color8(170, 220, 230), "tool": "axe", "tier": 5, "dmg": 16, "desc": "+16 damage."},
+	"mithril_pickaxe": {"name": "Mithril Pickaxe", "stack": 1, "color": Color8(170, 220, 230), "tool": "pickaxe", "tier": 5, "dmg": 14, "desc": "Mines hellsteel. +14 damage."},
+	"mithril_sword": {"name": "Mithril Sword", "stack": 1, "color": Color8(170, 220, 230), "dmg": 30, "desc": "Sings through the air. +30 damage."},
+	"ember_blade": {"name": "Ember Blade", "stack": 1, "color": Color8(230, 100, 50), "dmg": 36, "desc": "Leaves burning trails. +36 damage."},
+	"hellsteel_pickaxe": {"name": "Hellsteel Pickaxe", "stack": 1, "color": Color8(130, 50, 50), "tool": "pickaxe", "tier": 6, "dmg": 18, "desc": "Breaks anything. +18 damage."},
+	"hellsteel_greatsword": {"name": "Hellsteel Greatsword", "stack": 1, "color": Color8(130, 50, 50), "dmg": 46, "desc": "A slab of black-red steel. +46 damage."},
+	"bone_crown": {"name": "Bone Crown", "stack": 1, "color": Color8(190, 170, 200), "slot": "head", "armor": 5, "dmg": 5, "desc": "Head. Absorbs 5, +5 damage."},
+	"druid_staff": {"name": "Druid Staff", "stack": 1, "color": Color8(120, 150, 70), "dmg": 22, "ranged": "thorn", "desc": "Fires thorns, no ammo needed. +22 damage."},
+	"frost_staff": {"name": "Frost Staff", "stack": 1, "color": Color8(140, 200, 250), "dmg": 30, "ranged": "frost", "desc": "Fires frost shards. +30 damage."},
+	"fire_staff": {"name": "Fire Staff", "stack": 1, "color": Color8(250, 120, 40), "dmg": 38, "ranged": "fire", "desc": "Hurls fireballs. +38 damage."},
+	"ember_bow": {"name": "Ember Bow", "stack": 1, "color": Color8(230, 100, 50), "dmg": 24, "ranged": "arrow", "desc": "Shoots arrows. +24 damage."},
+	"thorn_arrow": {"name": "Thorn Arrow", "stack": 40, "color": Color8(90, 150, 60), "arrow": 6, "desc": "Ammunition for bows. +6 damage."},
+	"mithril_arrow": {"name": "Mithril Arrow", "stack": 40, "color": Color8(170, 220, 230), "arrow": 12, "desc": "Ammunition for bows. +12 damage."},
+	"fire_arrow": {"name": "Fire Arrow", "stack": 20, "color": Color8(250, 120, 40), "arrow": 20, "desc": "Ammunition for bows. +20 damage."},
+	"parka": {"name": "Frost Parka", "stack": 1, "color": Color8(220, 230, 240), "slot": "body", "armor": 3, "hp": 20, "warm": 2, "desc": "Body. Absorbs 3, +20 max health. Warm 2."},
+	"snow_boots": {"name": "Snow Boots", "stack": 1, "color": Color8(220, 230, 240), "slot": "feet", "armor": 2, "hp": 10, "warm": 1, "desc": "Feet. Absorbs 2, +10 max health. Warm 1."},
+	"desert_wrap": {"name": "Desert Wrap", "stack": 1, "color": Color8(226, 206, 150), "slot": "head", "hp": 8, "cool": 1, "desc": "Head. +8 max health. Cool 1."},
+	"sun_robe": {"name": "Sun Robe", "stack": 1, "color": Color8(250, 220, 140), "slot": "body", "armor": 2, "hp": 25, "cool": 1, "desc": "Body. Absorbs 2, +25 max health. Cool 1."},
+	"fire_cloak": {"name": "Ashen Cloak", "stack": 1, "color": Color8(150, 146, 146), "slot": "body", "armor": 5, "hp": 15, "cool": 2, "desc": "Body. Absorbs 5, +15 max health. Cool 2."},
+	"ember_helm": {"name": "Ember Helm", "stack": 1, "color": Color8(230, 100, 50), "slot": "head", "armor": 5, "hp": 5, "cool": 1, "desc": "Head. Absorbs 5, +5 max health. Cool 1."},
+	"mithril_helm": {"name": "Mithril Helm", "stack": 1, "color": Color8(170, 220, 230), "slot": "head", "armor": 5, "hp": 10, "desc": "Head. Absorbs 5, +10 max health."},
+	"mithril_armor": {"name": "Mithril Mail", "stack": 1, "color": Color8(170, 220, 230), "slot": "body", "armor": 11, "hp": 10, "desc": "Body. Absorbs 11, +10 max health."},
+	"mithril_boots": {"name": "Mithril Boots", "stack": 1, "color": Color8(170, 220, 230), "slot": "feet", "armor": 4, "hp": 15, "desc": "Feet. Absorbs 4, +15 max health."},
+	"mithril_shield": {"name": "Mithril Shield", "stack": 1, "color": Color8(170, 220, 230), "slot": "offhand", "armor": 5, "block": 35, "desc": "Offhand. Absorbs 5, 35% block."},
+	"basalt_shield": {"name": "Basalt Shield", "stack": 1, "color": Color8(70, 66, 70), "slot": "offhand", "armor": 6, "block": 30, "desc": "Offhand. Absorbs 6, 30% block."},
+	"hellsteel_helm": {"name": "Hellsteel Helm", "stack": 1, "color": Color8(130, 50, 50), "slot": "head", "armor": 7, "hp": 10, "desc": "Head. Absorbs 7, +10 max health."},
+	"hellsteel_plate": {"name": "Hellsteel Plate", "stack": 1, "color": Color8(130, 50, 50), "slot": "body", "armor": 14, "hp": 20, "cool": 1, "desc": "Body. Absorbs 14, +20 max health. Cool 1."},
+	"hellsteel_boots": {"name": "Hellsteel Boots", "stack": 1, "color": Color8(130, 50, 50), "slot": "feet", "armor": 6, "hp": 20, "desc": "Feet. Absorbs 6, +20 max health."},
+	"amber_amulet": {"name": "Amber Amulet", "stack": 1, "color": Color8(230, 150, 40), "slot": "amulet", "hp": 40, "armor": 1, "desc": "Amulet. +40 max health, absorbs 1."},
+	"fossil_charm": {"name": "Fossil Charm", "stack": 1, "color": Color8(210, 196, 160), "slot": "amulet", "hp": 20, "armor": 2, "desc": "Amulet. +20 max health, absorbs 2."},
+	"soul_amulet": {"name": "Soul Amulet", "stack": 1, "color": Color8(150, 236, 220), "slot": "amulet", "hp": 70, "dmg": 5, "desc": "Amulet. +70 max health, +5 damage."},
+	"sunstone_ring": {"name": "Sunstone Ring", "stack": 1, "color": Color8(250, 210, 80), "slot": "ring", "dmg": 6, "hp": 10, "warm": 1, "desc": "Ring. +6 damage, +10 max health. Warm 1."},
+	"frost_ring": {"name": "Frost Ring", "stack": 1, "color": Color8(140, 200, 250), "slot": "ring", "dmg": 6, "cool": 1, "desc": "Ring. +6 damage. Cool 1."},
+	"demon_ring": {"name": "Demon Ring", "stack": 1, "color": Color8(150, 40, 40), "slot": "ring", "dmg": 11, "desc": "Ring. +11 damage."},
+	# --- sector food and medicine
+	"jerky": {"name": "Jerky", "stack": 40, "color": Color8(130, 70, 50), "food": 28.0, "desc": "Salted dried meat (+28 food)."},
+	"cactus_salad": {"name": "Cactus Salad", "stack": 10, "color": Color8(110, 170, 90), "food": 24.0, "water": 25.0, "desc": "Crunchy and wet (+24 food, +25 water)."},
+	"date_cake": {"name": "Date Cake", "stack": 10, "color": Color8(150, 90, 50), "food": 55.0, "desc": "Dense and sweet (+55 food)."},
+	"snowberry_tart": {"name": "Snowberry Tart", "stack": 10, "color": Color8(200, 220, 240), "food": 52.0, "desc": "Tart and icy (+52 food)."},
+	"spiced_stew": {"name": "Spiced Stew", "stack": 10, "color": Color8(200, 80, 40), "food": 90.0, "heal": 20.0, "warmth": 240.0, "desc": "Burns going down (+90 food, +20 health, warm for 4 min)."},
+	"cooling_draught": {"name": "Cooling Draught", "stack": 10, "color": Color8(140, 210, 250), "water": 20.0, "chill": 300.0, "desc": "Cool 2 for 5 minutes, +20 water."},
+	"warming_tonic": {"name": "Warming Tonic", "stack": 10, "color": Color8(250, 140, 60), "warmth": 300.0, "desc": "Warm 2 for 5 minutes."},
+	"moon_elixir": {"name": "Moon Elixir", "stack": 10, "color": Color8(190, 220, 250), "heal": 130.0, "cure": true, "desc": "+130 health, cures poison."},
+	"blood_salve": {"name": "Blood Salve", "stack": 20, "color": Color8(170, 40, 50), "heal": 40.0, "desc": "+40 health."},
 	"stamina_tonic": {"name": "Stamina Tonic", "stack": 10, "color": Color8(240, 200, 60), "stamina": 100.0, "food": 5.0, "desc": "Restores all stamina."},	# --- buildings
 	"workbench": {"name": "Workbench", "stack": 5, "color": Color8(166, 120, 72), "desc": "Place with B, E to use. Woodwork and new stations."},
 	"furnace": {"name": "Furnace", "stack": 5, "color": Color8(120, 120, 124), "desc": "Place with B, E to use. Smelts ore, fires clay."},
@@ -223,6 +310,9 @@ const ITEMS := {
 	"stone_floor": {"name": "Stone Floor", "stack": 40, "color": Color8(150, 154, 148), "desc": "Place with B. Walkable."},
 	"brick_wall": {"name": "Brick Wall", "stack": 40, "color": Color8(184, 82, 60), "desc": "Place with B. Warm red masonry."},
 	"farm_plot": {"name": "Farm Plot", "stack": 10, "color": Color8(110, 78, 50), "desc": "Place with B. E on it picks a seed to sow: berries, wheat, carrots, herbs, mushrooms..."},
+	"well": {"name": "Well", "stack": 5, "color": Color8(120, 126, 130), "desc": "Place with B. E drinks or fills a waterskin, anywhere."},
+	"standing_torch": {"name": "Standing Torch", "stack": 20, "color": Color8(245, 154, 58), "desc": "Place with B. Lights the night and scares off some creatures."},
+	"waystone": {"name": "Waystone", "stack": 2, "color": Color8(150, 200, 220), "desc": "Place with B. E travels to any sector already reached."},
 }
 
 ## station: "" = craftable anywhere, otherwise a node group that must be near.
@@ -407,6 +497,57 @@ const RECIPES := [
 	{"id": "glowcap_broth", "out": 1, "in": {"glowcap": 3, "moss": 1, "cooked_meat": 1}, "station": "cooking_pot"},
 	{"id": "hunter_feast", "out": 1, "in": {"cooked_meat": 3, "baked_potato": 2, "flatbread": 1, "berry_jam": 1}, "station": "cooking_pot"},
 	{"id": "berry_jam", "out": 1, "in": {"blueberry": 4, "honey": 1}, "station": "cooking_pot"},
+	# --- sectors: water, climate gear and new metals
+	{"id": "thorn_arrow", "out": 6, "in": {"thorn": 3, "stick": 2}, "station": ""},
+	{"id": "jerky", "out": 2, "in": {"raw_meat": 2, "salt": 1}, "station": "campfire"},
+	{"id": "waterskin", "out": 1, "in": {"leather": 2, "rope": 1}, "station": "workbench"},
+	{"id": "standing_torch", "out": 1, "in": {"stick": 2, "torch": 1, "stone": 2}, "station": "workbench"},
+	{"id": "well", "out": 1, "in": {"stone": 14, "plank": 4, "rope": 2}, "station": "stonecutter"},
+	{"id": "waystone", "out": 1, "in": {"sandstone": 8, "crystal": 2, "gold_ingot": 1}, "station": "stonecutter"},
+	{"id": "druid_staff", "out": 1, "in": {"living_root": 3, "moon_petal": 1, "plank": 2}, "station": "workbench"},
+	{"id": "mithril_ingot", "out": 1, "in": {"mithril_ore": 2, "coal": 2}, "station": "furnace"},
+	{"id": "ember_ingot", "out": 1, "in": {"ember_ore": 2, "coal": 2}, "station": "furnace"},
+	{"id": "hellsteel_ingot", "out": 1, "in": {"hellsteel_ore": 2, "brimstone": 1, "coal": 2}, "station": "furnace"},
+	{"id": "mithril_axe", "out": 1, "in": {"mithril_ingot": 3, "stick": 2}, "station": "anvil"},
+	{"id": "mithril_pickaxe", "out": 1, "in": {"mithril_ingot": 3, "stick": 2}, "station": "anvil"},
+	{"id": "mithril_sword", "out": 1, "in": {"mithril_ingot": 4, "leather": 1}, "station": "anvil"},
+	{"id": "mithril_helm", "out": 1, "in": {"mithril_ingot": 4, "leather": 1}, "station": "anvil"},
+	{"id": "mithril_armor", "out": 1, "in": {"mithril_ingot": 8, "leather": 2}, "station": "anvil"},
+	{"id": "mithril_boots", "out": 1, "in": {"mithril_ingot": 3, "frost_pelt": 1}, "station": "anvil"},
+	{"id": "mithril_shield", "out": 1, "in": {"mithril_ingot": 5, "plank": 2}, "station": "anvil"},
+	{"id": "mithril_arrow", "out": 6, "in": {"mithril_ingot": 1, "stick": 3, "feather": 2}, "station": "anvil"},
+	{"id": "ember_blade", "out": 1, "in": {"ember_ingot": 5, "magma_core": 1, "leather": 1}, "station": "anvil"},
+	{"id": "ember_helm", "out": 1, "in": {"ember_ingot": 4, "ash": 2}, "station": "anvil"},
+	{"id": "ember_bow", "out": 1, "in": {"ember_ingot": 2, "living_root": 2, "bowstring": 1}, "station": "workbench"},
+	{"id": "fire_arrow", "out": 6, "in": {"ember_ingot": 1, "stick": 3, "fire_gland": 1}, "station": "anvil"},
+	{"id": "basalt_shield", "out": 1, "in": {"basalt": 8, "ember_ingot": 1}, "station": "anvil"},
+	{"id": "hellsteel_pickaxe", "out": 1, "in": {"hellsteel_ingot": 3, "stick": 2}, "station": "anvil"},
+	{"id": "hellsteel_greatsword", "out": 1, "in": {"hellsteel_ingot": 6, "demon_horn": 1, "leather": 2}, "station": "anvil"},
+	{"id": "hellsteel_helm", "out": 1, "in": {"hellsteel_ingot": 4, "leather": 1}, "station": "anvil"},
+	{"id": "hellsteel_plate", "out": 1, "in": {"hellsteel_ingot": 9, "leather": 3, "ash": 3}, "station": "anvil"},
+	{"id": "hellsteel_boots", "out": 1, "in": {"hellsteel_ingot": 3, "leather": 1}, "station": "anvil"},
+	{"id": "bone_crown", "out": 1, "in": {"cursed_bone": 6, "demon_horn": 1}, "station": "anvil"},
+	{"id": "amber_amulet", "out": 1, "in": {"amber": 3, "gold_ingot": 2}, "station": "anvil"},
+	{"id": "sunstone_ring", "out": 1, "in": {"sunstone": 2, "gold_ingot": 1}, "station": "anvil"},
+	{"id": "frost_ring", "out": 1, "in": {"frost_crystal": 3, "silver_ingot": 2}, "station": "anvil"},
+	{"id": "demon_ring", "out": 1, "in": {"demon_horn": 2, "hellsteel_ingot": 1}, "station": "anvil"},
+	{"id": "fossil_charm", "out": 1, "in": {"fossil": 2, "rope": 1}, "station": "workbench"},
+	{"id": "parka", "out": 1, "in": {"frost_pelt": 4, "leather": 2}, "station": "tanning_rack"},
+	{"id": "snow_boots", "out": 1, "in": {"frost_pelt": 2, "leather": 1}, "station": "tanning_rack"},
+	{"id": "desert_wrap", "out": 1, "in": {"cloth": 3, "rope": 1}, "station": "loom"},
+	{"id": "sun_robe", "out": 1, "in": {"cloth": 5, "silk": 2}, "station": "loom"},
+	{"id": "fire_cloak", "out": 1, "in": {"silk_cloth": 3, "ash": 4, "fire_gland": 2}, "station": "loom"},
+	{"id": "frost_staff", "out": 1, "in": {"frost_crystal": 4, "mithril_ingot": 1, "stick": 2}, "station": "alchemy_table"},
+	{"id": "fire_staff", "out": 1, "in": {"magma_core": 2, "ember_ingot": 2, "stick": 2}, "station": "alchemy_table"},
+	{"id": "soul_amulet", "out": 1, "in": {"soul_shard": 4, "gold_ingot": 2, "demon_horn": 1}, "station": "alchemy_table"},
+	{"id": "cooling_draught", "out": 1, "in": {"glass_vial": 1, "ice": 2, "herb": 1}, "station": "alchemy_table"},
+	{"id": "warming_tonic", "out": 1, "in": {"glass_vial": 1, "fire_petal": 1, "herb": 1}, "station": "alchemy_table"},
+	{"id": "moon_elixir", "out": 1, "in": {"glass_vial": 1, "moon_petal": 2, "royal_jelly": 1}, "station": "alchemy_table"},
+	{"id": "blood_salve", "out": 2, "in": {"blood_moss": 3, "resin": 1}, "station": "alchemy_table"},
+	{"id": "cactus_salad", "out": 1, "in": {"cactus_pulp": 2, "herb": 1, "salt": 1}, "station": "cooking_pot"},
+	{"id": "date_cake", "out": 1, "in": {"flour": 2, "dates": 4, "egg": 1}, "station": "cooking_pot"},
+	{"id": "snowberry_tart", "out": 1, "in": {"flour": 2, "snowberry": 4, "honey": 1}, "station": "cooking_pot"},
+	{"id": "spiced_stew", "out": 1, "in": {"cooked_meat": 2, "fire_petal": 1, "potato": 2, "salt": 1}, "station": "cooking_pot"},
 ]
 
 ## Crafting stations (node groups) with display names; "" means by hand.
@@ -610,7 +751,24 @@ static func heal_of(id: String) -> float:
 ## True for items that are used up on click (food, medicine, potions).
 static func is_consumable(id: String) -> bool:
 	var it: Dictionary = ITEMS.get(id, {})
-	return it.get("food", 0.0) > 0.0 or it.get("heal", 0.0) > 0.0 or it.get("cure", false) or it.get("stamina", 0.0) > 0.0
+	return it.get("food", 0.0) > 0.0 or it.get("heal", 0.0) > 0.0 or it.get("cure", false) \
+		or it.get("stamina", 0.0) > 0.0 or it.get("water", 0.0) > 0.0 or it.get("warmth", 0.0) > 0.0 \
+		or it.get("chill", 0.0) > 0.0
+
+
+## Thirst restored when consumed (0 = none).
+static func water_of(id: String) -> float:
+	return ITEMS.get(id, {}).get("water", 0.0)
+
+
+## Cold protection of a worn piece.
+static func warm_of(id: String) -> int:
+	return ITEMS.get(id, {}).get("warm", 0)
+
+
+## Heat protection of a worn piece.
+static func cool_of(id: String) -> int:
+	return ITEMS.get(id, {}).get("cool", 0)
 
 
 ## Projectile kind a weapon fires ("" = melee).

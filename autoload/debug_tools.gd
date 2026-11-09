@@ -5,7 +5,7 @@ extends Node
 ##     --seed=<int>             force world seed
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
-##     --area=<name>            start in an area (clearing, labyrinth)
+##     --area=<name>            start in an area (clearing or a sector id, see Sectors)
 ##     --skills                 open the skill screen with 3 points
 ##     --map                    open the map overlay
 ##     --menu=<page>            open the Esc menu (main, save, load, controls)

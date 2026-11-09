@@ -14,6 +14,8 @@ const COLORS := {
 	"orb": [Color8(200, 110, 240), Color8(110, 50, 160), Color8(250, 210, 255)],
 	"thorn": [Color8(90, 150, 60), Color8(50, 90, 36), Color8(170, 220, 120)],
 	"javelin": [Color8(150, 110, 70), Color8(190, 194, 202), Color8(236, 236, 240)],
+	"fire": [Color8(246, 168, 60), Color8(210, 76, 44), Color8(255, 240, 160)],
+	"frost": [Color8(160, 220, 250), Color8(70, 130, 210), Color8(240, 252, 255)],
 }
 
 var kind := "arrow"
@@ -113,6 +115,12 @@ func _draw() -> void:
 			var flick := 1.0 if int(_t * 30.0) % 2 == 0 else -1.0
 			draw_polyline(PackedVector2Array([Vector2(-7, 0), Vector2(-3, -2 * flick), Vector2(1, 2 * flick), Vector2(6, 0)]), c[1], 2.0)
 			draw_polyline(PackedVector2Array([Vector2(-7, 0), Vector2(-3, -2 * flick), Vector2(1, 2 * flick), Vector2(6, 0)]), c[2], 1.0)
+		"fire", "frost":
+			var wob := 0.6 * sin(_t * 40.0)
+			draw_circle(Vector2(-4, 0), 2.5 + wob, Color(c[1], 0.6))
+			draw_circle(Vector2.ZERO, 4.5, Color(c[1], 0.75))
+			draw_circle(Vector2(1, 0), 3.0, c[0])
+			draw_rect(Rect2(0, -1, 2, 2), c[2])
 		"orb":
 			draw_circle(Vector2.ZERO, 4.5, Color(c[1], 0.7))
 			draw_circle(Vector2.ZERO, 3.0, c[0])

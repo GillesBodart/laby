@@ -20,6 +20,9 @@ const TYPES := {
 	"wooden_floor": {"solid": false, "layer": "floor", "group": ""},
 	"farm_plot": {"solid": false, "layer": "floor", "group": "farm_plot"},
 	"wooden_door": {"solid": true, "layer": "entity", "group": "", "door": true},
+	"well": {"solid": true, "layer": "entity", "group": "well"},
+	"standing_torch": {"solid": true, "layer": "entity", "group": "standing_torch", "light": 1.2},
+	"waystone": {"solid": true, "layer": "entity", "group": "waystone"},
 }
 
 

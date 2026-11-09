@@ -111,7 +111,7 @@ func _draw() -> void:
 	if world == null or _texture == null:
 		return
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BG)
-	var title := "LABYRINTH MAP" if world.layout.fogged else "THE CLEARING"
+	var title := Sectors.display_name(GameState.area).to_upper() if world.layout.fogged else "THE CLEARING"
 	draw_rect(Rect2(160, 4, 160, 20), PLATE)
 	draw_rect(Rect2(160, 4, 160, 20), INK, false)
 	var tw := _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
@@ -121,10 +121,14 @@ func _draw() -> void:
 	var origin := FRAME.position + (FRAME.size - map_size) / 2.0
 	draw_rect(Rect2(origin - Vector2(2, 2), map_size + Vector2(4, 4)), EDGE, false, 2.0)
 	draw_texture_rect(_texture, Rect2(origin, map_size), false)
-	var portal := Rect2(origin + Vector2(world.layout.portal_rect.position) * scale,
-			Vector2(world.layout.portal_rect.size) * scale)
-	if world.layout.portal_target != "":
+	for portal_def in world.layout.all_portals():
+		var portal := Rect2(origin + Vector2(portal_def.rect.position) * scale, Vector2(portal_def.rect.size) * scale)
 		draw_rect(portal, Color8(120, 220, 120), false, 1.0)
+	if not world.layout.boss.is_empty() and world.fog != null and world.fog.is_explored(world.layout.boss.cell):
+		var bp := origin + (Vector2(world.layout.boss.cell) + Vector2(0.5, 0.5)) * scale
+		var dead := GameState.bosses_defeated.has(world.layout.boss.type)
+		draw_rect(Rect2(bp - Vector2(3, 3), Vector2(6, 6)), Color8(120, 120, 120) if dead else Color8(190, 90, 230))
+		draw_rect(Rect2(bp - Vector2(3, 3), Vector2(6, 6)), INK, false, 1.0)
 	var blink := int(Time.get_ticks_msec() / 400) % 2 == 0
 	for player in GameState.players.values():
 		var c := world.clearing.walls.local_to_map(world.clearing.walls.to_local(player.global_position))

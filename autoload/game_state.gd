@@ -8,6 +8,11 @@ const STASH_SLOTS := 40
 const AREA_SCENES := {
 	"clearing": "res://scenes/world/world.tscn",
 	"labyrinth": "res://scenes/world/labyrinth.tscn",
+	"overgrowth": "res://scenes/world/labyrinth.tscn",
+	"desert": "res://scenes/world/labyrinth.tscn",
+	"ice": "res://scenes/world/labyrinth.tscn",
+	"volcano": "res://scenes/world/labyrinth.tscn",
+	"hell": "res://scenes/world/labyrinth.tscn",
 }
 
 var world_seed: int = 0
@@ -37,6 +42,16 @@ var structures: Dictionary = {}
 var stash := Inventory.new(STASH_SLOTS)
 ## Dropped backpacks: [{"area": String, "pos": [x, y], "items": Array}].
 var remains: Array = []
+## Area left by the last travel (picks the arrival cell in the new area).
+var came_from := ""
+## Sectors ever entered (sector id -> true): the Waystone travels to them.
+var reached: Dictionary = {}
+## Keys earned from sector guardians (key item id -> true); they unseal gates.
+var keys: Dictionary = {}
+## Guardians slain (boss type -> true); they never come back.
+var bosses_defeated: Dictionary = {}
+## Set once the players walk out of the Pit's last gate.
+var escaped := false
 
 
 func _ready() -> void:
@@ -62,17 +77,52 @@ func new_game(seed_value: int = 0) -> void:
 	structures = {}
 	stash = Inventory.new(STASH_SLOTS)
 	remains = []
+	came_from = ""
+	reached = {}
+	keys = {}
+	bosses_defeated = {}
+	escaped = false
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
 func meta_to_data() -> Dictionary:
-	return {"remains": remains.duplicate(true)}
+	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
+		"bosses": bosses_defeated.keys(), "escaped": escaped}
 
 
 func meta_from_data(data: Dictionary) -> void:
 	remains = []
 	for r in data.get("remains", []):
 		remains.append({"area": String(r.area), "pos": [float(r.pos[0]), float(r.pos[1])], "items": Array(r.items)})
+	reached = _set_of(data.get("reached", []))
+	keys = _set_of(data.get("keys", []))
+	bosses_defeated = _set_of(data.get("bosses", []))
+	escaped = bool(data.get("escaped", false))
+
+
+func _set_of(list: Array) -> Dictionary:
+	var out := {}
+	for k in list:
+		out[String(k)] = true
+	return out
+
+
+## Records a slain guardian and grants its sector's Key.
+func defeat_boss(type: String) -> void:
+	bosses_defeated[type] = true
+	for s in Sectors.ORDER:
+		if Sectors.DATA[s].boss == type:
+			keys[Sectors.DATA[s].key] = true
+			EventBus.notify.emit("The %s is unsealed. A gate opens to the north..." % Sectors.DATA[s].name)
+
+
+func has_keys(list: Array) -> bool:
+	return list.all(func(k): return keys.has(k))
+
+
+## Thirst only matters once the players have felt the desert sun.
+func thirst_unlocked() -> bool:
+	return reached.has("desert")
 
 
 ## Leaves a lootable pile of items where a player fell.
@@ -109,6 +159,7 @@ func area_scene() -> String:
 func travel(target: String) -> void:
 	if not AREA_SCENES.has(target) or target == area:
 		return
+	came_from = area
 	area = target
 	arriving = true
 	if scene_changer.is_valid():

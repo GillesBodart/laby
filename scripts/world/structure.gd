@@ -6,11 +6,15 @@ var type := ""
 var cell := Vector2i.ZERO
 var is_open := false
 var stage := 0
+## Part of a generated area (sector waystones), not a player build.
+var fixed := false
 
 var _sprite := Sprite2D.new()
 ## Crop growing on a farm plot (drawn over the soil).
 var _crop_sprite := Sprite2D.new()
 var _collision := CollisionShape2D.new()
+var _light: PointLight2D
+var _time := 0.0
 
 
 static func create(structure_type: String, structure_cell: Vector2i, open := false) -> Structure:
@@ -25,7 +29,8 @@ func _ready() -> void:
 	var def: Dictionary = BuildCatalog.TYPES[type]
 	collision_mask = 0
 	position = ClearingWorld.cell_center(cell)
-	add_to_group("structures")
+	if not fixed:
+		add_to_group("structures")
 	if def.group != "":
 		add_to_group(def.group)
 	var shape := RectangleShape2D.new()
@@ -35,6 +40,15 @@ func _ready() -> void:
 	add_child(_sprite)
 	if is_farm():
 		add_child(_crop_sprite)
+	if type in ["well", "waystone"]:
+		add_to_group("interactable")
+	if def.has("light"):
+		_light = PointLight2D.new()
+		_light.texture = preload("res://assets/sprites/light_banded.tres")
+		_light.color = Color(1, 0.72, 0.42)
+		_light.texture_scale = 2.6 * def.light
+		_light.position = Vector2(0, -20)
+		add_child(_light)
 	_refresh()
 
 
@@ -42,7 +56,10 @@ func is_farm() -> bool:
 	return type == "farm_plot"
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _light:
+		_time += delta
+		_light.energy = LightingCurve.darkness_at(TimeSystem.minute_of_day()) * (1.0 + 0.08 * sin(_time * 11.0))
 	if is_farm():
 		var now := _farm_stage()
 		if now != stage:
@@ -97,6 +114,17 @@ func farm_interact(player: Player, crop_id := "") -> bool:
 	stage = _farm_stage()
 	_refresh()
 	return true
+
+
+func interact_hint() -> String:
+	return "Drink / fill waterskins" if type == "well" else "Waystone: travel"
+
+
+func interact(player: Player) -> void:
+	if type == "well":
+		player.drink_at_source()
+	elif player.input.is_local():
+		EventBus.waystone_used.emit(self)
 
 
 func toggle() -> void:

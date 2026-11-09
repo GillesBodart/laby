@@ -44,6 +44,44 @@ const NODES := {
 	"machine": {"item": "cog", "amount": 2, "hits": 6, "tool": "pickaxe", "tier": 2, "xp": 15},
 	"shadow_orchid": {"item": "shadow_petal", "amount": 1, "hits": 1, "tool": "hands", "tier": 0, "xp": 10, "walkable": true},
 	"cobweb": {"item": "silk", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 2, "walkable": true},
+	# --- overgrowth
+	"thornbush": {"item": "thorn", "amount": 3, "hits": 2, "tool": "axe", "tier": 1, "xp": 4},
+	"giant_fern": {"item": "fiber", "amount": 4, "hits": 1, "tool": "hands", "tier": 0, "xp": 2, "walkable": true},
+	"hive_comb": {"item": "royal_jelly", "amount": 1, "hits": 3, "tool": "hands", "tier": 0, "xp": 14},
+	"spore_pod": {"item": "spores", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 3, "walkable": true},
+	"root_knot": {"item": "living_root", "amount": 2, "hits": 4, "tool": "axe", "tier": 2, "xp": 10},
+	"moonflower": {"item": "moon_petal", "amount": 1, "hits": 1, "tool": "hands", "tier": 0, "xp": 12, "walkable": true},
+	# --- desert
+	"cactus": {"item": "cactus_pulp", "amount": 2, "hits": 2, "tool": "axe", "tier": 1, "xp": 3},
+	"sandstone": {"item": "sandstone", "amount": 3, "hits": 3, "tool": "pickaxe", "tier": 1, "xp": 3},
+	"dry_bush": {"item": "stick", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
+	"salt_flat": {"item": "salt", "amount": 3, "hits": 2, "tool": "hands", "tier": 0, "xp": 2, "walkable": true},
+	"amber_deposit": {"item": "amber", "amount": 1, "hits": 5, "tool": "pickaxe", "tier": 2, "xp": 14},
+	"date_palm": {"item": "dates", "amount": 3, "hits": 3, "tool": "hands", "tier": 0, "xp": 3},
+	"fossil": {"item": "fossil", "amount": 1, "hits": 4, "tool": "pickaxe", "tier": 1, "xp": 10},
+	"sunstone": {"item": "sunstone", "amount": 1, "hits": 8, "tool": "pickaxe", "tier": 3, "xp": 26},
+	# --- ice
+	"ice_block": {"item": "ice", "amount": 3, "hits": 3, "tool": "pickaxe", "tier": 1, "xp": 2},
+	"frost_lichen": {"item": "moss", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
+	"snow_drift": {"item": "ice", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
+	"ore_mithril": {"item": "mithril_ore", "amount": 2, "hits": 9, "tool": "pickaxe", "tier": 4, "xp": 32},
+	"blue_crystal": {"item": "frost_crystal", "amount": 1, "hits": 7, "tool": "pickaxe", "tier": 3, "xp": 24},
+	"frozen_tree": {"item": "wood", "amount": 3, "hits": 4, "tool": "axe", "tier": 1, "xp": 3},
+	"snowberry": {"item": "snowberry", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 2},
+	# --- volcano
+	"basalt": {"item": "basalt", "amount": 3, "hits": 4, "tool": "pickaxe", "tier": 2, "xp": 4},
+	"magma_vent": {"item": "magma_core", "amount": 1, "hits": 7, "tool": "pickaxe", "tier": 3, "xp": 26},
+	"ash_pile": {"item": "ash", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 1, "walkable": true},
+	"ore_ember": {"item": "ember_ore", "amount": 2, "hits": 9, "tool": "pickaxe", "tier": 4, "xp": 34},
+	"fire_lily": {"item": "fire_petal", "amount": 1, "hits": 1, "tool": "hands", "tier": 0, "xp": 8, "walkable": true},
+	"charred_stump": {"item": "coal", "amount": 2, "hits": 3, "tool": "axe", "tier": 1, "xp": 3},
+	# --- hell
+	"bone_spire": {"item": "cursed_bone", "amount": 3, "hits": 4, "tool": "pickaxe", "tier": 2, "xp": 8},
+	"soul_crystal": {"item": "soul_shard", "amount": 1, "hits": 8, "tool": "pickaxe", "tier": 4, "xp": 36},
+	"blood_moss": {"item": "blood_moss", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 4, "walkable": true},
+	"ore_hellsteel": {"item": "hellsteel_ore", "amount": 2, "hits": 10, "tool": "pickaxe", "tier": 5, "xp": 44},
+	"brimstone": {"item": "brimstone", "amount": 2, "hits": 4, "tool": "pickaxe", "tier": 2, "xp": 8},
+	"hellfire_bloom": {"item": "fire_petal", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 10, "walkable": true},
 }
 
 ## Resource nodes found in each biome (trees, rocks and bushes are separate scenes).
@@ -55,7 +93,7 @@ const LABYRINTH := ["rubble", "ore_coal", "ore_copper", "ore_tin", "ore_iron", "
 
 
 ## Patches lying flat on the ground: drawn under walkers instead of y-sorted.
-const FLAT := ["clay", "sand", "flint", "cave_moss"]
+const FLAT := ["clay", "sand", "flint", "cave_moss", "salt_flat", "frost_lichen", "snow_drift", "ash_pile", "blood_moss"]
 
 
 static func is_flat(type: String) -> bool:
