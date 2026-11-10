@@ -219,37 +219,72 @@ func _bone_spire() -> Image:
 
 func _standing_torch() -> Image:
 	var img := _img(32, 32)
-	_rect(img, 15, 12, 3, 17, WOOD[2])
-	_rect(img, 15, 12, 1, 17, WOOD[3])
-	_rect(img, 12, 28, 9, 3, STONE[2])
-	_rect(img, 12, 28, 9, 1, STONE[4])
-	_rect(img, 13, 11, 7, 3, LEATHER[1])
-	_blob(img, 16.5, 7, 4, 5, FIRE, 0.25, 7)
-	_blob(img, 16.5, 8.5, 2, 2.5, [FIRE[2], FIRE[3]], 0.1, 8)
-	return _outline(img)
+	# Stone footing.
+	_blob(img, 16, 28.5, 6.5, 2.6, STONE, 0.15, 5)
+	_rect(img, 11, 27, 11, 1, STONE[4])
+	# Pole: cylinder shading with a few grain marks.
+	for y in range(11, 28):
+		_px(img, 15, y, WOOD[3])
+		_px(img, 16, y, WOOD[2])
+		_px(img, 17, y, WOOD[1])
+		if _hash(y, 0, 9) > 0.75:
+			_px(img, 16, y, WOOD[1])
+	_rect(img, 14, 18, 5, 2, LEATHER[1])
+	_rect(img, 14, 18, 5, 1, LEATHER[3])
+	# Iron cage holding the fire.
+	_rect(img, 12, 10, 9, 2, Color8(70, 74, 84))
+	_rect(img, 12, 10, 9, 1, Color8(150, 156, 168))
+	for x in [12, 16, 20]:
+		_line(img, Vector2(x, 10), Vector2(x, 6), Color8(90, 96, 108))
+	# Flame: outer tongue, hot middle, bright core.
+	var layers := [[FIRE[0], 9, 4.5], [FIRE[1], 8, 3.6], [FIRE[2], 6, 2.4], [FIRE[3], 3, 1.2]]
+	for layer in layers:
+		var hgt: int = layer[1]
+		var wmax: float = layer[2]
+		for y in hgt:
+			var fr := float(y) / hgt
+			var hw := wmax * pow(1.0 - fr, 0.7)
+			var sway := sin(fr * 3.0) * 1.2 * fr
+			for x in range(int(16.5 + sway - hw), int(16.5 + sway + hw) + 1):
+				_px(img, x, 10 - y, layer[0])
+	_outline(img)
+	_px(img, 19, 0, FIRE[3])
+	_px(img, 13, 1, FIRE[2])
+	return img
 
 
+## Tall carved monolith; the rune channels hold a faint teal glow.
 func _waystone() -> Image:
 	var img := _img(32, 32)
-	for y in range(3, 29):
-		var w := 12 if y > 6 else 12 - (7 - y) * 2
-		for x in range(16 - w / 2, 16 + w / 2):
-			var col: Color = STONE[2]
-			if x == 16 - w / 2 or y == 3:
-				col = STONE[4]
-			elif x == 16 + w / 2 - 1:
-				col = STONE[0]
-			elif _hash(x, y, 3) > 0.82:
-				col = STONE[1]
-			_px(img, x, y, col)
-	_rect(img, 7, 27, 18, 4, STONE[1])
-	_rect(img, 7, 27, 18, 1, STONE[3])
-	for p in [Vector2(13, 10), Vector2(19, 10), Vector2(16, 13), Vector2(13, 19), Vector2(19, 19), Vector2(16, 22)]:
-		_rect(img, int(p.x), int(p.y), 1, 1, GLOW[3])
-	_line(img, Vector2(13, 10), Vector2(16, 13), GLOW[2])
-	_line(img, Vector2(19, 10), Vector2(16, 13), GLOW[2])
-	_line(img, Vector2(16, 13), Vector2(16, 22), GLOW[2])
-	_line(img, Vector2(13, 19), Vector2(19, 19), GLOW[1])
+	# Rubble base with moss.
+	_blob(img, 16, 28, 11, 3.2, STONE, 0.2, 31)
+	for y in range(2, 28):
+		var w := 6.0 - (y - 2) * 0.02 if y > 6 else 6.0 - (6 - y) * 0.9
+		for x in range(int(16 - w), int(16 + w) + 1):
+			var u := (x + 0.5 - (16 - w)) / (w * 2.0)
+			var t := 3 if u < 0.2 else (2 if u < 0.62 else (1 if u < 0.9 else 0))
+			if y < 5 and u > 0.15 and u < 0.85:
+				t = 4
+			# Chiselled block courses.
+			if y == 12 or y == 20:
+				t = 0
+			elif y == 13 or y == 21:
+				t = mini(t + 1, 4)
+			elif _hash(x, y, 3) > 0.88:
+				t = maxi(t - 1, 0)
+			_px(img, x, y, STONE[t])
+	for p in [Vector2i(10, 25), Vector2i(11, 26), Vector2i(12, 26), Vector2i(21, 26), Vector2i(20, 24), Vector2i(10, 23)]:
+		_px(img, p.x, p.y, Color8(84, 120, 60))
+		_px(img, p.x, p.y - 1, Color8(120, 160, 80))
+	# Rune channels: dark groove with a glowing core.
+	var rune := [[Vector2(13, 7), Vector2(16, 10)], [Vector2(19, 7), Vector2(16, 10)], [Vector2(16, 10), Vector2(16, 18)],
+		[Vector2(13, 15), Vector2(19, 15)], [Vector2(14, 23), Vector2(18, 23)]]
+	for seg in rune:
+		_line(img, seg[0] + Vector2(1, 1), seg[1] + Vector2(1, 1), STONE[0])
+	for seg in rune:
+		_line(img, seg[0], seg[1], GLOW[2])
+	for p in [Vector2i(16, 10), Vector2i(16, 15), Vector2i(13, 7), Vector2i(19, 7)]:
+		_px(img, p.x, p.y, GLOW[3])
 	return _outline(img)
 
 
@@ -286,23 +321,70 @@ func _sector_gate() -> Image:
 
 
 
-## Straw cot seen from above: wooden frame, mattress, pillow, wool blanket.
+## Wooden bed in 3/4 view: headboard with posts, plump pillow, a folded
+## tartan wool blanket over a straw mattress, and the footboard's front face.
 func _bed() -> Image:
 	var img := _img(32, 32)
-	_box(img, 7, 3, 18, 27, WOOD, 61)
-	_rect(img, 9, 5, 14, 23, Color8(214, 190, 120))
-	for y in range(5, 28):
+	# Side rails and the frame behind the mattress.
+	_box(img, 5, 6, 22, 23, WOOD, 61)
+	# Mattress (straw ticking) with a soft lit edge.
+	for y in range(8, 27):
+		for x in range(7, 25):
+			var col := Color8(220, 200, 150)
+			if x == 7 or y == 8:
+				col = Color8(240, 226, 186)
+			elif x == 24:
+				col = Color8(176, 150, 100)
+			elif _hash(x, y, 62) > 0.86:
+				col = Color8(198, 174, 120)
+			_px(img, x, y, col)
+	# Pillow: rounded, lit from the upper left, with a crease.
+	for y in range(9, 15):
 		for x in range(9, 23):
-			if _hash(x, y, 62) > 0.82:
-				_px(img, x, y, Color8(186, 158, 92))
-	_rect(img, 10, 6, 12, 5, Color8(236, 230, 214))
-	_rect(img, 10, 10, 12, 1, Color8(196, 190, 176))
-	var wool := [Color8(80, 50, 46), Color8(132, 70, 60), Color8(170, 96, 76), Color8(200, 130, 100)]
-	_rect(img, 9, 14, 14, 13, wool[2])
-	_rect(img, 9, 14, 14, 2, wool[3])
-	for y in range(17, 27, 3):
-		_rect(img, 9, y, 14, 1, wool[1])
-	_rect(img, 22, 14, 1, 13, wool[0])
+			var u := (x - 15.5) / 7.0
+			var v := (y - 11.5) / 3.2
+			if u * u * u * u + v * v * v * v > 1.0:
+				continue
+			var lit := -u * 0.5 - v * 0.8
+			var col := Color8(232, 228, 216)
+			if lit > 0.35:
+				col = Color8(252, 250, 244)
+			elif lit < -0.45:
+				col = Color8(184, 180, 172)
+			_px(img, x, y, col)
+	_line(img, Vector2(12, 12), Vector2(19, 12), Color8(206, 202, 192))
+	# Blanket: red tartan, folded back at the top, draping over the rails.
+	var wool := [Color8(92, 36, 38), Color8(142, 54, 50), Color8(182, 78, 62), Color8(214, 112, 86), Color8(238, 154, 120)]
+	for y in range(15, 29):
+		for x in range(5, 27):
+			var col: Color = wool[2]
+			if (x - 5) % 6 == 2 or (y - 15) % 6 == 3:
+				col = wool[1]
+			if (x - 5) % 6 == 2 and (y - 15) % 6 == 3:
+				col = wool[0]
+			if (x - 5) % 6 == 5 or (y - 15) % 6 == 0:
+				col = Color8(222, 196, 140)
+			if x <= 6:
+				col = col.darkened(0.12)
+			elif x >= 25:
+				col = col.darkened(0.3)
+			_px(img, x, y, col)
+	_rect(img, 5, 15, 22, 3, wool[3])
+	_rect(img, 5, 15, 22, 1, wool[4])
+	_rect(img, 5, 17, 22, 1, wool[0])
+	for x in range(6, 26, 3):
+		_px(img, x, 16, Color8(222, 196, 140))
+	# Headboard with two round-topped posts.
+	_box(img, 4, 1, 24, 6, WOOD, 63)
+	_rect(img, 6, 3, 20, 1, WOOD[1])
+	for px in [3, 26]:
+		_box(img, px, 0, 3, 8, WOOD, 64)
+		_px(img, px + 1, 0, WOOD[4])
+	# Footboard front face.
+	_box(img, 4, 28, 24, 3, WOOD, 65)
+	_rect(img, 4, 28, 24, 1, WOOD[4])
+	for px in [3, 26]:
+		_box(img, px, 26, 3, 5, WOOD, 66)
 	return _outline(img)
 
 
@@ -436,17 +518,43 @@ func _line(img: Image, a: Vector2, b: Vector2, col: Color, width := 1) -> void:
 		_rect(img, int(round(p.x)) - width / 2, int(round(p.y)) - width / 2, width, width, col)
 
 
+## Same finish as the placeholder generator's _ink: a lit top rim, a shaded
+## bottom/right rim and a selective outline (deep shade of the neighbouring
+## colour on top, pure ink below so sprites stay grounded).
 func _outline(img: Image, color := OUTLINE) -> Image:
+	var w := img.get_width()
+	var h := img.get_height()
 	var src := img.duplicate() as Image
-	for y in img.get_height():
-		for x in img.get_width():
+	var solid := func(x: int, y: int) -> bool:
+		return x >= 0 and y >= 0 and x < w and y < h and src.get_pixel(x, y).a > 0.5
+	for y in h:
+		for x in w:
+			var c := src.get_pixel(x, y)
+			if c.a <= 0.5 or c == color:
+				continue
+			if not solid.call(x, y - 1):
+				img.set_pixel(x, y, c.lightened(0.14))
+			elif not solid.call(x, y + 1) or not solid.call(x + 1, y):
+				img.set_pixel(x, y, c.darkened(0.16))
+	src = img.duplicate() as Image
+	for y in h:
+		for x in w:
 			if src.get_pixel(x, y).a > 0.0:
 				continue
+			var sum := Vector3.ZERO
+			var n := 0
 			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-				var n: Vector2i = Vector2i(x, y) + d
-				if n.x >= 0 and n.y >= 0 and n.x < img.get_width() and n.y < img.get_height() and src.get_pixel(n.x, n.y).a > 0.0:
-					img.set_pixel(x, y, color)
-					break
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h and src.get_pixel(q.x, q.y).a > 0.5:
+					var nc := src.get_pixel(q.x, q.y)
+					sum += Vector3(nc.r, nc.g, nc.b)
+					n += 1
+			if n == 0:
+				continue
+			var ink: Color = color
+			if not solid.call(x, y - 1):
+				ink = Color(sum.x / n, sum.y / n, sum.z / n).darkened(0.72).lerp(color, 0.35)
+			img.set_pixel(x, y, ink)
 	return img
 
 

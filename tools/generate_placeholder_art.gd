@@ -272,6 +272,9 @@ func _blob(img: Image, cx: float, cy: float, rx: float, ry: float, tones: Array,
 
 
 func _outline(img: Image, color: Color) -> void:
+	if color == C.outline:
+		_ink(img)
+		return
 	var src := img.duplicate() as Image
 	for y in img.get_height():
 		for x in img.get_width():
@@ -283,6 +286,597 @@ func _outline(img: Image, color: Color) -> void:
 					if src.get_pixel(n.x, n.y).a > 0.0 and src.get_pixel(n.x, n.y) != color:
 						img.set_pixel(x, y, color)
 						break
+
+
+## Mask over the whole canvas of `img`, whatever its size.
+func _mk(img: Image, test: Callable) -> Dictionary:
+	var m := {}
+	for y in img.get_height():
+		for x in img.get_width():
+			if test.call(Vector2(x + 0.5, y + 0.5)):
+				m[Vector2i(x, y)] = true
+	return m
+
+
+## Raises (k > 0) or lowers a pixel along a tone ramp, if it is on that ramp.
+func _tone_shift(img: Image, x: int, y: int, tones: Array, k: int) -> void:
+	if x < 0 or y < 0 or x >= img.get_width() or y >= img.get_height():
+		return
+	var i := tones.find(img.get_pixel(x, y))
+	if i >= 0:
+		img.set_pixel(x, y, tones[clampi(i + k, 0, tones.size() - 1)])
+
+
+## Leaf tufts filling an elliptical crown: a staggered grid inside plus a
+## ring of tufts along the edge that gives the scalloped silhouette.
+func _crown_tufts(c: Vector2, rx: float, ry: float, r: float, seed: int) -> Array:
+	var tufts: Array = []
+	var step := r * 1.05
+	var row := 0
+	var y := c.y - ry + r * 0.6
+	while y <= c.y + ry - r * 0.4:
+		var x := c.x - rx + r * 0.6 + (step * 0.5 if row % 2 else 0.0)
+		while x <= c.x + rx - r * 0.4:
+			var q := Vector2((x - c.x) / maxf(rx - r * 0.7, 1.0), (y - c.y) / maxf(ry - r * 0.7, 1.0))
+			if q.length() <= 1.0:
+				var j := Vector2(_hash(int(x), int(y), seed) - 0.5, _hash(int(y), int(x), seed) - 0.5) * r * 0.5
+				tufts.append(Vector3(x + j.x, y + j.y, r * (0.85 + _hash(int(x), row, seed + 1) * 0.3)))
+			x += step
+		y += step * 0.86
+		row += 1
+	var n := int(TAU * (rx + ry) * 0.5 / (r * 1.1))
+	for i in n:
+		var a := TAU * i / n + _hash(i, 3, seed) * 0.3
+		tufts.append(Vector3(c.x + cos(a) * (rx - r * 0.75), c.y + sin(a) * (ry - r * 0.75), r * (0.8 + _hash(i, 4, seed) * 0.3)))
+	return tufts
+
+
+## Foliage made of rounded leaf tufts, the crown of a classic 16-bit RPG tree.
+## Each tuft is lit as a small sphere and as part of the whole crown (`dome`:
+## centre x, y and radii), its lower rim shaded where it overlaps the tuft
+## behind, and a few bright leaf glints on its sunny side.
+## tufts: Vector3(x, y, r). tones: 5, dark -> light.
+func _foliage(img: Image, tufts: Array, dome: Vector4, tones: Array, seed: int) -> void:
+	var light := Vector3(-0.55, -0.72, 0.42).normalized()
+	tufts.sort_custom(func(a: Vector3, b: Vector3) -> bool: return a.y < b.y)
+	for i in tufts.size():
+		var c: Vector3 = tufts[i]
+		var ph := _hash(i, 7, seed) * TAU
+		for y in range(int(c.y - c.z) - 2, int(c.y + c.z) + 3):
+			for x in range(int(c.x - c.z) - 2, int(c.x + c.z) + 3):
+				var lx := (x + 0.5 - c.x) / c.z
+				var ly := (y + 0.5 - c.y) / c.z
+				var edge := 1.0 + 0.13 * sin(atan2(ly, lx) * 6.0 + ph)
+				var d := (lx * lx + ly * ly) / (edge * edge)
+				if d > 1.0:
+					continue
+				var nl := Vector3(lx / edge, ly / edge, sqrt(1.0 - d))
+				var gx := (x + 0.5 - dome.x) / dome.z
+				var gy := (y + 0.5 - dome.y) / dome.w
+				var ng := Vector3(gx, gy, sqrt(maxf(0.0, 1.0 - minf(gx * gx + gy * gy, 1.0)))).normalized()
+				var lit := nl.dot(light) * 0.95 + ng.dot(light) * 0.6 + (_hash(x, y, seed) - 0.5) * 0.06
+				var t := clampi(int((lit + 0.55) / 1.6 * 5.0), 0, 4)
+				if d > 0.62 and lx + ly * 1.4 > 0.6:
+					t = maxi(t - 1, 0)
+				if d > 0.8 and ly > 0.15:
+					t = maxi(t - 1, 0)
+				if d > 0.92 and ly > 0.35:
+					t = 0
+				_px(img, x, y, tones[t])
+		for k in 4:
+			var a := -2.4 + _hash(i, k, seed + 3) * 1.7
+			var rr := c.z * (0.2 + _hash(i, k, seed + 4) * 0.45)
+			var px := int(c.x + cos(a) * rr)
+			var py := int(c.y + sin(a) * rr)
+			_tone_shift(img, px, py, tones, 1)
+			_tone_shift(img, px + 1, py, tones, 1)
+			_tone_shift(img, px, py + 1, tones, -1)
+			_tone_shift(img, px + 1, py + 1, tones, -1)
+
+
+## Cylinder-shaded bark: light on the left, deep on the right, wavy grooves.
+func _bark(img: Image, mask: Dictionary, axis_x: Callable, half_w: Callable, tones: Array, seed: int) -> void:
+	for p: Vector2i in mask:
+		var hw: float = half_w.call(float(p.y))
+		var u := clampf((p.x + 0.5 - float(axis_x.call(float(p.y))) + hw) / (hw * 2.0), 0.0, 1.0)
+		var t := 3 if u < 0.22 else (2 if u < 0.55 else (1 if u < 0.85 else 0))
+		var groove := sin((p.x - float(axis_x.call(float(p.y)))) * 1.25 + sin(p.y * 0.3 + seed) * 1.4)
+		if groove > 0.8 and t > 0:
+			t -= 1
+		elif groove < -0.85 and u < 0.5 and _hash(p.x, p.y, seed) > 0.4:
+			t = mini(t + 1, 4)
+		_px(img, p.x, p.y, tones[t])
+
+
+const TREE_CROWN := [Vector2(24, 21), Vector2(22, 23), Vector2(25, 20), Vector2(21, 22), Vector2(25, 22),
+	Vector2(23, 21), Vector2(24, 23), Vector2(22, 20), Vector2(25, 21), Vector2(23, 22)]
+
+
+func _make_tree(v: int) -> Image:
+	var img := _new_image(64, 80)
+	rng.seed = 5000 + v * 17
+	var tint: float = TREE_TINT[v]
+	var tones: Array = []
+	for k in ["leaf_deep", "leaf_dark", "leaf", "leaf_light", "leaf_hi"]:
+		tones.append(_tint(C[k], tint))
+	var BK := [C.bark_dark.darkened(0.35), C.bark_dark, C.bark, C.bark_light, C.bark_light.lightened(0.18)]
+	var base_y := 76.0
+	var tw := 4.5 + (v * 3) % 4 * 0.5
+	var crown: Vector2 = TREE_CROWN[v]
+	var cc := Vector2(32, 6 + crown.y)
+
+	# Trunk with a root flare and a couple of roots gripping the ground.
+	var axis := func(y: float) -> float: return 32.0 + sin(y * 0.09 + v) * 0.8
+	var half := func(y: float) -> float: return tw + pow(maxf(0.0, (y - 62.0) / 14.0), 2.0) * 5.5
+	var trunk := _mk(img, func(p: Vector2) -> bool: return p.y > 34.0 and p.y < base_y and absf(p.x - float(axis.call(p.y))) <= float(half.call(p.y)))
+	_bark(img, trunk, axis, half, BK, v)
+	for s in [-1.0, 1.0]:
+		var root := _mk(img, func(p: Vector2) -> bool: return Geometry2D.get_closest_point_to_segment(p, Vector2(32 + s * tw, base_y - 5), Vector2(32 + s * (tw + 9), base_y - 0.5)).distance_to(p) <= 1.6)
+		_bark(img, root, func(_y: float) -> float: return 32.0 + s * (tw + 4.0), func(_y: float) -> float: return 6.0, BK, v + 9)
+	# Branches reaching into the crown (mostly hidden, seen through gaps).
+	for s in [-1.0, 1.0]:
+		var br := _mk(img, func(p: Vector2) -> bool: return Geometry2D.get_closest_point_to_segment(p, Vector2(32, 44), Vector2(32 + s * 11, 30)).distance_to(p) <= 1.5)
+		for p: Vector2i in br:
+			_px(img, p.x, p.y, BK[1] if s > 0 else BK[2])
+
+	var tufts := _crown_tufts(cc, crown.x, crown.y, 7.0 + (v % 3) * 0.5, 900 + v)
+	_foliage(img, tufts, Vector4(cc.x - 3, cc.y - 4, crown.x + 4, crown.y + 4), tones, 100 + v)
+
+	# The crown's shade on the trunk just below it.
+	for p: Vector2i in trunk:
+		var col := img.get_pixel(p.x, p.y)
+		if BK.has(col) and p.y < cc.y + crown.y + 7:
+			_tone_shift(img, p.x, p.y, BK, -1)
+	if TREE_FRUIT.has(v):
+		var fruit: Color = TREE_FRUIT[v]
+		for i in 9:
+			var t: Vector3 = tufts[int(_hash(i, 1, 1300 + v) * tufts.size())]
+			var fx := int(t.x + (_hash(i, 2, 1300 + v) - 0.5) * t.z)
+			var fy := int(t.y + (_hash(i, 3, 1300 + v) - 0.2) * t.z * 0.6)
+			if img.get_pixel(clampi(fx, 0, 62), clampi(fy, 0, 78)).a > 0.0:
+				_rect(img, fx, fy, 2, 2, fruit)
+				_px(img, fx, fy, fruit.lightened(0.5))
+				_px(img, fx + 1, fy + 1, fruit.darkened(0.35))
+				_px(img, fx, fy + 2, tones[0])
+				_px(img, fx + 1, fy + 2, tones[0])
+	_ink(img)
+	return img
+
+
+## Low berry bush (feet at the bottom center of a 32x32 frame).
+func _make_bush() -> Image:
+	var img := _new_image(T, T)
+	var greens := [C.grass_deep.darkened(0.25), C.grass_deep, C.grass_dark, C.grass, C.grass_light]
+	_foliage(img, _crown_tufts(Vector2(16, 20), 13.0, 9.0, 4.6, 401), Vector4(14, 17, 14, 11), greens, 401)
+	_ink(img)
+	for p in [Vector2i(10, 15), Vector2i(19, 13), Vector2i(23, 20), Vector2i(14, 21), Vector2i(7, 22), Vector2i(17, 17), Vector2i(25, 15)]:
+		_berry(img, p.x, p.y)
+	return img
+
+
+func _n_shrub(fruit: Array, r: float, seed: int) -> Image:
+	var img := _new_image(T, T)
+	_foliage(img, _crown_tufts(Vector2(16, 20), 13.0, 9.5, 4.6, seed), Vector4(14, 17, 14, 11), LEAF5, seed)
+	_ink(img)
+	var tones: Array = fruit if fruit.size() == 5 else [fruit[0], fruit[0], fruit[1], fruit[2], fruit[3]]
+	for i in 8:
+		var c := Vector2(7 + _hash(i, 1, seed) * 18.0, 13 + _hash(i, 2, seed) * 13.0)
+		if img.get_pixel(int(c.x), int(c.y)).a > 0.5 and img.get_pixel(int(c.x), int(c.y)) != C.outline:
+			_berry_dot(img, c, tones, r)
+			_px(img, int(c.x - r * 0.4), int(c.y - r * 0.4), tones[4].lightened(0.3))
+	return img
+
+
+func _n_apple_tree() -> Image:
+	var img := _new_image(T, T)
+	var BK := [C.bark_dark.darkened(0.35), C.bark_dark, C.bark, C.bark_light, C.bark_light.lightened(0.18)]
+	var trunk := _mk(img, func(p: Vector2) -> bool: return p.y > 14.0 and p.y < 30.0 and absf(p.x - 16.0) <= 2.6 + maxf(0.0, p.y - 26.0) * 0.8)
+	_bark(img, trunk, func(_y: float) -> float: return 16.0, func(y: float) -> float: return 2.6 + maxf(0.0, y - 26.0) * 0.8, BK, 3)
+	_foliage(img, _crown_tufts(Vector2(16, 12), 14.0, 10.5, 4.6, 1140), Vector4(14, 9, 15, 12), LEAF5, 1140)
+	_ink(img)
+	for c in [Vector2(9, 10), Vector2(19, 6), Vector2(24, 14), Vector2(13, 17), Vector2(17, 12), Vector2(6, 15), Vector2(21, 19)]:
+		_berry_dot(img, c, RED5, 2.0)
+		_px(img, int(c.x) - 1, int(c.y) - 1, RED5[4].lightened(0.3))
+		_px(img, int(c.x), int(c.y) - 3, LEAF5[1])
+	return img
+
+
+func _n_stump() -> Image:
+	var img := _new_image(T, T)
+	var BK := [C.bark_dark.darkened(0.35), C.bark_dark, C.bark, C.bark_light, C.bark_light.lightened(0.18)]
+	var half := func(y: float) -> float: return 10.5 + pow(maxf(0.0, (y - 24.0) / 5.0), 2.0) * 3.0
+	var body := _mk(img, func(p: Vector2) -> bool: return p.y > 15.0 and p.y < 30.0 and absf(p.x - 16.0) <= float(half.call(p.y)))
+	_bark(img, body, func(_y: float) -> float: return 16.0, half, BK, 11)
+	var top := _mk(img, func(p: Vector2) -> bool: return pow((p.x - 16.0) / 10.5, 2) + pow((p.y - 15.5) / 4.5, 2) <= 1.0)
+	for p: Vector2i in top:
+		var d := sqrt(pow((p.x + 0.5 - 16.0) / 10.5, 2) + pow((p.y + 0.5 - 15.5) / 4.5, 2))
+		var ring := int(d * 4.5) % 2 == 0
+		var col: Color = WOOD5[4] if ring else WOOD5[3]
+		if d > 0.86:
+			col = WOOD5[2] if p.y < 15 else WOOD5[1]
+		elif d < 0.15:
+			col = WOOD5[2]
+		_px(img, p.x, p.y, col)
+	_line(img, Vector2(16, 15), Vector2(21, 13), WOOD5[1])
+	for d in [Vector2(8, 19), Vector2(22, 21)]:
+		_bevel(img, _mask_add(_mask_stroke(d, d + Vector2(0, 4), 1.2), _mask_ellipse(d + Vector2(0, 5), 1.9, 2.0)), AMBER5)
+		_px(img, int(d.x) - 1, int(d.y) + 4, AMBER5[4])
+	return _fin(img)
+
+
+## Tapered, curved grass blade; lit on its left half, sunny at the tip.
+func _blade(img: Image, base: Vector2, tip: Vector2, bend: float, w: float, tones: Array) -> void:
+	var ctrl := base.lerp(tip, 0.55) + Vector2(bend, 0)
+	var steps := int(base.distance_to(tip) * 2.0) + 2
+	for i in steps + 1:
+		var t := float(i) / steps
+		var p := base.lerp(ctrl, t).lerp(ctrl.lerp(tip, t), t)
+		var hw := w * (1.0 - t * 0.9)
+		for k in range(-2, 3):
+			var dx := k * 0.5
+			if absf(dx) > hw:
+				continue
+			var col: Color = tones[3] if dx < 0.0 else tones[2]
+			if dx > 0.0 and absf(dx) > hw - 0.6:
+				col = tones[1]
+			if t > 0.8:
+				col = tones[4]
+			elif t < 0.18:
+				col = tones[1] if dx >= 0.0 else tones[2]
+			_px(img, int(round(p.x + dx)), int(round(p.y)), col)
+
+
+func _make_grass_tuft() -> Image:
+	var img := _new_image(T, T)
+	var greens := [C.grass_deep.darkened(0.2), C.grass_deep, C.grass_dark, C.grass, C.grass_light]
+	var back := [greens[0], greens[0], greens[1], greens[2], greens[3]]
+	for i in 13:
+		var bx := 7.0 + i * 1.5 + (_hash(i, 1, 640) - 0.5) * 2.0
+		var h := 11.0 + _hash(i, 3, 640) * 12.0 - absf(i - 6.0) * 0.6
+		var lean := (bx - 16.0) * 0.55 + (_hash(i, 4, 641) - 0.5) * 5.0
+		_blade(img, Vector2(bx, 29), Vector2(bx + lean, 29 - h), (_hash(i, 5, 642) - 0.5) * 6.0, 1.3, back if i % 2 else greens)
+	for i in 5:
+		var bx := 10.0 + i * 3.0
+		_blade(img, Vector2(bx, 30), Vector2(bx + (bx - 16.0) * 0.8, 30 - 7.0 - _hash(i, 6, 643) * 5.0), 1.5, 1.2, greens)
+	return _fin(img)
+
+
+func _make_clay() -> Image:
+	var img := _new_image(T, T)
+	var t: Array = MAT["clay"]
+	var mound := _mk(img, func(p: Vector2) -> bool: return pow((p.x - 16.0) / 13.0, 2) + pow((p.y - 24.0) / 6.5, 2) <= 1.0 and p.y < 29.5)
+	_bevel(img, mound, t)
+	# Strata and a wet sheen where the clay has been dug.
+	for k in 3:
+		var y := 22 + k * 2
+		for x in range(5, 28):
+			if mound.has(Vector2i(x, y)) and sin(x * 0.5 + k * 2.0) > -0.3:
+				_px(img, x, y, t[1])
+	_bevel(img, _mask_ellipse(Vector2(12, 21), 4.5, 2.2), [t[1], t[2], t[3], t[4], t[4].lightened(0.2)])
+	_line(img, Vector2(10, 20), Vector2(13, 20), Color8(250, 226, 200))
+	_px(img, 20, 22, Color8(250, 226, 200))
+	for c in [Vector2(23, 21), Vector2(6, 27), Vector2(26, 27)]:
+		_bevel(img, _mask_ellipse(c, 2.0, 1.4), MAT["stone"])
+	return _fin(img)
+
+
+func _mushroom(img: Image, cx: float, base_y: float, s: float) -> void:
+	_bevel(img, _mask_stroke(Vector2(cx, base_y), Vector2(cx, base_y - 4.0 * s), 1.3 * s), MAT["bone"])
+	var cap := _mask_cut(_mask_ellipse(Vector2(cx, base_y - 4.0 * s), 4.2 * s, 3.0 * s),
+		_mask_fn(func(p: Vector2) -> bool: return p.y > base_y - 4.0 * s + 0.6 * s))
+	_bevel(img, cap, CAP5)
+	# Gills under the rim, then pale spots on the cap.
+	var low := -1
+	for p: Vector2i in cap:
+		low = maxi(low, p.y)
+	for p: Vector2i in cap:
+		if p.y == low:
+			_px(img, p.x, p.y + 1, Color8(150, 110, 90))
+	for d in [Vector2(-1.6, -1.6), Vector2(1.4, -2.2), Vector2(2.6, -0.6)]:
+		_px(img, int(cx + d.x * s), int(base_y - 4.0 * s + d.y * s), CAP5[4])
+		if s > 1.4:
+			_px(img, int(cx + d.x * s) + 1, int(base_y - 4.0 * s + d.y * s), Color8(250, 236, 220))
+
+
+func _make_mushrooms() -> Image:
+	var img := _new_image(T, T)
+	var moss := [C.moss_dark, C.moss_dark, C.moss, C.moss_light, C.moss_light.lightened(0.15)]
+	_bevel(img, _mask_ellipse(Vector2(16, 28), 12, 2.6), moss)
+	_mushroom(img, 11, 27, 1.5)
+	_mushroom(img, 21, 28, 1.9)
+	_mushroom(img, 15, 29, 1.0)
+	_mushroom(img, 26, 29, 0.8)
+	for x in [6, 8, 24, 28]:
+		_blade(img, Vector2(x, 29), Vector2(x + 1, 23), 1.0, 0.8, LEAF5)
+	return _fin(img)
+
+
+## Boulder lit from the upper left: a lumpy superellipse with facets.
+func _boulder(img: Image, c: Vector2, w: float, h: float, p: float, tones: Array, seed: int, base: float) -> Dictionary:
+	var light := Vector3(-0.5, -0.75, 0.5).normalized()
+	var ph1 := _hash(seed, 1, 5) * TAU
+	var ph2 := _hash(seed, 2, 5) * TAU
+	var m := {}
+	for y in img.get_height():
+		for x in img.get_width():
+			var dx := (x + 0.5 - c.x) / w
+			var dy := (y + 0.5 - c.y) / h
+			var ang := atan2(dy, dx)
+			var lump := 1.0 + 0.1 * sin(ang * 3.0 + ph1) + 0.06 * sin(ang * 5.0 + ph2)
+			if pow(absf(dx), p) + pow(absf(dy), p) > pow(lump, p) or y > base:
+				continue
+			var nx := dx / lump
+			var ny := dy / lump
+			var d := minf(pow(absf(nx), p) + pow(absf(ny), p), 1.0)
+			var nz := pow(maxf(0.0, 1.0 - d), 1.0 / p)
+			# Quantised normals give flat facets instead of a smooth ball.
+			var fn := Vector3(snappedf(nx, 0.45), snappedf(ny, 0.45), nz + 0.3).normalized()
+			var lit := fn.dot(light) + (_hash(x, y, seed) - 0.5) * 0.16
+			_px(img, x, y, tones[clampi(int((lit + 0.15) / 1.05 * tones.size()), 0, tones.size() - 1)])
+			m[Vector2i(x, y)] = true
+	return m
+
+
+func _make_ore(specks: Array, seed: int) -> Image:
+	var img := _new_image(T, T)
+	var rock := [C.rock_deep, C.rock_dark, C.rock, C.rock_light, C.rock_hi]
+	var body := _boulder(img, Vector2(15, 19), 12.5, 10.5, 2.4, rock, 600 + seed, 29.0)
+	_boulder(img, Vector2(26, 26), 4.2, 3.4, 2.0, rock, 610 + seed, 29.0)
+	var ore := [specks[0].darkened(0.5), specks[0].darkened(0.22), specks[0], specks[1], specks[2]]
+	# A dark vein the nuggets sit along.
+	var a := Vector2(6 + _hash(seed, 3, 7) * 4.0, 13 + _hash(seed, 4, 7) * 4.0)
+	var b := Vector2(24, 20 + _hash(seed, 5, 7) * 5.0)
+	for i in 14:
+		var q := a.lerp(b, i / 13.0) + Vector2(0, sin(i * 0.9 + seed) * 1.5)
+		if body.has(Vector2i(q)):
+			_px(img, int(q.x), int(q.y), rock[0])
+	for i in 6:
+		var t := (i + 0.5) / 6.0
+		var q := a.lerp(b, t) + Vector2((_hash(i, 1, seed) - 0.5) * 4.0, (_hash(i, 2, seed) - 0.5) * 5.0)
+		if not body.has(Vector2i(q)):
+			continue
+		var m := _mask_poly(_rough(q, 1.9 + _hash(i, 3, seed) * 1.0, 6, seed + i * 13))
+		_bevel(img, m, ore)
+	_fin(img)
+	for i in 3:
+		var q := a.lerp(b, (i + 0.3) / 3.0)
+		if body.has(Vector2i(q)):
+			_px(img, int(q.x) - 1, int(q.y) - 2, Color.WHITE)
+	return img
+
+
+## Campfire: log tepee in a ring of stones, flames swaying over 3 frames.
+func _make_campfire() -> Image:
+	var img := _new_image(T * 3, T)
+	var stone := [C.rock_deep, C.rock_dark, C.rock, C.rock_light, C.rock_hi]
+	var WD := [C.wood_deep, C.wood_dark, C.wood, C.wood_light, C.wood_hi]
+	var ring: Array = []
+	for i in 11:
+		var a := TAU * i / 11.0 + 0.2
+		ring.append(Vector3(16.0 + cos(a) * 12.0, 25.0 + sin(a) * 4.6, sin(a)))
+	for frame in 3:
+		var f := _new_image(T, T)
+		rng.seed = 77 + frame
+		for s in ring:
+			if s.z < 0.0:
+				_boulder(f, Vector2(s.x, s.y), 3.0, 2.4, 2.2, stone, 150 + int(s.x * 7.0), 31.0)
+		_blob(f, 16, 25, 9.5, 3.6, [C.fire_deep, C.fire_deep, C.fire_out, C.fire_mid], 0.35, 140 + frame)
+		for lg in [[Vector2(7, 26), Vector2(15, 12)], [Vector2(25, 26), Vector2(17, 12)]]:
+			_bevel(f, _mask_stroke(lg[0], lg[1], 1.7), WD)
+		# Flames: an outer tongue, a hot middle and a white-yellow core.
+		var layers := [[C.fire_out, 19, 7.0], [C.fire_mid, 14, 5.0], [C.fire_core, 8, 2.8]]
+		for layer in layers:
+			var h: int = layer[1] + rng.randi_range(-1, 1)
+			var wmax: float = layer[2]
+			for y in h:
+				var fr := float(y) / h
+				var hw := wmax * pow(1.0 - fr, 0.7) * (1.0 + 0.25 * sin(y * 0.9 + frame * 2.1))
+				var sway := sin(fr * 3.4 + frame * 2.1) * 2.2 * fr
+				for x in range(int(16 + sway - hw), int(16 + sway + hw) + 1):
+					_px(f, x, 24 - y, layer[0])
+		for side in [-1, 1]:
+			for y in 7:
+				_px(f, 16 + side * (6 + y / 3) + (frame - 1), 23 - y - (frame % 2), C.fire_out if y < 5 else C.fire_mid)
+		for lg in [[Vector2(8, 29), Vector2(14, 19)], [Vector2(24, 29), Vector2(18, 19)]]:
+			_bevel(f, _mask_stroke(lg[0], lg[1], 1.6), WD)
+			_bevel(f, _mask_ellipse(lg[0], 1.8, 1.8), [WD[1], WD[2], WD[3], WD[4], WD[4]])
+			_px(f, int(lg[0].x), int(lg[0].y), WD[1])
+		for s in ring:
+			if s.z >= 0.0:
+				_boulder(f, Vector2(s.x, s.y), 3.2, 2.5, 2.2, stone, 150 + int(s.x * 7.0), 31.0)
+		_ink(f)
+		for i in 3:
+			_px(f, rng.randi_range(9, 23), rng.randi_range(0, 5), C.fire_core)
+		img.blit_rect(f, Rect2i(0, 0, T, T), Vector2i(frame * T, 0))
+	return img
+
+
+func _wood_tones() -> Array:
+	return [C.wood_deep, C.wood_dark, C.wood, C.wood_light, C.wood_hi]
+
+
+## Horizontal planks with grain streaks, knots and a lit top edge per plank.
+func _plank_face(img: Image, x0: int, y0: int, w: int, h: int, ph: int, tones: Array, seed: int, top_lit := true) -> void:
+	for y in range(y0, y0 + h):
+		var r := (y - y0) / ph
+		var yy := (y - y0) % ph
+		var shift := (_hash(r, seed, 1) - 0.5) * 0.12
+		for x in range(x0, x0 + w):
+			var col: Color = tones[2].lightened(shift)
+			var g := _hash(int((x + r * 7) / 5), y, seed)
+			if g > 0.8:
+				col = tones[1].lightened(shift)
+			elif g < 0.1:
+				col = tones[3].lightened(shift)
+			if yy == 0 and top_lit:
+				col = tones[3].lightened(shift)
+			elif yy == ph - 1:
+				col = tones[0]
+			_px(img, x, y, col)
+		if yy == ph / 2 and _hash(r, seed, 2) > 0.5:
+			var kx := x0 + 3 + int(_hash(r, seed, 3) * (w - 6))
+			_px(img, kx, y, tones[0])
+			_px(img, kx + 1, y, tones[1])
+
+
+func _st_chest() -> Image:
+	var img := _new_image(T, T)
+	var WD := _wood_tones()
+	var IR: Array = MAT["iron"]
+	var GD := [Color8(110, 70, 24), Color8(170, 116, 40), C.gold, Color8(244, 214, 120), Color8(255, 244, 190)]
+	# Front face and the lid seen from above.
+	_plank_face(img, 4, 17, 24, 12, 4, WD, 241)
+	_rect(img, 4, 28, 24, 1, WD[0])
+	var lid := [WD[1], WD[2], WD[3], WD[4], WD[4].lightened(0.1)]
+	_plank_face(img, 4, 6, 24, 9, 3, lid, 242)
+	_rect(img, 4, 15, 24, 1, WD[4])
+	_rect(img, 4, 16, 24, 1, WD[1])
+	_rect(img, 5, 17, 22, 1, WD[0])
+	# Iron corner bands with rivets, wrapping lid and body.
+	for bx in [4, 25]:
+		_rect(img, bx, 6, 3, 23, IR[2])
+		_rect(img, bx, 6, 1, 23, IR[3])
+		_rect(img, bx + 2, 6, 1, 23, IR[1])
+		for ry in [8, 13, 20, 26]:
+			_px(img, bx + 1, ry, IR[4])
+			_px(img, bx + 1, ry + 1, IR[0])
+	_rect(img, 4, 15, 24, 2, IR[2])
+	_rect(img, 4, 15, 24, 1, IR[3])
+	# Gold lock plate and keyhole.
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12.5, 14), Vector2(19.5, 14), Vector2(19.5, 20), Vector2(16, 22.5), Vector2(12.5, 20)])), GD)
+	_rect(img, 15, 16, 2, 2, C.outline)
+	_px(img, 15, 18, C.outline)
+	_px(img, 13, 14, GD[4])
+	_ink(img)
+	return img
+
+
+func _st_workbench() -> Image:
+	var img := _new_image(T, T)
+	var WD := _wood_tones()
+	var IR: Array = MAT["iron"]
+	# Legs with a stretcher, then the thick top seen from above.
+	for lx in [4, 24]:
+		_bevel(img, _mask_poly(PackedVector2Array([Vector2(lx, 18), Vector2(lx + 4, 18), Vector2(lx + 4, 30), Vector2(lx, 30)])), WD)
+	_rect(img, 8, 25, 16, 2, WD[1])
+	_rect(img, 8, 25, 16, 1, WD[2])
+	_rect(img, 3, 19, 26, 3, WD[1])
+	_rect(img, 3, 19, 26, 1, WD[2])
+	_rect(img, 3, 21, 26, 1, WD[0])
+	var top := [WD[1], WD[2], WD[3], WD[4], WD[4].lightened(0.12)]
+	_plank_face(img, 2, 8, 28, 9, 3, top, 232)
+	_rect(img, 2, 17, 28, 2, WD[2])
+	_rect(img, 2, 17, 28, 1, WD[4])
+	_rect(img, 2, 18, 28, 1, WD[1])
+	# A vice at the left end.
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(2, 13), Vector2(7, 13), Vector2(7, 21), Vector2(2, 21)])), IR)
+	_line(img, Vector2(1, 22), Vector2(8, 22), IR[3])
+	# Saw, hammer, shavings and nails on the top.
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(9, 9.5), Vector2(19, 9.5), Vector2(19, 13), Vector2(10, 12)])), IR)
+	for tx in range(10, 19, 2):
+		_px(img, tx, 13, IR[1])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(18, 9), Vector2(22, 9), Vector2(22, 13.5), Vector2(18, 13.5)])), WD)
+	_px(img, 20, 11, WD[0])
+	_bevel(img, _mask_stroke(Vector2(22.5, 15.5), Vector2(28.5, 11.5), 0.9), WD)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(26, 8), Vector2(30, 10.5), Vector2(28.5, 13), Vector2(24.5, 10.5)])), IR)
+	for p in [Vector2i(11, 15), Vector2i(13, 16), Vector2i(15, 15)]:
+		_px(img, p.x, p.y, WD[4])
+		_px(img, p.x + 1, p.y, WD[3])
+	_px(img, 9, 15, IR[3])
+	_px(img, 24, 16, IR[3])
+	_ink(img)
+	return img
+
+
+func _st_furnace() -> Image:
+	var img := _new_image(T, T)
+	var ST: Array = [C.rock_deep, C.rock_dark, C.rock, C.rock_light, C.rock_hi]
+	var body := _mk(img, func(p: Vector2) -> bool:
+		return p.x > 3.0 and p.x < 29.0 and p.y < 30.0 and (p.y > 13.0 or pow((p.x - 16.0) / 12.6, 2) + pow((p.y - 13.0) / 8.5, 2) <= 1.0))
+	# Irregular masonry courses; each stone bevelled.
+	var widths := [6, 8, 5, 7, 6, 9, 5, 7]
+	for p: Vector2i in body:
+		var row := (p.y - 4) / 5
+		var yy := (p.y - 4) % 5
+		var off := int(_hash(row, 0, 251) * 6.0)
+		var x := p.x + off
+		var acc := 0
+		var k := 0
+		while acc + int(widths[(k + row) % widths.size()]) <= x:
+			acc += int(widths[(k + row) % widths.size()])
+			k += 1
+		var xx := x - acc
+		var sw: int = widths[(k + row) % widths.size()]
+		var t := 2
+		if _hash(k, row, 252) > 0.6:
+			t = 3
+		if yy == 0 or xx == 0:
+			t = 0
+		elif yy == 1 or xx == 1:
+			t = mini(t + 1, 4)
+		elif yy == 4 or xx == sw - 1:
+			t = 1
+		if p.x > 23 and t > 0:
+			t -= 1
+		_px(img, p.x, p.y, ST[t])
+	# Arched mouth: a soot-black interior with fire glowing at its floor.
+	var mouth := _mk(img, func(p: Vector2) -> bool: return p.y < 28.0 and absf(p.x - 16.0) < 5.5 and (p.y > 21.0 or pow((p.x - 16.0) / 5.5, 2) + pow((p.y - 21.0) / 5.0, 2) <= 1.0))
+	for p: Vector2i in mouth:
+		var depth := (28.0 - p.y) / 11.0
+		var col: Color = C.fire_deep.lerp(C.outline, clampf(depth * 1.3, 0.0, 1.0))
+		if p.y >= 25:
+			col = C.fire_out if absf(p.x - 16.0) < 4.0 else C.fire_deep
+		if p.y >= 26 and absf(p.x - 16.0) < 2.5:
+			col = C.fire_mid
+		_px(img, p.x, p.y, col)
+	_rect(img, 14, 27, 4, 1, C.fire_core)
+	for p: Vector2i in body:
+		if not mouth.has(p) and Vector2(p).distance_to(Vector2(16, 26)) < 9.0 and img.get_pixel(p.x, p.y) != ST[0]:
+			img.set_pixel(p.x, p.y, img.get_pixel(p.x, p.y).lerp(C.fire_out, 0.25))
+	_rect(img, 9, 28, 14, 2, ST[3])
+	_rect(img, 9, 28, 14, 1, ST[4])
+	# Chimney stack.
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12, 0), Vector2(20, 0), Vector2(20, 7), Vector2(12, 7)])), [ST[0], ST[1], ST[2], ST[3], ST[4]])
+	_rect(img, 13, 0, 6, 2, C.outline)
+	_rect(img, 12, 4, 8, 1, ST[1])
+	_ink(img)
+	return img
+
+
+## Irregular flagstones that tile seamlessly: two staggered courses per tile.
+func _paint_flagstones(img: Image) -> void:
+	var tones: Array = MAT["stone"]
+	var rows := [[0, 14, [0, 13, 22]], [14, 18, [6, 17, 27]]]
+	for row in rows:
+		var y0: int = row[0]
+		var h: int = row[1]
+		var cuts: Array = row[2]
+		for y in range(y0, y0 + h):
+			for x in T:
+				var k := 0
+				for i in cuts.size():
+					if posmod(x - int(cuts[i]), T) < posmod(x - int(cuts[k]), T):
+						k = i
+				var xx := posmod(x - int(cuts[k]), T)
+				var sw := posmod(int(cuts[(k + 1) % cuts.size()]) - int(cuts[k]), T)
+				var yy := y - y0
+				var shade := (_hash(k, y0, 282) - 0.5) * 0.16
+				var col: Color = tones[2].lightened(shade)
+				if _hash(x, y, 283) > 0.95:
+					col = tones[1].lightened(shade)
+				elif _hash(x, y, 284) > 0.96:
+					col = tones[3].lightened(shade)
+				if xx == 0 or yy == 0:
+					col = tones[0]
+				elif xx == 1 or yy == 1:
+					col = tones[3].lightened(shade)
+				elif xx == sw - 1 or yy == h - 1:
+					col = tones[1]
+				_px(img, x, y, col)
+	for p in [Vector2i(9, 6), Vector2i(10, 7), Vector2i(10, 8), Vector2i(22, 22), Vector2i(23, 23)]:
+		_px(img, p.x, p.y, tones[0])
+	for p in [Vector2i(13, 2), Vector2i(13, 3), Vector2i(6, 20), Vector2i(17, 29)]:
+		_px(img, p.x, p.y, C.moss)
 
 
 ## Finishing pass for sprites: a soft volume rim (lit top edge, shaded
@@ -1249,88 +1843,6 @@ const TREE_TINT := [0.0, 0.05, -0.06, 0.08, 0.0, -0.08, 0.1, -0.03, 0.04, 0.0]
 const TREE_FRUIT := {3: Color8(210, 70, 48), 8: Color8(210, 70, 48), 5: Color8(246, 214, 96)}
 
 
-func _make_tree(v: int) -> Image:
-	var img := _new_image(64, 80)
-	rng.seed = 5000 + v * 17
-	var tint: float = TREE_TINT[v]
-	var tones: Array = []
-	for k in ["leaf_deep", "leaf_dark", "leaf", "leaf_light", "leaf_hi"]:
-		tones.append(_tint(C[k], tint))
-	var trunk_w := 8 + (v * 3) % 5
-	var trunk_x := 32 - trunk_w / 2
-	var base_y := 76
-
-	# Trunk with root flare.
-	for y in range(40, base_y):
-		var flare := 0
-		if y > base_y - 9:
-			flare = (y - (base_y - 9)) / 2 + 1
-		var x0 := trunk_x - flare
-		var x1 := trunk_x + trunk_w + flare
-		for x in range(x0, x1):
-			var u := float(x - x0) / float(x1 - x0 - 1)
-			var n := _snoise(x * 1.0, y * 0.35, 3.0, 91)
-			var col: Color = C.bark
-			if u < 0.28:
-				col = C.bark_light
-			elif u > 0.72:
-				col = C.bark_dark
-			elif n > 0.72:
-				col = C.bark_dark
-			elif n < 0.25:
-				col = C.bark_light
-			if u > 0.9:
-				col = C.bark_dark.darkened(0.2)
-			img.set_pixel(x, y, col)
-	# Knot and bark scars.
-	_rect(img, trunk_x + 2, 58, 2, 3, C.bark_dark)
-	_px(img, trunk_x + 2, 58, C.bark_light)
-
-	# Canopy lobes: back (high) first so front lobes overlap them.
-	var lobes: Array = []
-	var count := 7 + (v % 3)
-	var cr := 21.0 + (v % 4) * 1.5
-	lobes.append(Vector3(32, 30, cr * 0.78))
-	for i in count:
-		var a := TAU * float(i) / count + rng.randf() * 0.4
-		var rr := cr * rng.randf_range(0.5, 0.64)
-		lobes.append(Vector3(32 + cos(a) * cr * 0.58, 30 + sin(a) * cr * 0.46, rr))
-	lobes.sort_custom(func(p: Vector3, q: Vector3) -> bool: return p.y < q.y)
-	for lobe in lobes:
-		_blob(img, lobe.x, lobe.y, lobe.z, lobe.z * 0.9, tones, 0.34, 100 + v)
-	# Depth: lower foliage is darker; a few bright leaf flecks catch the light.
-	for y in 80:
-		for x in 64:
-			var col := img.get_pixel(x, y)
-			var idx := tones.find(col)
-			if idx < 0 or y > 56:
-				continue
-			var shift := clampi(int((y - 16) / 12.0), 0, 2)
-			if _hash(x, y, 111 + v) < 0.55:
-				shift += 1
-			if idx - shift >= 0 and y > 22:
-				img.set_pixel(x, y, tones[idx - shift])
-			elif idx < 4 and _hash(x, y, 113 + v) > 0.93:
-				img.set_pixel(x, y, tones[idx + 1])
-				_px(img, x + 1, y, tones[idx + 1])
-	# Fruit / blossoms.
-	if TREE_FRUIT.has(v):
-		for i in 7:
-			var fx := rng.randi_range(14, 50)
-			var fy := rng.randi_range(14, 44)
-			if img.get_pixel(fx, fy).a > 0.0:
-				_rect(img, fx, fy, 2, 2, TREE_FRUIT[v])
-				_px(img, fx, fy, Color.WHITE.darkened(0.1))
-	# Shade cast by the canopy on the upper trunk.
-	for y in range(40, 58):
-		for x in range(trunk_x - 1, trunk_x + trunk_w + 1):
-			var col := img.get_pixel(x, y)
-			if col.a > 0.0 and col in [C.bark, C.bark_light, C.bark_dark]:
-				img.set_pixel(x, y, col.darkened(0.3 - (y - 40) * 0.012))
-	_outline(img, C.outline)
-	return img
-
-
 # ---------------------------------------------------------------- rocks
 
 const ROCK_P := [2.6, 3.0, 2.2, 2.8, 3.2, 2.4, 2.6, 2.1, 2.9, 3.4]
@@ -1405,42 +1917,6 @@ func _make_rock(v: int, icon := false) -> Image:
 
 
 # ---------------------------------------------------------------- props
-
-func _make_campfire() -> Image:
-	var img := _new_image(T * 3, T)
-	for frame in 3:
-		var f := _new_image(T, T)
-		rng.seed = 77 + frame
-		# Ember bed.
-		_blob(f, 16, 24, 9, 3.5, [C.fire_deep, C.fire_out, C.fire_mid], 0.2, 140 + frame)
-		# Crossed logs.
-		_tube(f, Vector2(7, 26), Vector2(24, 20), 3, [C.wood_deep, C.wood_dark, C.wood, C.wood_light])
-		_tube(f, Vector2(25, 26), Vector2(8, 20), 3, [C.wood_deep, C.wood_dark, C.wood, C.wood_light])
-		_rect(f, 7, 25, 2, 3, C.wood_hi)
-		# Flames: three nested tongues that sway per frame.
-		var layers := [[C.fire_out, 17, 6.5], [C.fire_mid, 13, 4.8], [C.fire_core, 8, 2.8]]
-		for layer in layers:
-			var h: int = layer[1] + rng.randi_range(-1, 1)
-			var wmax: float = layer[2]
-			for y in h:
-				var fr := float(y) / h
-				var half := wmax * pow(1.0 - fr, 0.75) * (1.0 + 0.22 * sin(y * 0.8 + frame * 2.1))
-				var sway := sin(fr * 3.2 + frame * 2.1) * 2.0 * fr
-				for x in range(int(16 + sway - half), int(16 + sway + half) + 1):
-					_px(f, x, 23 - y, layer[0])
-		# Sparks.
-		for i in 3:
-			_px(f, rng.randi_range(10, 22), rng.randi_range(0, 6), C.fire_core)
-		# Stone ring on top of everything.
-		for i in 9:
-			var a := PI * (0.05 + 0.9 * float(i) / 8.0)
-			var sx := 16.0 + cos(a) * 12.0
-			var sy := 25.0 + sin(a) * 4.5
-			_blob(f, sx, sy, 3.2, 2.6, [C.rock_deep, C.rock_dark, C.rock, C.rock_light], 0.2, 150 + i)
-		_outline(f, C.outline)
-		img.blit_rect(f, Rect2i(0, 0, T, T), Vector2i(frame * T, 0))
-	return img
-
 
 ## Roof strip over closed rooms (scripts/world/visuals/roof.gd), four 32x32 tiles
 ## that tile sideways: back slope (foreshortened, sunlit), ridge, front
@@ -1640,60 +2116,17 @@ func _make_structure(kind: String) -> Image:
 				_rect(img, 7, y, 5, 2, C.iron)
 			_rect(img, 12, 6, T - 19, T - 7, Color(0.1, 0.07, 0.05, 0.35))
 		"workbench":
-			for lx in [4, T - 8]:
-				_box(img, lx, 17, 4, 12, C.wood_dark, 0.1, 231)
-			_box(img, 6, 20, T - 12, 3, C.wood_dark)
-			_planks_h(img, 2, 8, T - 4, 6, 6, 232)
-			_box(img, 2, 14, T - 4, 5, C.wood, 0.1, 233)
-			# Tools on the bench: saw, hammer, planks.
-			_rect(img, 5, 5, 10, 3, C.iron_light)
-			_rect(img, 5, 7, 10, 1, C.iron_dark)
-			for tx in range(6, 15, 2):
-				_px(img, tx, 8, C.iron_dark)
-			_rect(img, 4, 5, 2, 3, C.wood)
-			_tube(img, Vector2(19, 7), Vector2(26, 4), 1, [C.wood_dark, C.wood, C.wood_light])
-			_rect(img, 24, 1, 5, 4, C.iron)
-			_rect(img, 24, 1, 5, 1, C.iron_light)
+			return _st_workbench()
 		"chest":
-			# Body.
-			_box(img, 3, 14, T - 6, 15, C.wood, 0.12, 241)
-			for y in [18, 23]:
-				_rect(img, 4, y, T - 8, 1, C.wood_dark)
-			# Curved lid.
-			_blob(img, 16, 15, 13.0, 8.0, [C.wood_dark, C.wood, C.wood_light, C.wood_hi], 0.1, 242, 15.0)
-			# Iron straps and lock.
-			for sx in [6, T - 10]:
-				_box(img, sx, 8, 4, 21, C.iron, 0.06, 243)
-			_box(img, 13, 13, 6, 7, C.gold, 0.05, 244)
-			_rect(img, 15, 15, 2, 3, C.outline)
-			_rect(img, 3, 27, T - 6, 2, C.wood_deep)
+			return _st_chest()
 		"furnace":
-			_box(img, 3, 8, T - 6, 21, C.rock, 0.14, 251)
-			_rect(img, 3, 8, T - 6, 3, C.rock_light)
-			for y in [14, 20, 26]:
-				_rect(img, 3, y, T - 6, 1, C.rock_dark)
-			_box(img, 10, 17, 12, 10, C.outline)
-			_rect(img, 11, 22, 10, 5, C.fire_deep)
-			_rect(img, 12, 21, 8, 5, C.fire_out)
-			_rect(img, 14, 20, 4, 5, C.fire_mid)
-			_rect(img, 15, 22, 2, 3, C.fire_core)
-			_box(img, 12, 1, 8, 8, C.rock_dark, 0.1, 252)
-			_rect(img, 14, 1, 4, 2, C.outline)
+			return _st_furnace()
 		"stone_wall":
 			_wall_blocks(img, MAT["stone"], 261, false)
 		"brick_wall":
 			_wall_blocks(img, MAT["brick"], 271, true)
 		"stone_floor":
-			for y in T:
-				for x in T:
-					var h := _hash(x / 8, y / 8, 282)
-					var base: Color = C.rock.lightened((h - 0.5) * 0.18)
-					var gx := (x + (y / 8 % 2) * 4) % 8
-					if gx == 7 or y % 8 == 7:
-						base = C.rock_dark
-					elif gx == 0 or y % 8 == 0:
-						base = C.rock_light
-					_px(img, x, y, base)
+			_paint_flagstones(img)
 			return img
 		"anvil":
 			return _st_anvil()
@@ -1901,19 +2334,6 @@ func _berry(img: Image, x: int, y: int) -> void:
 	_px(img, x + 1, y, BERRY[3])
 
 
-## Low berry bush (feet at the bottom center of a 32x32 frame).
-func _make_bush() -> Image:
-	var img := _new_image(T, T)
-	var greens := [C.grass_deep, C.grass_dark, C.grass, C.grass_light]
-	_blob(img, 9, 20, 8, 7, greens, 0.2, 401)
-	_blob(img, 22, 20, 8, 7, greens, 0.2, 402)
-	_blob(img, 16, 15, 10, 9, greens, 0.2, 403)
-	_outline(img, C.outline)
-	for p in [Vector2i(10, 15), Vector2i(19, 12), Vector2i(23, 19), Vector2i(14, 20), Vector2i(7, 21), Vector2i(17, 17)]:
-		_berry(img, p.x, p.y)
-	return img
-
-
 func _icon_berries() -> Image:
 	var img := _new_image(T, T)
 	for p in [Vector2i(8, 17), Vector2i(15, 12), Vector2i(17, 19), Vector2i(11, 22)]:
@@ -2073,46 +2493,6 @@ func _icon_jam() -> Image:
 
 func _icon_farm_plot() -> Image:
 	return _make_structure("farm_plot_2")
-
-
-## Mineral outcrop: a rock blob flecked with the ore colours (feet at bottom centre).
-func _make_ore(specks: Array, seed: int) -> Image:
-	var img := _new_image(T, T)
-	var tones := [C.rock_deep, C.rock_dark, C.rock, C.rock_light]
-	_blob(img, 16, 22, 12, 8, tones, 0.14, 600 + seed)
-	_blob(img, 15, 15, 9, 8, tones, 0.14, 610 + seed)
-	_blob(img, 12, 12, 4, 3, [C.rock_light, C.rock_hi], 0.0, 620 + seed)
-	_outline(img, C.outline)
-	for i in 9:
-		var x := 8 + int(_hash(i, 1, 630 + seed) * 16.0)
-		var y := 11 + int(_hash(i, 2, 630 + seed) * 14.0)
-		if img.get_pixel(x, y).a > 0.5 and img.get_pixel(x + 1, y + 1).a > 0.5:
-			_rect(img, x, y, 2, 2, specks[i % specks.size()])
-			_px(img, x, y, specks[(i + 1) % specks.size()])
-	return img
-
-
-func _make_grass_tuft() -> Image:
-	var img := _new_image(T, T)
-	var greens := [C.grass_deep, C.grass_dark, C.grass, C.grass_light]
-	for i in 9:
-		var bx := 8 + i * 2
-		var h := 9 + int(_hash(i, 3, 640) * 9.0)
-		var lean := int((_hash(i, 4, 641) - 0.5) * 8.0)
-		_line(img, Vector2(bx, 28), Vector2(bx + lean, 28 - h), greens[1 + i % 3], 2)
-		_px(img, bx + lean, 28 - h, greens[3])
-	_outline(img, C.outline)
-	return img
-
-
-func _make_clay() -> Image:
-	var img := _new_image(T, T)
-	var t: Array = MAT["clay"]
-	_blob(img, 16, 24, 12, 5, [t[0], t[1], t[2], t[3]], 0.15, 650)
-	_blob(img, 13, 22, 4, 2, [t[3], t[4]], 0.0, 651)
-	_blob(img, 21, 25, 3, 1.5, [t[0], t[1]], 0.0, 652)
-	_outline(img, C.outline)
-	return img
 
 
 ## Plot growth stage: 0 tilled soil, 1 sprouts, 2 ripe berries.
@@ -2583,27 +2963,6 @@ func _st_stonecutter() -> Image:
 	for p in _mask_ellipse(Vector2(13, 9), 2.2, 2.2):
 		_px(img, p.x, p.y, MAT["iron"][0])
 	_bevel(img, _mask_poly(PackedVector2Array([Vector2(21, 7), Vector2(29, 7), Vector2(29, 14), Vector2(21, 14)])), MAT["stone"])
-	_outline(img, C.outline)
-	return img
-
-
-func _mushroom(img: Image, cx: float, base_y: float, s: float) -> void:
-	_bevel(img, _mask_stroke(Vector2(cx, base_y), Vector2(cx, base_y - 4.0 * s), 1.3 * s), MAT["bone"])
-	var cap := _mask_cut(_mask_ellipse(Vector2(cx, base_y - 4.0 * s), 4.2 * s, 3.0 * s),
-		_mask_fn(func(p: Vector2) -> bool: return p.y > base_y - 4.0 * s + 0.6 * s))
-	_bevel(img, cap, CAP5)
-	for d in [Vector2(-1.6, -1.6), Vector2(1.4, -2.2), Vector2(2.6, -0.6)]:
-		_px(img, int(cx + d.x * s), int(base_y - 4.0 * s + d.y * s), CAP5[4])
-
-
-## Mushroom cluster growing on the ground (resource node).
-func _make_mushrooms() -> Image:
-	var img := _new_image(T, T)
-	_mushroom(img, 11, 27, 1.5)
-	_mushroom(img, 20, 28, 1.9)
-	_mushroom(img, 15, 29, 1.0)
-	for x in [7, 9, 24, 26]:
-		_line(img, Vector2(x, 29), Vector2(x + 1, 25), LEAF5[2 + x % 2])
 	_outline(img, C.outline)
 	return img
 
@@ -3521,34 +3880,6 @@ func _n_herb() -> Image:
 	return _fin(img)
 
 
-func _n_shrub(fruit: Array, r: float, seed: int) -> Image:
-	var img := _new_image(T, T)
-	var tones := [LEAF5[0], LEAF5[1], LEAF5[2], LEAF5[3]]
-	_blob(img, 16, 21, 13, 9, tones, 0.3, seed)
-	_blob(img, 12, 16, 7, 6, tones, 0.3, seed + 1)
-	_blob(img, 21, 16, 7, 6, tones, 0.3, seed + 2)
-	for i in 7:
-		var c := Vector2(7 + _hash(i, 1, seed) * 18.0, 13 + _hash(i, 2, seed) * 13.0)
-		if img.get_pixel(int(c.x), int(c.y)).a > 0.5:
-			_berry_dot(img, c, fruit if fruit.size() == 5 else [fruit[0], fruit[0], fruit[1], fruit[2], fruit[3]], r)
-	return _fin(img)
-
-
-func _n_stump() -> Image:
-	var img := _new_image(T, T)
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(5, 15), Vector2(27, 15), Vector2(29, 29), Vector2(3, 29)])), [C.bark_dark, C.bark_dark, C.bark, C.bark_light, C.bark_light])
-	for x in [9, 15, 22]:
-		_line(img, Vector2(x, 18), Vector2(x - 1, 28), C.bark_dark)
-	_bevel(img, _mask_ellipse(Vector2(16, 15), 11, 4.5), WOOD5)
-	for r in [3.0, 6.5]:
-		for s in 40:
-			var a := TAU * s / 40.0
-			_px(img, int(16 + cos(a) * r), int(15 + sin(a) * r * 0.4), WOOD5[2])
-	for d in [Vector2(8, 18), Vector2(21, 19)]:
-		_bevel(img, _mask_add(_mask_stroke(d, d + Vector2(0, 5), 1.3), _mask_ellipse(d + Vector2(0, 6), 2.0, 2.0)), AMBER5)
-	return _fin(img)
-
-
 func _n_beehive() -> Image:
 	var img := _new_image(T, T)
 	_bevel(img, _mask_stroke(Vector2(16, 29), Vector2(16, 20), 1.6), WOOD5)
@@ -3562,18 +3893,6 @@ func _n_beehive() -> Image:
 	for p in [Vector2i(5, 6), Vector2i(26, 9), Vector2i(23, 3)]:
 		_px(img, p.x, p.y, SULF5[3])
 		_px(img, p.x + 1, p.y, C.outline)
-	return _fin(img)
-
-
-func _n_apple_tree() -> Image:
-	var img := _new_image(T, T)
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(13, 18), Vector2(19, 18), Vector2(20, 29), Vector2(12, 29)])), [C.bark_dark, C.bark_dark, C.bark, C.bark_light, C.bark_light])
-	var tones := [LEAF5[0], LEAF5[1], LEAF5[2], LEAF5[3], LEAF5[4]]
-	_blob(img, 16, 12, 14, 10, tones, 0.3, 1140)
-	_blob(img, 10, 15, 6, 5, tones, 0.3, 1141)
-	_blob(img, 22, 15, 6, 5, tones, 0.3, 1142)
-	for c in [Vector2(9, 10), Vector2(19, 7), Vector2(23, 15), Vector2(13, 17), Vector2(16, 12)]:
-		_berry_dot(img, c, RED5, 2.0)
 	return _fin(img)
 
 
