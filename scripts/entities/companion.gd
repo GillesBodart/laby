@@ -178,6 +178,13 @@ func take_damage(amount: int, _source: Node2D = null) -> void:
 	_flash = 0.15
 	if hp() <= 0:
 		entry.hp = 0
+		if GameState.companion_permadeath:
+			GameState.companions.erase(entry)
+			EventBus.notify.emit("%s has fallen. The Maze keeps it." % display_name())
+			Sound.play("death", global_position)
+			HitChips.burst(get_parent(), global_position + Vector2(0, -8), [Color8(200, 200, 200), Color8(140, 140, 150)], 10)
+			queue_free()
+			return
 		entry.downed = true
 		if GameState.area == "clearing":
 			EventBus.notify.emit("%s is downed and rests by the campfire." % display_name())

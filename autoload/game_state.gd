@@ -68,6 +68,12 @@ var survivors: Array = []
 var settlement_tier := 0
 ## Goals of the HUD chain already met (Objectives id -> true).
 var goals: Dictionary = {}
+## Run rules picked at New game. Permadeath: a fallen player ends the run and
+## its saves are erased; companion_permadeath: a downed companion is gone.
+var permadeath := false
+var companion_permadeath := false
+## Identifies this run's saves (so a permadeath erases them all).
+var run_id := 0
 
 const JOURNAL_KINDS := ["creatures", "resources", "glyphs", "places"]
 const MARKER_KINDS := ["danger", "resource", "door", "note"]
@@ -80,12 +86,16 @@ func _ready() -> void:
 	EventBus.night_started.connect(raid_while_away)
 
 
-func new_game(seed_value: int = 0) -> void:
+## Starts a fresh run. `rules` may set "permadeath" / "companion_permadeath".
+func new_game(seed_value: int = 0, rules: Dictionary = {}) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
 	if seed_value == 0:
-		var rng := RandomNumberGenerator.new()
-		rng.randomize()
 		seed_value = rng.randi_range(1, 2_000_000_000)
 	world_seed = seed_value
+	run_id = rng.randi_range(1, 2_000_000_000)
+	permadeath = bool(rules.get("permadeath", false))
+	companion_permadeath = bool(rules.get("companion_permadeath", false))
 	pending_save = {}
 	area = "clearing"
 	arriving = false
@@ -116,7 +126,8 @@ func meta_to_data() -> Dictionary:
 	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
 		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true),
 		"journal": journal.duplicate(true), "markers": markers.duplicate(true),
-		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier, "goals": goals.keys()}
+		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier, "goals": goals.keys(),
+		"permadeath": permadeath, "companion_permadeath": companion_permadeath, "run_id": run_id}
 
 
 func meta_from_data(data: Dictionary) -> void:
@@ -147,6 +158,9 @@ func meta_from_data(data: Dictionary) -> void:
 			survivors.append({"cast": ci, "role": String(s.role)})
 	settlement_tier = int(data.get("settlement_tier", 0))
 	goals = _set_of(data.get("goals", []))
+	permadeath = bool(data.get("permadeath", false))
+	companion_permadeath = bool(data.get("companion_permadeath", false))
+	run_id = int(data.get("run_id", 0))
 	markers = {}
 	var m: Dictionary = data.get("markers", {})
 	for a in m:

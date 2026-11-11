@@ -2,7 +2,7 @@ extends Node
 ## Developer helpers.
 ## - F3: toggle fast time (x30).
 ## - Command line (after `--`); any flag except --title skips the title screen:
-##     --title                  stay on the title screen (e.g. with --screenshot)
+##     --title[=new]            stay on the title screen (=new: its New game page)
 ##     --seed=<int>             force world seed
 ##     --time=HH:MM             start at a given time of day
 ##     --at=<x>,<y>             teleport the local player to a tile cell
@@ -24,6 +24,7 @@ extends Node
 ##     --equip=<id>,<id>...     give and equip items (e.g. torch)
 ##     --tame=<id>,<id>...      tamed companions at the player's side
 ##     --die                    die with a full pack, then stand at the remains
+##     --permadeath             one-life run rules (with --die: the run ends)
 ##     --epilogue               show the escape epilogue in the Clearing
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
@@ -39,6 +40,11 @@ func _ready() -> void:
 		_args[parts[0]] = parts[1] if parts.size() > 1 else ""
 	if _args.has("seed"):
 		GameState.new_game(int(_args.seed))
+	if _args.has("permadeath"):
+		GameState.permadeath = true
+		GameState.companion_permadeath = true
+	if _args.get("title", "") == "new":
+		_title_page.call_deferred()
 	if _args.has("area") and GameState.AREA_SCENES.has(_args.area):
 		GameState.area = _args.area
 		get_tree().change_scene_to_file.call_deferred(GameState.area_scene())
@@ -97,6 +103,9 @@ func _give() -> void:
 	for id in ["iron_sword", "copper_armor", "bone_charm", "iron_shield"]:
 		p.inventory.add(id, 1)
 		p.equipment.equip(p.inventory, id)
+	# Some wear, to show the durability bars.
+	p.equipment.wear_out("weapon", ItemCatalog.durability_of("iron_sword") / 3)
+	p.inventory.wear_slot(p.inventory.find_last("stone_axe"), ItemCatalog.durability_of("stone_axe") * 4 / 5)
 	if _args.has("sort"):
 		p.inventory.sort()
 	if _args.has("chest"):
@@ -169,6 +178,14 @@ func _tame(list: String) -> void:
 
 
 ## --die: the player falls with a full pack, then faces the remains.
+func _title_page() -> void:
+	var menu := get_tree().get_first_node_in_group("title_menu")
+	if menu != null:
+		menu.activate(0)
+		menu.activate(1)
+		menu.set("_hover", 1)
+
+
 func _die() -> void:
 	await get_tree().create_timer(0.4).timeout
 	var p: Player = GameState.players.get(GameState.local_peer_id())

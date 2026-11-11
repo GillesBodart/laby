@@ -430,6 +430,9 @@ func gain_xp(amount: int) -> void:
 
 
 func _on_died() -> void:
+	if GameState.permadeath:
+		_fall_for_good()
+		return
 	var lost := inventory.strip_for_death(survival.insured_slots())
 	if lost.is_empty():
 		EventBus.notify.emit("You collapsed... and wake up at the camp.")
@@ -449,6 +452,20 @@ func _on_died() -> void:
 		GameState.travel("clearing")
 	else:
 		global_position = ClearingWorld.cell_center(world.layout.spawn_cell)
+
+
+## Permadeath: the run is over. Its saves are erased and the run summary
+## offers only the way back to the title.
+func _fall_for_good() -> void:
+	velocity = Vector2.ZERO
+	Sound.play("death", global_position)
+	SaveSystem.erase_run(GameState.run_id)
+	GameState.run_id = 0
+	var panel := get_tree().get_first_node_in_group("epilogue_panel")
+	if panel != null:
+		panel.open_fallen()
+	else:
+		GameState.change_scene("res://scenes/ui/main_menu.tscn")
 
 
 ## Damage dealt per hit: the equipped weapon (tools count) plus rings and skills.

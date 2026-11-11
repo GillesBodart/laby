@@ -38,3 +38,16 @@ func test_save_writes_file() -> void:
 	check_eq(SaveSystem.save_game(TEST_SLOT), OK, "save ok")
 	check(SaveSystem.has_save(TEST_SLOT), "file exists")
 	DirAccess.remove_absolute(SaveSystem.slot_path(TEST_SLOT))
+
+func test_permadeath_erases_only_that_runs_saves() -> void:
+	var keep_rules := [GameState.permadeath, GameState.run_id]
+	GameState.permadeath = true
+	GameState.run_id = 4242
+	check_eq(SaveSystem.save_game(TEST_SLOT), OK, "permadeath run saved")
+	check(SaveSystem.slot_summary(TEST_SLOT).ends_with("[1 life]"), "slot shows the one-life rule")
+	SaveSystem.erase_run(1111, [TEST_SLOT])
+	check(SaveSystem.has_save(TEST_SLOT), "another run's death leaves it")
+	SaveSystem.erase_run(4242, [TEST_SLOT])
+	check(not SaveSystem.has_save(TEST_SLOT), "its own death erases it")
+	GameState.permadeath = keep_rules[0]
+	GameState.run_id = keep_rules[1]

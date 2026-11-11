@@ -3,6 +3,8 @@ extends Control
 ## run took (days, guardians, people, discoveries), then keep exploring or go
 ## back to the title. Opened in the Clearing after the escape travel (see
 ## GameState.epilogue_pending). Pauses the game while open.
+## Also the end of a permadeath run (open_fallen): same summary, and the only
+## way out is the title screen.
 
 const PANEL := Rect2(110, 34, 260, 202)
 const BUTTON := Vector2(112, 20)
@@ -17,13 +19,17 @@ const SLATE_DARK := Color8(22, 30, 40)
 const TEXT_LIGHT := Color8(238, 226, 196)
 const TEXT_DIM := Color8(170, 182, 190)
 const BUTTONS := ["Keep exploring", "Title screen"]
+const FALLEN_BUTTONS := ["Title screen"]
 
 var _font: Font
 var _hover := -1
+## True when showing the end of a permadeath run.
+var fallen := false
 
 
 func _ready() -> void:
 	add_to_group("ui_panels")
+	add_to_group("epilogue_panel")
 	visible = false
 	size = Vector2(480, 270)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -41,6 +47,16 @@ func open() -> void:
 	visible = true
 	get_tree().paused = true
 	Sound.play("horn")
+
+
+## The player fell in a permadeath run.
+func open_fallen() -> void:
+	fallen = true
+	open()
+
+
+func _buttons() -> Array:
+	return FALLEN_BUTTONS if fallen else BUTTONS
 
 
 ## [label, value] lines of the run summary.
@@ -63,12 +79,13 @@ func choose(i: int) -> void:
 	Sound.play("ui")
 	visible = false
 	get_tree().paused = false
-	if i == 1:
+	if fallen or i == 1:
 		GameState.change_scene("res://scenes/ui/main_menu.tscn")
 
 
 func _button_rect(i: int) -> Rect2:
-	var x := PANEL.position.x + (PANEL.size.x - BUTTON.x * 2.0 - 8.0) / 2.0 + i * (BUTTON.x + 8.0)
+	var n := _buttons().size()
+	var x := PANEL.position.x + (PANEL.size.x - BUTTON.x * n - 8.0 * (n - 1)) / 2.0 + i * (BUTTON.x + 8.0)
 	return Rect2(Vector2(x, PANEL.end.y - BUTTON.y - 10.0), BUTTON)
 
 
@@ -76,7 +93,7 @@ func _process(_delta: float) -> void:
 	if not visible:
 		return
 	_hover = -1
-	for i in BUTTONS.size():
+	for i in _buttons().size():
 		if _button_rect(i).has_point(get_local_mouse_position()):
 			_hover = i
 	queue_redraw()
@@ -120,19 +137,28 @@ func _draw() -> void:
 	draw_rect(PANEL.grow(-3), SLATE, false)
 	var title := Rect2(PANEL.get_center().x - 70, PANEL.position.y + 8, 140, 22)
 	_box(title, CREAM, BROWN)
-	var t := "OUT OF THE MAZE"
-	draw_string(_font, Vector2(title.get_center().x - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x / 2.0, title.end.y - 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
+	var t := "YOU DID NOT SURVIVE" if fallen else "OUT OF THE MAZE"
+	var tw := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	if tw + 16 > title.size.x:
+		title = title.grow_individual((tw + 16 - title.size.x) / 2.0, 0, (tw + 16 - title.size.x) / 2.0, 0)
+		_box(title, CREAM, BROWN)
+	draw_string(_font, Vector2(title.get_center().x - tw / 2.0, title.end.y - 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
 	var y := title.end.y + 16.0
-	_center(y, "Light. Wind. An open sky with no walls in it.", 10, TEXT_LIGHT)
-	_center(y + 12.0, "Behind you, the Maze keeps grinding.", 10, TEXT_DIM)
+	if fallen:
+		_center(y, "One life, and the Maze has taken it.", 10, TEXT_LIGHT)
+		_center(y + 12.0, "This run's saves are gone with you.", 10, TEXT_DIM)
+	else:
+		_center(y, "Light. Wind. An open sky with no walls in it.", 10, TEXT_LIGHT)
+		_center(y + 12.0, "Behind you, the Maze keeps grinding.", 10, TEXT_DIM)
 	y += 30.0
 	for row in stats():
 		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
 		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[1], HORIZONTAL_ALIGNMENT_RIGHT, PANEL.size.x - 56, 12, GOLD)
 		y += 15.0
-	for i in BUTTONS.size():
+	var buttons := _buttons()
+	for i in buttons.size():
 		var r := _button_rect(i)
 		_box(r, CREAM, GOLD if i == _hover else BROWN)
-		var label: String = "%d  %s" % [i + 1, BUTTONS[i]]
+		var label: String = "%d  %s" % [i + 1, buttons[i]]
 		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		draw_string(_font, Vector2(roundf(r.get_center().x - w / 2.0), r.end.y - 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)

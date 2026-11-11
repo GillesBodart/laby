@@ -63,7 +63,20 @@ func slot_summary(slot: int) -> String:
 	var clock := DayClock.new()
 	clock.total_minutes = minutes
 	var area := String(data.get("area", "clearing")).capitalize()
-	return "Day %d  %s  %s" % [clock.day(), area, String(data.get("saved_at", "")).substr(0, 16)]
+	var one_life := " [1 life]" if bool(data.get("meta", {}).get("permadeath", false)) else ""
+	return "Day %d  %s  %s%s" % [clock.day(), area, String(data.get("saved_at", "")).substr(0, 16), one_life]
+
+
+## Deletes every slot saved by run `id` (a permadeath run that ended).
+func erase_run(id: int, slots: Array = range(SLOTS)) -> void:
+	if id == 0:
+		return
+	for slot in slots:
+		if not has_save(slot):
+			continue
+		var data = JSON.parse_string(FileAccess.get_file_as_string(slot_path(slot)))
+		if typeof(data) == TYPE_DICTIONARY and int(data.get("meta", {}).get("run_id", 0)) == id:
+			DirAccess.remove_absolute(slot_path(slot))
 
 ## Loads the save and rebuilds the world from its seed; node data is applied
 ## by the world scene once it is ready (see apply_to_tree).

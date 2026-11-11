@@ -4,7 +4,8 @@ extends Control
 ## Load game and Settings open the pause menu in title_mode (its slot and
 ## Controls / Sound pages). Drawn in 480x270 UI space at 2x, over a maze
 ## backdrop with the Clearing at its heart. Keyboard (Up/Down/Enter), mouse
-## and pad (via Gamepad's cursor) all work.
+## and pad (via Gamepad's cursor) all work. New game opens a small page to
+## pick the run's death rules before it begins.
 
 const SCENE := "res://scenes/ui/main_menu.tscn"
 const Menu := preload("res://scripts/ui/menus/settings_menu.gd")
@@ -12,6 +13,14 @@ const Menu := preload("res://scripts/ui/menus/settings_menu.gd")
 const SIZE := Vector2(480, 270)
 const ROWS := ["New game", "Load game", "Settings", "Exit"]
 const BUTTON := Vector2(120, 20)
+const WIDE_BUTTON := Vector2(220, 20)
+## New game page: Begin, the two death rules (toggles), Back.
+const NEW_HINTS := [
+	"Start the run with these rules.",
+	"Recoverable: wake at camp, your pack waits where you fell.\nPermanent: one life; death ends the run and erases its saves.",
+	"Recover: a downed companion rests at the campfire.\nPermanent: a companion that falls is gone for good.",
+	"Back to the title.",
+]
 const BUTTON_TOP := 98.0
 const BUTTON_STEP := 25.0
 
@@ -35,6 +44,10 @@ const GLOW := Color8(150, 226, 196)
 const NIGHT := Color(0.02, 0.03, 0.05, 0.22)
 
 var status := ""
+## "" (title rows) or "new" (new game rules).
+var page := ""
+var permadeath := false
+var companion_permadeath := false
 var _hover := -1
 var _font: Font
 var _time := 0.0
@@ -72,15 +85,35 @@ func has_any_save() -> bool:
 	return false
 
 
-## Runs row i of the title menu.
+func rows() -> Array:
+	if page == "new":
+		return ["Begin", "Your death: %s" % ("Permanent" if permadeath else "Recoverable"),
+			"Companions: %s" % ("Permanent" if companion_permadeath else "Recover"), "Back"]
+	return ROWS
+
+
+## Runs row i of the current page.
 func activate(i: int) -> void:
-	if i < 0 or i >= ROWS.size():
+	if i < 0 or i >= rows().size():
 		return
 	Sound.play("ui")
 	status = ""
+	if page == "new":
+		match i:
+			0:
+				start_new_game()
+			1:
+				permadeath = not permadeath
+			2:
+				companion_permadeath = not companion_permadeath
+			3:
+				page = ""
+				_hover = 0
+		return
 	match i:
 		0:
-			start_new_game()
+			page = "new"
+			_hover = 0
 		1:
 			if has_any_save():
 				_settings.open("load")
@@ -93,7 +126,7 @@ func activate(i: int) -> void:
 
 
 func start_new_game() -> void:
-	GameState.new_game()
+	GameState.new_game(0, {"permadeath": permadeath, "companion_permadeath": companion_permadeath})
 	TimeSystem.reset()
 	GameState.change_scene(GameState.area_scene())
 
@@ -105,8 +138,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.physical_keycode:
 			KEY_DOWN, KEY_UP:
 				var d := 1 if event.physical_keycode == KEY_DOWN else -1
-				_hover = posmod((_hover if _hover >= 0 else (-1 if d > 0 else 0)) + d, ROWS.size())
+				_hover = posmod((_hover if _hover >= 0 else (-1 if d > 0 else 0)) + d, rows().size())
 				get_viewport().set_input_as_handled()
+			KEY_ESCAPE:
+				if page != "":
+					activate(rows().size() - 1)
+					get_viewport().set_input_as_handled()
 			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 				if _hover >= 0:
 					activate(_hover)
@@ -119,11 +156,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _row_rect(i: int) -> Rect2:
-	return Rect2(SIZE.x / 2.0 - BUTTON.x / 2.0, BUTTON_TOP + i * BUTTON_STEP, BUTTON.x, BUTTON.y)
+	var b := WIDE_BUTTON if page == "new" else BUTTON
+	return Rect2(SIZE.x / 2.0 - b.x / 2.0, BUTTON_TOP + i * BUTTON_STEP, b.x, b.y)
 
 
 func _row_at(m: Vector2) -> int:
-	for i in ROWS.size():
+	for i in rows().size():
 		if _row_rect(i).has_point(m):
 			return i
 	return -1
@@ -236,13 +274,21 @@ func _draw() -> void:
 	_text_center(cx, 52, "LABY", 36, Menu.GOLD)
 	_text_center(cx, 69, "The walls remember.", 10, Menu.TEXT_LIGHT)
 	var can_load := has_any_save()
-	for i in ROWS.size():
+	var list := rows()
+	for i in list.size():
 		var r := _row_rect(i)
-		var usable := i != 1 or can_load
+		var usable := page != "" or i != 1 or can_load
 		var hot := i == _hover and not _settings.visible
-		_box(r, Menu.CREAM if hot and usable else Menu.TAN, Menu.GOLD if hot else Menu.BROWN, 3)
-		_text_center(r.get_center().x, r.get_center().y + 5, ROWS[i], 14, Menu.TEXT_DARK if usable else Menu.FADED)
+		var harsh := page == "new" and ((i == 1 and permadeath) or (i == 2 and companion_permadeath))
+		_box(r, Menu.CREAM if hot and usable else Menu.TAN, Menu.GOLD if hot else (Color8(170, 50, 40) if harsh else Menu.BROWN), 3)
+		_text_center(r.get_center().x, r.get_center().y + 5, list[i], 14 if page == "" else 12, Menu.TEXT_DARK if usable else Menu.FADED)
 	draw_rect(Rect2(0, 254, SIZE.x, 16), Color(0.03, 0.05, 0.08, 0.95))
-	if status != "":
+	if page == "new" and _hover >= 0 and not _settings.visible:
+		var lines: PackedStringArray = String(NEW_HINTS[_hover]).split("\n")
+		var box := Rect2(cx - 160, 202, 320, 8 + lines.size() * 12)
+		_box(box, Color(0.03, 0.05, 0.08, 0.85), Menu.BROWN, 3)
+		for k in lines.size():
+			_text_center(cx, box.position.y + 14 + k * 12, lines[k], 10, Menu.TEXT_LIGHT)
+	elif status != "":
 		_text_center(cx, 214, status, 11, Menu.GOLD)
 	_text_center(cx, 264, "[Up/Down] choose   [Enter]/[Click] select", 11, Menu.TEXT_LIGHT)

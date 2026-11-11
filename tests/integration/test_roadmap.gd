@@ -299,6 +299,35 @@ func test_tamed_companion_follows_fights_and_persists() -> void:
 	world.free()
 
 
+func test_permadeath_ends_the_run_and_loses_companions() -> void:
+	GameState.new_game(2024, {"permadeath": true, "companion_permadeath": true})
+	TimeSystem.reset()
+	TimeSystem.set_time_of_day(10 * 60)
+	var rec := GameState.add_companion("hare", GameState.local_peer_id())
+	var world: Node = load(WORLD_SCENE).instantiate()
+	_tree().root.add_child(world)
+	await _frames(2)
+	var pet: Companion = _tree().get_nodes_in_group("companions")[0]
+	pet.take_damage(999)
+	await _frames(1)
+	check(not GameState.companions.has(rec), "a fallen companion is gone for good")
+	var requested: Array[String] = []
+	GameState.scene_changer = func(path: String) -> void: requested.append(path)
+	var player := _local_player()
+	player.inventory.slots[3] = {"id": "wood", "count": 7}
+	player.survival.damage(9999.0)
+	var panel: Control = _tree().get_first_node_in_group("epilogue_panel")
+	check(panel.visible and panel.fallen, "the run summary says you did not survive")
+	check(GameState.remains.is_empty() and GameState.run_id == 0, "no pack to recover, the run is closed")
+	check(_tree().paused, "the world stops")
+	panel.choose(0)
+	GameState.scene_changer = Callable()
+	check_eq(requested, ["res://scenes/ui/main_menu.tscn"], "the only way on is the title")
+	check(not _tree().paused, "unpaused on the way out")
+	world.free()
+	GameState.new_game(2024)
+
+
 func test_downed_companion_recovers_in_the_clearing() -> void:
 	GameState.new_game(2024)
 	TimeSystem.reset()
@@ -745,8 +774,16 @@ func test_title_menu_starts_loads_and_opens_settings() -> void:
 	GameState.scene_changer = func(path: String) -> void: requested.append(path)
 	GameState.area = "desert"
 	menu.activate(0)
+	check(requested.is_empty() and menu.page == "new", "New game first asks for the run's rules")
+	menu.activate(1)
+	menu.activate(2)
+	check(menu.rows()[1].ends_with("Permanent") and menu.rows()[2].ends_with("Permanent"), "both deaths toggled")
+	menu.activate(0)
 	GameState.scene_changer = Callable()
 	check_eq(requested, [GameState.AREA_SCENES.clearing], "New game starts in the Clearing")
 	check(GameState.world_seed != 77, "with a fresh seed")
+	check(GameState.permadeath and GameState.companion_permadeath and GameState.run_id != 0, "the rules are kept")
+	GameState.new_game(77)
+	check(not GameState.permadeath, "a plain new game is forgiving again")
 	menu.free()
 	check(not TimeSystem.paused, "the clock runs again once the title is gone")
