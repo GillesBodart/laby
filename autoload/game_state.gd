@@ -53,6 +53,8 @@ var keys: Dictionary = {}
 var bosses_defeated: Dictionary = {}
 ## Set once the players walk out of the Pit's last gate.
 var escaped := false
+## The escape travel asks the Clearing HUD to show the epilogue (not saved).
+var epilogue_pending := false
 ## Tamed creatures: [{type, name, owner, hp, max_hp, level, xp, mode, downed}].
 var companions: Array = []
 ## Field journal: kind (creatures/resources/glyphs/places) -> {id: count}.
@@ -64,6 +66,8 @@ var markers: Dictionary = {}
 var survivors: Array = []
 ## Highest settlement tier announced so far.
 var settlement_tier := 0
+## Goals of the HUD chain already met (Objectives id -> true).
+var goals: Dictionary = {}
 
 const JOURNAL_KINDS := ["creatures", "resources", "glyphs", "places"]
 const MARKER_KINDS := ["danger", "resource", "door", "note"]
@@ -104,6 +108,7 @@ func new_game(seed_value: int = 0) -> void:
 	markers = {}
 	survivors = [{"cast": 0, "role": Settlement.CAST[0].role}]
 	settlement_tier = 0
+	goals = {}
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
@@ -111,7 +116,7 @@ func meta_to_data() -> Dictionary:
 	return {"remains": remains.duplicate(true), "reached": reached.keys(), "keys": keys.keys(),
 		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true),
 		"journal": journal.duplicate(true), "markers": markers.duplicate(true),
-		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier}
+		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier, "goals": goals.keys()}
 
 
 func meta_from_data(data: Dictionary) -> void:
@@ -141,6 +146,7 @@ func meta_from_data(data: Dictionary) -> void:
 		if ci >= 0 and ci < Settlement.CAST.size() and Settlement.ROLES.has(String(s.get("role", ""))):
 			survivors.append({"cast": ci, "role": String(s.role)})
 	settlement_tier = int(data.get("settlement_tier", 0))
+	goals = _set_of(data.get("goals", []))
 	markers = {}
 	var m: Dictionary = data.get("markers", {})
 	for a in m:

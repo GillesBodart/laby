@@ -24,6 +24,7 @@ extends Node
 ##     --equip=<id>,<id>...     give and equip items (e.g. torch)
 ##     --tame=<id>,<id>...      tamed companions at the player's side
 ##     --die                    die with a full pack, then stand at the remains
+##     --epilogue               show the escape epilogue in the Clearing
 ##     --screenshot=<path.png>  capture the screen after a few frames and quit
 ##     --screenshot-frames=<n>  frames to wait before capturing (default 30)
 
@@ -74,6 +75,8 @@ func _ready() -> void:
 		_equip.call_deferred(_args.equip)
 	if _args.has("tame"):
 		_tame.call_deferred(_args.tame)
+	if _args.has("epilogue"):
+		GameState.epilogue_pending = true
 	if _args.has("die"):
 		_die.call_deferred()
 	if _args.has("swing"):

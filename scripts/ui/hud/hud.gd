@@ -7,6 +7,8 @@ const NATIVE_SIZE := Vector2(960, 540)
 const NOTICE_MAX_W := 560.0
 ## Bottom edge of the notice box, in native pixels.
 const NOTICE_BOTTOM := 524.0
+const CLOCK_COLOR := Color(0.93, 0.89, 0.78)
+const DUSK_COLOR := Color8(244, 160, 72)
 
 @onready var icon: TextureRect = %Icon
 @onready var clock_label: Label = %ClockLabel
@@ -15,6 +17,7 @@ const NOTICE_BOTTOM := 524.0
 var _sun := AtlasTexture.new()
 var _moon := AtlasTexture.new()
 var _notice_tween: Tween
+var _clock_panel: Control
 
 
 func _ready() -> void:
@@ -29,6 +32,7 @@ func _ready() -> void:
 	add_child(native)
 	move_child(native, 0)
 	var clock_panel: Control = $ClockPanel
+	_clock_panel = clock_panel
 	clock_panel.reparent(native, false)
 	clock_panel.position = Vector2(8, 8)
 	notice.reparent(native, false)
@@ -46,6 +50,9 @@ func _ready() -> void:
 	var bars := Control.new()
 	bars.set_script(preload("res://scripts/ui/hud/survival_bars.gd"))
 	native.add_child(bars)
+	var goal_box := Control.new()
+	goal_box.set_script(preload("res://scripts/ui/hud/goal_box.gd"))
+	native.add_child(goal_box)
 	var panel := PanelContainer.new()
 	panel.set_script(preload("res://scripts/ui/panels/crafting_panel.gd"))
 	add_child(panel)
@@ -70,6 +77,9 @@ func _ready() -> void:
 	var waystone_panel := Control.new()
 	waystone_panel.set_script(preload("res://scripts/ui/panels/waystone_panel.gd"))
 	add_child(waystone_panel)
+	var epilogue := Control.new()
+	epilogue.set_script(preload("res://scripts/ui/panels/epilogue_panel.gd"))
+	add_child(epilogue)
 	# Above the panels so drops stay visible while the backpack is open.
 	var feed := Control.new()
 	feed.set_script(preload("res://scripts/ui/hud/notice_feed.gd"))
@@ -85,7 +95,15 @@ func _ready() -> void:
 func _on_minute_changed(day: int, minute_of_day: int) -> void:
 	var phase := DayClock.phase_at(minute_of_day)
 	clock_label.text = "Day %d  %02d:%02d  %s" % [day, minute_of_day / 60, minute_of_day % 60, DayClock.phase_name(phase)]
+	# Dusk counts down to nightfall: the gates shut and the maze shifts then.
+	var left := DayClock.NIGHT_START - minute_of_day
+	if phase == DayClock.Phase.DUSK and left > 0:
+		clock_label.text += "  -  night in %d:%02d" % [left / 60, left % 60]
+		clock_label.add_theme_color_override("font_color", DUSK_COLOR)
+	else:
+		clock_label.add_theme_color_override("font_color", CLOCK_COLOR)
 	icon.texture = _moon if phase == DayClock.Phase.NIGHT else _sun
+	_clock_panel.reset_size()
 
 
 func show_notice(text: String) -> void:

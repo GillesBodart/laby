@@ -4,6 +4,7 @@ extends World
 ## vestibule leads back, the guardian's arena and its sealed gate lie north.
 
 const ENEMY_SCENE := preload("res://scenes/entities/enemy.tscn")
+const DUSK_WARNING := "The light fades... at nightfall the walls shift and the Clearing gates close."
 
 
 func sector() -> String:
@@ -43,6 +44,7 @@ func setup_area() -> void:
 		clearing.entities.add_child(Landmark.create("glyph", g.glyph, g.cell))
 	_sync_fog()
 	EventBus.night_started.connect(_on_night_started)
+	EventBus.phase_changed.connect(_on_phase_changed)
 
 
 ## Walls seen before the last shift(s) may have moved: flag them on the map.
@@ -53,6 +55,11 @@ func _sync_fog() -> void:
 	for region in LabyrinthGenerator.shift_regions(GameState.world_seed, sector(), fog.shift) + LabyrinthGenerator.shift_regions(GameState.world_seed, sector(), now):
 		fog.mark_uncertain(LabyrinthGenerator.region_tiles(region).grow(1))
 	fog.shift = now
+
+
+func _on_phase_changed(phase: int) -> void:
+	if phase == DayClock.Phase.DUSK:
+		EventBus.notify.emit(DUSK_WARNING)
 
 
 func _on_night_started(_night: int) -> void:
@@ -110,7 +117,7 @@ func enter_portal(target: String) -> void:
 	if target == "escape":
 		if not GameState.escaped:
 			GameState.escaped = true
-			EventBus.notify.emit("Light. Wind. You have walked out of the Maze. (You may keep exploring.)")
+			GameState.epilogue_pending = true
 		GameState.travel("clearing")
 		return
 	super.enter_portal(target)
