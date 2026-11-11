@@ -588,8 +588,13 @@ func take_damage(amount: int, source: Node2D = null) -> void:
 		EventBus.notify.emit("Blocked!")
 		Sound.play("block", global_position)
 		return
-	survival.damage(maxi(amount - armor(), 1))
+	var dealt := maxi(amount - armor(), 1)
+	survival.damage(dealt)
 	Sound.play("hurt", global_position)
+	DamageNumber.pop(get_parent(), global_position + Vector2(0, -34), dealt, Color8(255, 112, 96))
+	var cam := get_viewport().get_camera_2d() as GameCamera
+	if cam and cam.target == self:
+		cam.shake(clampf(0.25 + dealt / 30.0, 0.25, 0.7))
 	if source:
 		velocity = (global_position - source.global_position).normalized() * 160.0
 	var tw := create_tween()

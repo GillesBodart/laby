@@ -13,6 +13,8 @@ const INK := Color8(16, 12, 14)
 const TRACK := Color8(40, 32, 34)
 const TEXT := UiFrame.TEXT
 const FONT := 16
+## Below this share of health the heart bar raises the alarm.
+const LOW_HEALTH := 0.25
 
 var _font: Font
 
@@ -33,13 +35,17 @@ func _draw() -> void:
 	if player == null:
 		return
 	var s := player.survival
+	var hp := s.health / s.max_health()
+	# Each row: icon, fill, colour, critical (blinks and gets a "!" badge so
+	# the warning never relies on colour alone).
 	var rows := [
-		["heart", s.health / s.max_health(), Color8(214, 62, 62)],
-		["food", s.hunger / Survival.MAX_HUNGER, Color8(150, 40, 40) if s.is_starving() else Color8(228, 150, 56)],
+		["heart", hp, Color8(214, 62, 62), hp < LOW_HEALTH],
+		["food", s.hunger / Survival.MAX_HUNGER, Color8(150, 40, 40) if s.is_starving() else Color8(228, 150, 56), s.is_starving()],
 	]
 	if s.thirst_enabled:
-		rows.append(["water", s.thirst / Survival.MAX_THIRST, Color8(150, 40, 40) if s.is_dehydrated() else Color8(72, 152, 226)])
-	rows.append(["stamina", s.stamina / Survival.MAX_STAMINA, Color8(112, 190, 84)])
+		rows.append(["water", s.thirst / Survival.MAX_THIRST, Color8(150, 40, 40) if s.is_dehydrated() else Color8(72, 152, 226), s.is_dehydrated()])
+	rows.append(["stamina", s.stamina / Survival.MAX_STAMINA, Color8(112, 190, 84), false])
+	var blink := int(Time.get_ticks_msec() / 300) % 2 == 0
 	var climate := Sectors.climate_of(GameState.area)
 	var show_temp := climate != 0 or absf(s.temperature) > 1.0
 	var count := rows.size() + 1 + (1 if show_temp else 0)
@@ -48,7 +54,12 @@ func _draw() -> void:
 	var y := panel.position.y + PAD
 	for r in rows:
 		UiFrame.icon(self, Vector2(panel.position.x + ICON_X + 4, y - 1), r[0], r[2])
-		_bar(Vector2(panel.position.x + BAR_X, y + 1), r[1], r[2])
+		var col: Color = r[2]
+		if r[3] and blink:
+			col = col.lightened(0.55)
+		_bar(Vector2(panel.position.x + BAR_X, y + 1), r[1], col)
+		if r[3]:
+			_alert(Vector2(panel.end.x + 3, y - 2), blink)
 		y += ROW_H
 	if show_temp:
 		var hot := s.temperature > 0.0
@@ -107,6 +118,14 @@ func _draw_prompt(player: Player) -> void:
 	draw_rect(Rect2(cap.position.x, cap.end.y - 2, cap.size.x, 2), Color8(150, 112, 64))
 	draw_string(_font, Vector2(cap.position.x + 4, cap.position.y + 11), key, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, INK)
 	draw_string(_font, Vector2(cap.end.x + 6, r.position.y + 15), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, TEXT)
+
+
+## Little "!" badge hanging off the panel's right edge.
+func _alert(pos: Vector2, lit: bool) -> void:
+	var r := Rect2(pos, Vector2(12, 15))
+	draw_rect(r.grow(1), INK)
+	draw_rect(r, Color8(214, 62, 62) if lit else Color8(120, 30, 34))
+	draw_string(_font, Vector2(r.position.x + 3, r.position.y + 12), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, Color8(255, 240, 210))
 
 
 func _track(pos: Vector2, h: float) -> void:

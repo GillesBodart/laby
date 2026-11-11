@@ -480,6 +480,7 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 		blocked = true
 	amount = maxi(amount - _def.armor, 1)
 	hp -= amount
+	DamageNumber.pop(get_parent(), global_position + Vector2(0, -28), amount, Color8(180, 186, 196) if blocked else Color8(255, 244, 214))
 	_flash = 0.12
 	_bar = 4.0
 	if blocked:
