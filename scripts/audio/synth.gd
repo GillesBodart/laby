@@ -20,6 +20,8 @@ const SOUNDS := {
 		{"wave": "noise", "f": 2400, "f1": 600, "dur": 0.06, "vol": 0.3}]},
 	"block": {"v": [{"wave": "square", "f": 1250, "dur": 0.05, "vol": 0.2, "duty": 0.25},
 		{"wave": "triangle", "f": 1870, "dur": 0.12, "vol": 0.25, "decay": 3.0}]},
+	"break": {"v": [{"wave": "noise", "f": 3200, "f1": 400, "dur": 0.18, "vol": 0.3, "decay": 2.0},
+		{"wave": "square", "f": 520, "f1": 140, "dur": 0.22, "vol": 0.2, "duty": 0.25}]},
 	"hurt": {"v": [{"wave": "square", "f": 330, "f1": 110, "dur": 0.2, "vol": 0.3, "duty": 0.25, "vib": [30, 1.0]}]},
 	"death": {"v": [{"wave": "noise", "f": 900, "f1": 80, "dur": 0.4, "vol": 0.3},
 		{"wave": "square", "f": 200, "f1": 50, "dur": 0.35, "vol": 0.22, "duty": 0.5}]},

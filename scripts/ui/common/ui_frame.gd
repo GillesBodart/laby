@@ -33,6 +33,25 @@ static func icon(ci: CanvasItem, pos: Vector2, id: String, color: Color) -> void
 		ci.draw_rect(Rect2(pos + px[0], Vector2.ONE), px[1])
 
 
+## A thin durability bar (left-aligned at `pos`, `width` px) for a worn tool;
+## draws nothing for fresh or unbreakable items.
+static func wear_bar(ci: CanvasItem, pos: Vector2, width: float, id: String, wear: int) -> void:
+	var dur := ItemCatalog.durability_of(id)
+	if dur <= 0 or wear <= 0:
+		return
+	var frac := clampf(1.0 - float(wear) / dur, 0.0, 1.0)
+	ci.draw_rect(Rect2(pos - Vector2.ONE, Vector2(width + 2, 4)), INK)
+	ci.draw_rect(Rect2(pos, Vector2(maxf(width * frac, 1.0), 2)), wear_color(frac))
+
+
+## Bar colour for a share of durability left.
+static func wear_color(frac: float) -> Color:
+	var good := Color8(96, 200, 88)
+	var mid := Color8(232, 196, 72)
+	var bad := Color8(214, 72, 56)
+	return mid.lerp(good, (frac - 0.5) * 2.0) if frac >= 0.5 else bad.lerp(mid, frac * 2.0)
+
+
 static func _build(rows: Array, color: Color) -> Array:
 	var tones := {"X": color, "h": color.lightened(0.45), "d": color.darkened(0.4), "b": Color8(232, 226, 212)}
 	var out := []

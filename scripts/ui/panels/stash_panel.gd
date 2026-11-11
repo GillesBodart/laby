@@ -203,6 +203,7 @@ func _grid(inv: RefCounted, origin: Vector2, cols: int, side: String) -> void:
 		if s.is_empty():
 			continue
 		_icon(r.get_center() + Vector2(0, -1), s.id)
+		UiFrame.wear_bar(self, Vector2(r.position.x + 3, r.end.y - 4), r.size.x - 6, s.id, int(s.get("wear", 0)))
 		if s.count > 1:
 			var t := str(s.count)
 			var w := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x

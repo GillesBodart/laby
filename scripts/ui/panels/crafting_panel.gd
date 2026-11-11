@@ -285,7 +285,7 @@ func equip_slot(index: int) -> bool:
 		return player.use_item(s.id)
 	if s.is_empty() or ItemCatalog.slot_of(s.id) == "":
 		return false
-	var ok := player.equipment.equip(player.inventory, s.id)
+	var ok := player.equipment.equip(player.inventory, s.id, index)
 	if ok:
 		EventBus.notify.emit("Equipped %s" % ItemCatalog.item_name(s.id))
 	return ok
@@ -479,6 +479,10 @@ func _draw() -> void:
 			detail_extra = "Click to use."
 		if worn == "" and detail_id != "":
 			detail_extra += ("\n" if detail_extra != "" else "") + "Drag: move. Right-click: drop 1, Del: drop all."
+		var dur := ItemCatalog.durability_of(detail_id)
+		if dur > 0:
+			var used := int(player.equipment.wear.get(_hover_slot, 0)) if worn != "" else int(player.inventory.slots[_hover].get("wear", 0))
+			detail_extra = "Durability %d/%d\n%s" % [dur - used, dur, detail_extra]
 		_draw_small_button(SORT_BUTTON, "SORT", _hover_sort)
 		_draw_small_button(DROP_BUTTON, "DROP", _hover_drop)
 	else:
@@ -516,6 +520,7 @@ func _draw_backpack(player: Player) -> String:
 		_icon(c + Vector2(0, -1), s.id, 6, Color(1, 1, 1, 0.35) if lifted else Color.WHITE)
 		if selected and not _dragging:
 			hovered = s.id
+		UiFrame.wear_bar(self, c + Vector2(-9, 9), 18, s.id, int(s.get("wear", 0)))
 		if s.count > 1:
 			var t := "%d" % s.count
 			var p := c + Vector2(13 - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, 13)
@@ -550,6 +555,7 @@ func _draw_doll(player: Player) -> String:
 		_box(r, CREAM if id != "" else TAN, GOLD if hot else BROWN, 3)
 		if id != "":
 			_icon(r.get_center(), id)
+			UiFrame.wear_bar(self, Vector2(r.position.x + 3, r.end.y - 4), r.size.x - 6, id, int(eq.wear.get(slot, 0)))
 			if hot:
 				hovered = id
 		else:

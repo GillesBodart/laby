@@ -487,6 +487,49 @@ func best_tool(kind: String) -> String:
 	return best
 
 
+## Wears down the tool doing the work: the held one when it is the best of
+## its kind, else the best one carried. Called once per blow that counts.
+func wear_tool(kind: String) -> void:
+	var id := best_tool(kind)
+	if id == "":
+		return
+	if equipment.get_item("weapon") == id:
+		wear_weapon()
+		return
+	var index := inventory.find_last(id)
+	if index < 0:
+		return
+	if inventory.wear_slot(index):
+		_broke(id)
+	else:
+		_warn_wear(id, ItemCatalog.durability_of(id) - int(inventory.slots[index].get("wear", 0)))
+
+
+## One use of the held weapon or tool (a landed blow, a shot).
+func wear_weapon() -> void:
+	var id := equipment.get_item("weapon")
+	if id == "":
+		return
+	if equipment.wear_out("weapon") != "":
+		_broke(id)
+	else:
+		_warn_wear(id, equipment.uses_left("weapon"))
+
+
+## A heads-up when a tool reaches its last tenth (once, at that use).
+func _warn_wear(id: String, left: int) -> void:
+	var dur := ItemCatalog.durability_of(id)
+	if dur > 0 and left == maxi(dur / 10, 1) and input.is_local():
+		EventBus.notify.emit("Your %s is wearing out (%d uses left)." % [ItemCatalog.item_name(id), left])
+
+
+func _broke(id: String) -> void:
+	Sound.play("break", global_position)
+	HitChips.burst(get_parent(), global_position + Vector2(0, -14), [ItemCatalog.ITEMS[id].color, Color8(120, 84, 52)], 8)
+	if input.is_local():
+		EventBus.notify.emit("Your %s broke!" % ItemCatalog.item_name(id))
+
+
 func _on_equipment_changed() -> void:
 	GameState.equipments[peer_id] = equipment.to_data()
 	survival.bonus_health = float(equipment.stat("hp"))
@@ -503,10 +546,15 @@ func _attack() -> void:
 	swing(weapon)
 	Sound.play("swing", global_position)
 	var center := global_position + Vector2(0, -8)
+	var landed := false
 	for node in get_tree().get_nodes_in_group("enemies"):
 		var offset: Vector2 = node.global_position + Vector2(0, -6) - center
 		if offset.length() <= ATTACK_RANGE and (offset.length() < 12.0 or offset.normalized().dot(facing) > 0.25):
 			node.take_damage(_melee_damage(), self)
+			landed = true
+	# Only blows that land wear the weapon down: swinging at air is free.
+	if landed:
+		wear_weapon()
 
 
 ## Shoots the ranged weapon toward the mouse (or the facing direction). Bows use the best
@@ -529,6 +577,7 @@ func _fire(kind: String) -> bool:
 	var from := global_position + Vector2(0, -10) + dir * 6.0
 	Projectile.fire(get_parent(), from, dir, kind, 260.0 if kind == "arrow" else 220.0, dmg, "player", self)
 	Sound.play("shoot", global_position)
+	wear_weapon()
 	return true
 
 

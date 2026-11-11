@@ -17,6 +17,8 @@ extends RefCounted
 ##   block  - % chance for a shield (offhand) to stop a hit completely
 ##   light  - held light (torch): bigger light radius, wards off night hunters
 ##   bound  - never lost on death (Keys, Relics)
+##   dur    - uses before it breaks (weapons and tools get one by default,
+##            see durability_of; worn copies carry "wear" in their slot)
 
 const ITEMS := {
 	# --- raw resources
@@ -730,6 +732,21 @@ static func tool_of(id: String) -> String:
 
 static func tier_of(id: String) -> int:
 	return ITEMS[id].get("tier", 0)
+
+
+## Uses (swings, shots, blows on a tree or rock) before the item breaks;
+## 0 = it never wears out. Tools last longer per tier, weapons per damage.
+static func durability_of(id: String) -> int:
+	if not ITEMS.has(id):
+		return 0
+	var item: Dictionary = ITEMS[id]
+	if item.has("dur"):
+		return int(item.dur)
+	if item.has("tool"):
+		return 60 + 45 * int(item.get("tier", 1))
+	if slot_of(id) == "weapon":
+		return 50 + 8 * int(item.get("dmg", 0))
+	return 0
 
 
 static func damage_of(id: String) -> int:

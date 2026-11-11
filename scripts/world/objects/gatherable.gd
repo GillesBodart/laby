@@ -30,6 +30,8 @@ func hit(player: Player) -> void:
 		return
 	var dmg := 1 + tier
 	_hits_left -= dmg
+	if tier > 0:
+		player.wear_tool(tool_kind)
 	_shake()
 	Sound.play("chop" if tool_kind == "axe" else ("mine" if tool_kind == "pickaxe" else "pickup"), global_position)
 	if is_inside_tree():

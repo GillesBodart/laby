@@ -8,7 +8,9 @@ signal discovered(id: String)
 
 const DEFAULT_SLOTS := 30
 
-var slots: Array = [] # each: {} or {"id": String, "count": int}
+## Each: {} or {"id": String, "count": int}; a used tool or weapon (stack of
+## one) also carries "wear": uses spent (see ItemCatalog.durability_of).
+var slots: Array = []
 ## Every item id ever held (id -> true): recipes unlock from these.
 var known: Dictionary = {}
 
@@ -55,6 +57,44 @@ func add(id: String, amount: int) -> int:
 		discover(id)
 		changed.emit()
 	return left
+
+
+## Puts one used tool or weapon in a free slot, keeping its wear; returns 1
+## when there was no room (0 = stored).
+func add_worn(id: String, wear: int) -> int:
+	if wear <= 0:
+		return add(id, 1)
+	for i in slots.size():
+		if slots[i].is_empty():
+			slots[i] = {"id": id, "count": 1, "wear": wear}
+			discover(id)
+			changed.emit()
+			return 0
+	return 1
+
+
+## Index of a slot holding the item (the last one, like remove), or -1.
+func find_last(id: String) -> int:
+	for i in range(slots.size() - 1, -1, -1):
+		if not slots[i].is_empty() and slots[i].id == id:
+			return i
+	return -1
+
+
+## Spends `uses` of the durability of the item in slot `index`. Returns true
+## when it broke (the slot is then emptied).
+func wear_slot(index: int, uses := 1) -> bool:
+	if index < 0 or index >= slots.size() or slots[index].is_empty():
+		return false
+	var s: Dictionary = slots[index]
+	var dur := ItemCatalog.durability_of(s.id)
+	if dur <= 0:
+		return false
+	s["wear"] = int(s.get("wear", 0)) + uses
+	if int(s.wear) >= dur:
+		slots[index] = {}
+	changed.emit()
+	return slots[index].is_empty()
 
 
 ## Marks an item as seen; returns true the first time.
@@ -139,7 +179,11 @@ func move_to(target: RefCounted, index: int, amount: int) -> int:
 		return 0
 	var id: String = slots[index].id
 	var n := mini(amount, int(slots[index].count))
-	var moved: int = n - target.add(id, n)
+	var moved: int
+	if int(slots[index].get("wear", 0)) > 0:
+		moved = 1 - target.add_worn(id, int(slots[index].wear))
+	else:
+		moved = n - target.add(id, n)
 	return take(index, moved)
 
 
@@ -163,9 +207,15 @@ func tool_tier(kind: String) -> int:
 ## The first `keep_first` slots (insured ones) are left untouched.
 func sort(keep_first := 0) -> void:
 	var totals := {}
+	# Used gear keeps its own slot (and wear); everything else merges.
+	var worn := []
 	for i in range(keep_first, slots.size()):
 		var s: Dictionary = slots[i]
-		if not s.is_empty():
+		if s.is_empty():
+			continue
+		if int(s.get("wear", 0)) > 0:
+			worn.append(s)
+		else:
 			totals[s.id] = totals.get(s.id, 0) + int(s.count)
 	var ids: Array = totals.keys()
 	ids.sort_custom(ItemCatalog.sorts_before)
@@ -177,6 +227,14 @@ func sort(keep_first := 0) -> void:
 			var n := mini(cap, left)
 			packed.append({"id": id, "count": n})
 			left -= n
+	# Used copies go right after the fresh ones of the same item.
+	for s in worn:
+		var at := packed.size()
+		for k in packed.size():
+			if ItemCatalog.sorts_before(s.id, packed[k].id):
+				at = k
+				break
+		packed.insert(at, s)
 	for i in range(keep_first, slots.size()):
 		var k := i - keep_first
 		slots[i] = packed[k] if k < packed.size() else {}
@@ -209,6 +267,8 @@ func load_data(data: Array) -> void:
 			var d: Dictionary = data[i]
 			if ItemCatalog.ITEMS.has(d.id):
 				slots[i] = {"id": String(d.id), "count": int(d.count)}
+				if int(d.get("wear", 0)) > 0:
+					slots[i]["wear"] = int(d.wear)
 				known[String(d.id)] = true
 	changed.emit()
 
