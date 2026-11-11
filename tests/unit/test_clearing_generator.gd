@@ -190,3 +190,22 @@ func test_labyrinth_chambers_open_and_dead_ends_rewarded() -> void:
 			var back: Vector2i = p.cell + (off - Vector2i.ONE)
 			check(layout.is_wall(back), "cache %s backs onto a wall" % p.cell)
 	check(caches >= 5, "dead ends hold caches (%d)" % caches)
+
+func test_clearing_woods_meadow_and_habitats() -> void:
+	for seed_value in [5, 7]:
+		var layout := ClearingGenerator.generate(seed_value)
+		var center := layout.campfire_cell
+		var inner := ClearingGenerator.CLEARING_RECT.grow(-2)
+		var near_fire := 0
+		var woods := 0
+		var meadow := 0
+		for p in layout.props:
+			var edge := ClearingGenerator._edge(p.cell, center, inner)
+			check(ClearingGenerator._fits_habitat(p.type, edge), "%s at %s fits its habitat" % [p.type, p.cell])
+			if p.type != "tree":
+				continue
+			near_fire += int(Vector2(p.cell - center).length() <= 14.0)
+			woods += int(edge >= 0.6)
+			meadow += int(edge < 0.4)
+		check(near_fire >= 4, "a grove near the camp (%d trees, seed %d)" % [near_fire, seed_value])
+		check(woods > meadow * 2, "woods along the walls (%d) outnumber meadow trees (%d)" % [woods, meadow])

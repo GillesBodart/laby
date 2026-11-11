@@ -12,7 +12,10 @@ const GATE_WIDTH := 3
 const VARIANTS := 10
 const PORTAL_ROWS := 3
 const PLAZA_RADIUS := 3.5
-const TREE_TARGET := 130
+const TREE_TARGET := 190
+## Trees of the grove near the camp, and its distance (tiles) from the fire.
+const GROVE_TREES := 6
+const GROVE_DIST := 10.0
 const ROCK_TARGET := 45
 const BUSH_TARGET := 28
 const GRASS_TARGET := 70
@@ -25,6 +28,15 @@ const EXTRA_NODES := [
 	["resin_stump", 10, 5.0], ["beehive", 6, 8.0], ["apple_tree", 10, 5.0], ["carrot", 12, 2.5],
 	["blueberry", 12, 3.0], ["flower", 20, 2.0], ["sand", 12, 3.0], ["nest", 8, 6.0], ["potato", 12, 2.5],
 ]
+## Wild plants grow in patches of up to this many (one seed, its neighbours).
+const PATCHES := {"wheat": 4, "cotton": 4, "carrot": 3, "potato": 3, "flower": 5, "blueberry": 3,
+	"herb": 3, "mushroom": 3, "grass": 3}
+## Where a node grows, by "edge" (0 at the camp, 1 against the walls): woods
+## along the walls, an open meadow around the camp.
+const HABITAT := {"mushroom": "woods", "resin_stump": "woods", "beehive": "woods", "nest": "woods",
+	"wheat": "meadow", "cotton": "meadow", "carrot": "meadow", "potato": "meadow", "flower": "meadow"}
+const WOODS_EDGE := 0.55
+const MEADOW_EDGE := 0.7
 const POND_TARGET := 5
 ## Reeds only grow on pond banks.
 const REEDS_PER_POND := 6
@@ -199,16 +211,31 @@ func _place_props(center: Vector2i) -> void:
 
 	_place_ponds(center, gate_approaches, occupied)
 
+	# Woods thicken towards the walls and thin out into a meadow round the
+	# camp, with a few lone trees and noise-shaped groves in between.
 	var trees := 0
-	for attempt in 3000:
+	# A small grove a short walk from the fire: the first logs are close.
+	var grove := center + Vector2i(Vector2.from_angle(_rng.randf() * TAU) * GROVE_DIST)
+	for attempt in 60:
+		if trees >= GROVE_TREES:
+			break
+		var cell := grove + Vector2i(_rng.randi_range(-3, 3), _rng.randi_range(-3, 3))
+		if not inner.has_point(cell) or not _is_free_for_prop(cell, center, gate_approaches, occupied, 2.2):
+			continue
+		occupied[cell] = true
+		_layout.props.append({"type": "tree", "cell": cell, "variant": _rng.randi_range(0, VARIANTS - 1)})
+		trees += 1
+	for attempt in 6000:
 		if trees >= TREE_TARGET:
 			break
 		var cell := Vector2i(
 			_rng.randi_range(inner.position.x, inner.end.x - 1),
 			_rng.randi_range(inner.position.y, inner.end.y - 1))
-		if _noise.get_noise_2d(cell.x * 1.7, cell.y * 1.7) < 0.0 and _rng.randf() > 0.15:
+		var edge := _edge(cell, center, inner)
+		var chance := maxf(edge * 1.3 + _noise.get_noise_2d(cell.x * 1.7, cell.y * 1.7) * 0.7 - 0.35, 0.08)
+		if _rng.randf() > chance:
 			continue
-		if not _is_free_for_prop(cell, center, gate_approaches, occupied, 3.0):
+		if not _is_free_for_prop(cell, center, gate_approaches, occupied, lerpf(3.5, 2.2, edge)):
 			continue
 		occupied[cell] = true
 		_layout.props.append({"type": "tree", "cell": cell, "variant": _rng.randi_range(0, VARIANTS - 1)})
@@ -241,6 +268,7 @@ func _place_props(center: Vector2i) -> void:
 		bushes += 1
 
 	for extra in EXTRA_NODES:
+		var type: String = extra[0]
 		var placed := 0
 		for attempt in 2000:
 			if placed >= extra[1]:
@@ -248,12 +276,36 @@ func _place_props(center: Vector2i) -> void:
 			var cell := Vector2i(
 				_rng.randi_range(inner.position.x, inner.end.x - 1),
 				_rng.randi_range(inner.position.y, inner.end.y - 1))
+			if not _fits_habitat(type, _edge(cell, center, inner)):
+				continue
 			if not _is_free_for_prop(cell, center, gate_approaches, occupied, extra[2]):
 				continue
 			occupied[cell] = true
-			_layout.props.append({"type": extra[0], "cell": cell})
+			_layout.props.append({"type": type, "cell": cell})
 			placed += 1
+			for k in int(PATCHES.get(type, 1)) - 1:
+				var n := cell + Vector2i(_rng.randi_range(-3, 3), _rng.randi_range(-2, 2))
+				if placed >= extra[1] or not inner.has_point(n) or not _fits_habitat(type, _edge(n, center, inner)) or not _is_free_for_prop(n, center, gate_approaches, occupied, 1.5):
+					continue
+				occupied[n] = true
+				_layout.props.append({"type": type, "cell": n})
+				placed += 1
 	_place_creatures(center, inner, occupied)
+
+
+## 0 at the camp, 1 against the glade's walls.
+static func _edge(cell: Vector2i, center: Vector2i, inner: Rect2i) -> float:
+	var d := Vector2(cell - center).abs() / (Vector2(inner.size) / 2.0)
+	return clampf(maxf(d.x, d.y), 0.0, 1.0)
+
+
+static func _fits_habitat(type: String, edge: float) -> bool:
+	match HABITAT.get(type, ""):
+		"woods":
+			return edge >= WOODS_EDGE
+		"meadow":
+			return edge <= MEADOW_EDGE
+	return true
 
 
 ## Ponds away from the camp and paths; their water cells block movement and
