@@ -169,3 +169,24 @@ func test_pond_art_is_never_clipped() -> void:
 			for y in img.get_height():
 				clipped += int(img.get_pixel(0, y).a > 0.0) + int(img.get_pixel(img.get_width() - 1, y).a > 0.0)
 			check_eq(clipped, 0, "seed %d pond border is transparent" % s)
+func test_labyrinth_chambers_open_and_dead_ends_rewarded() -> void:
+	var layout := LabyrinthGenerator.generate(9)
+	var rooms := LabyrinthGenerator.chambers(9, "labyrinth")
+	check_eq(rooms.size(), LabyrinthGenerator.CHAMBERS, "chamber count")
+	for r: Rect2i in rooms:
+		var tiles := LabyrinthGenerator.region_tiles(r)
+		var open := true
+		for y in range(tiles.position.y, tiles.end.y):
+			for x in range(tiles.position.x, tiles.end.x):
+				open = open and not layout.is_wall(Vector2i(x, y))
+		check(open, "chamber %s fully open" % r)
+	# Caches sit mid-edge of a cell, against its back wall.
+	var caches := 0
+	for p in layout.props:
+		var local: Vector2i = p.cell - LabyrinthGenerator.cell_origin(Vector2i.ZERO)
+		var off := Vector2i(posmod(local.x, LabyrinthGenerator.PITCH), posmod(local.y, LabyrinthGenerator.PITCH))
+		if off in [Vector2i(0, 1), Vector2i(2, 1), Vector2i(1, 0), Vector2i(1, 2)]:
+			caches += 1
+			var back: Vector2i = p.cell + (off - Vector2i.ONE)
+			check(layout.is_wall(back), "cache %s backs onto a wall" % p.cell)
+	check(caches >= 5, "dead ends hold caches (%d)" % caches)

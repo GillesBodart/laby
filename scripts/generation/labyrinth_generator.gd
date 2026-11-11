@@ -34,6 +34,20 @@ const LANDMARK_COUNT := 5
 const LANDMARK_TYPES := ["statue_angel", "statue_dragon", "statue_guardian", "statue_hero",
 	"statue_sword", "statue_twins", "column", "old_engine"]
 const GLYPH_COUNT := 4
+## Open chambers: blocks of maze cells with their inner walls knocked down
+## (breathing room, fights with space to dodge, a change from corridors).
+const CHAMBERS := 3
+const CHAMBER_SIZES := [Vector2i(2, 2), Vector2i(3, 2), Vector2i(2, 3)]
+## Extra loops near the entrance, where the player learns the maze: fewer
+## dead ends to backtrack from while lightly equipped.
+const ENTRY_LOOP_RADIUS := 6
+const ENTRY_LOOP_CHANCE := 0.3
+## Dead ends end on a reward: a deposit from the rare end of the sector's
+## table, so every wrong turn may still pay.
+const CACHE_CHANCE := 0.6
+const CACHE_MIN_DIST := 4
+const CACHE_RARE_DEPTH := 0.2
+const CACHE_SALT := 60013
 
 const Id := TileCatalog.Id
 
@@ -76,12 +90,16 @@ func _generate(seed_value: int) -> ClearingLayout:
 	var marks := landmarks(seed_value, _sector)
 	for m in marks:
 		_landmark_cells[m.mc] = true
+	var entry := Vector2i(COLS / 2, ROWS - 1)
+	_open_extras(entry)
+	# Dead ends of the unshifted maze, so the caches never move.
+	var dead_ends := _dead_ends(entry)
 	_layout.shift_tiles = []
 	if _shift > 0:
 		for region in shift_regions(seed_value, _sector, _shift):
 			_reshape(region)
 			_layout.shift_tiles.append(region_tiles(region))
-	var entry := Vector2i(COLS / 2, ROWS - 1)
+		_open_extras(entry)
 	var o := cell_origin(entry)
 	var vestibule := Rect2i(o.x, o.y + OPEN, OPEN, size.y - 3 - (o.y + OPEN))
 	_carve(vestibule)
@@ -128,7 +146,95 @@ func _generate(seed_value: int) -> ClearingLayout:
 		_landmark_cells[g.mc] = true
 	_place_enemies(entry)
 	_place_resources(entry)
+	_place_caches(entry, dead_ends)
 	return _layout
+
+
+## Fixed chambers of a sector: maze-cell rects clear of the arena, the
+## entrance rows and each other.
+static func chambers(seed_value: int, sector: String) -> Array:
+	var rng := _sector_rng(seed_value, sector, 27449)
+	var out := []
+	var tries := 0
+	while out.size() < CHAMBERS and tries < 100:
+		tries += 1
+		var sz: Vector2i = CHAMBER_SIZES[rng.randi_range(0, CHAMBER_SIZES.size() - 1)]
+		var r := Rect2i(Vector2i(rng.randi_range(0, COLS - sz.x), rng.randi_range(2, ROWS - 2 - sz.y)), sz)
+		if r.intersects(ARENA.grow(1)) or out.any(func(o): return o.grow(1).intersects(r)):
+			continue
+		out.append(r)
+	return out
+
+
+## Chambers and entrance loops: only ever opens walls, so it can run again
+## after a shift (a shift region crossing a chamber does not wall it up).
+func _open_extras(entry: Vector2i) -> void:
+	for r: Rect2i in chambers(_seed, _sector):
+		_carve(region_tiles(r))
+	var rng := _sector_rng(_seed, _sector, 8111)
+	for my in ROWS:
+		for mx in COLS:
+			var c := Vector2i(mx, my)
+			var near := absi(c.x - entry.x) + absi(c.y - entry.y) <= ENTRY_LOOP_RADIUS
+			for d in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var roll := rng.randf()
+				if near and _in_maze(c + d) and roll < ENTRY_LOOP_CHANCE:
+					_link(c, c + d)
+
+
+## Maze cells with a single way in (vestibule, arena and landmarks aside),
+## with the direction of that way.
+func _dead_ends(entry: Vector2i) -> Array:
+	var out := []
+	for my in ROWS:
+		for mx in COLS:
+			var c := Vector2i(mx, my)
+			if c == entry or ARENA.has_point(c) or _landmark_cells.has(c):
+				continue
+			var ways: Array[Vector2i] = []
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				if _in_maze(c + d) and _is_linked(c, d):
+					ways.append(d)
+			if ways.size() == 1:
+				out.append({"mc": c, "way": ways[0]})
+	return out
+
+
+func _is_linked(c: Vector2i, d: Vector2i) -> bool:
+	var o := cell_origin(c)
+	var gap := o + Vector2i(OPEN, 0) if d == Vector2i.RIGHT else o + Vector2i(-1, 0) if d == Vector2i.LEFT \
+		else o + Vector2i(0, OPEN) if d == Vector2i.DOWN else o + Vector2i(0, -1)
+	return not _solid.has(gap)
+
+
+## A rare deposit at the back wall of most dead ends (the middle tile opposite
+## the way in: never in a passage, never on a cell's corner nodes). Own rng
+## stream: creatures and ordinary resources roll the same as before.
+func _place_caches(entry: Vector2i, dead_ends: Array) -> void:
+	var rng := _sector_rng(_seed, _sector, CACHE_SALT)
+	var table: Array = Sectors.info(_sector).resources.filter(func(r): return r[2] >= CACHE_RARE_DEPTH)
+	for de in dead_ends:
+		var mc: Vector2i = de.mc
+		var roll := rng.randf()
+		var pick := rng.randf()
+		var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
+		if dist < CACHE_MIN_DIST or roll > CACHE_CHANCE or table.is_empty():
+			continue
+		var depth := dist / float(COLS + ROWS) * 1.4
+		var fits: Array = table.filter(func(r): return r[2] <= depth + 0.3)
+		if fits.is_empty():
+			fits = [table.reduce(func(a, b): return a if a[2] <= b[2] else b)]
+		var total := 0.0
+		for r in fits:
+			total += r[1]
+		var x := pick * total
+		var type: String = fits[-1][0]
+		for r in fits:
+			x -= r[1]
+			if x <= 0.0:
+				type = r[0]
+				break
+		_layout.props.append({"type": type, "cell": cell_origin(mc) + Vector2i.ONE - Vector2i(de.way)})
 
 
 func _place_enemies(entry: Vector2i) -> void:
