@@ -7,16 +7,16 @@ const PANEL := Rect2(90, 34, 300, 196)
 const ROW := Vector2(140, 18)
 const COLS := 2
 
-const INK := Color8(27, 20, 16)
-const CREAM := Color8(236, 222, 186)
-const TAN := Color8(214, 176, 124)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const FADED := Color8(150, 126, 98)
-const GOLD := Color8(242, 210, 92)
-const GREEN := Color8(50, 76, 58)
-const GREEN_DARK := Color8(24, 38, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
+const INK := UiPalette.INK
+const CREAM := UiPalette.CREAM
+const TAN := UiPalette.TAN
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const FADED := UiPalette.FADED
+const GOLD := UiPalette.GOLD
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
+## Largest side of a crop icon in its row.
+const ICON_BOX := 13.0
 
 var plot: Node = null
 var _font: Font
@@ -122,51 +122,72 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 3) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
 func _text(pos: Vector2, s: String, col: Color, fs := 16) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(fs), col)
 
 
-## Draws s shrinking the font (12 down to 9) so it fits in width.
-func _fit_text(pos: Vector2, s: String, col: Color, width: float) -> void:
-	var fs := 12
-	while fs > 9 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width:
-		fs -= 1
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, width, fs, col, TextServer.JUSTIFICATION_NONE)
+func _text_w(s: String, fs: int) -> float:
+	return _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(fs)).x
 
 
+## One text size for every row's name and info: the largest (11 down to 8,
+## text-size scaled) at which all the shown crop names fit their slot.
+func _name_size(list: Array, player: Player) -> int:
+	var size := UiFrame.fs(11)
+	while size > 8:
+		var fits := true
+		for i in list.size():
+			var def: Dictionary = Farming.CROPS[list[i]]
+			if not player.inventory.knows(def.seed):
+				continue
+			var info := "x%d  %dm" % [player.inventory.count(def.seed), ceili(def.minutes / 120.0)]
+			if _font.get_string_size(ItemCatalog.item_name(def.yield), HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > ROW.x - 29 - _font.get_string_size(info, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x - 8:
+				fits = false
+				break
+		if fits:
+			break
+		size -= 1
+	return size
+
+
+## Item icon whose visible (opaque) part is fitted, aspect kept, into an
+## ICON_BOX square centred on `c`, so tightly cropped art is not oversized.
 func _icon(c: Vector2, id: String, tint := Color.WHITE) -> void:
 	var path := "res://assets/ui/icons/items/%s.png" % id
 	if not ResourceLoader.exists(path):
 		draw_rect(Rect2(c - Vector2(4, 4), Vector2(8, 8)), ItemCatalog.ITEMS[id].color * tint)
 		return
 	if not _icons.has(path):
-		_icons[path] = load(path)
-	var tex: Texture2D = _icons[path]
-	draw_set_transform((c - Vector2(tex.get_size()) * 0.25).round(), 0.0, Vector2(0.5, 0.5))
-	draw_texture(tex, Vector2.ZERO, tint)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var loaded: Texture2D = load(path)
+		var used := Rect2(0, 0, 1, 1)
+		var img := loaded.get_image()
+		if img != null and img.get_width() > 0:
+			var u := img.get_used_rect()
+			if u.has_area():
+				used = Rect2(Vector2(u.position) / Vector2(img.get_size()), Vector2(u.size) / Vector2(img.get_size()))
+		_icons[path] = [loaded, used]
+	var tex: Texture2D = _icons[path][0]
+	var used: Rect2 = _icons[path][1]
+	var full := Vector2(tex.get_size())
+	var k := ICON_BOX / maxf(used.size.x * full.x, used.size.y * full.y)
+	var sz := full * k
+	var visible_centre := (used.position + used.size / 2.0) * sz
+	draw_texture_rect(tex, Rect2((c - visible_centre).round(), sz), false, tint)
 
 
 func _draw() -> void:
 	var player := _player()
 	if player == null:
 		return
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.05, 0.08, 0.6))
-	_box(PANEL, GREEN_DARK, INK, 4)
-	draw_rect(PANEL.grow(-3), GREEN, false)
-	var title := Rect2(PANEL.get_center().x - 60, PANEL.position.y + 6, 120, 22)
-	_box(title, CREAM, BROWN)
-	var t := "PLANT A SEED"
-	_text(Vector2(title.get_center().x - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x / 2.0, title.end.y - 5), t, TEXT_DARK)
+	draw_rect(Rect2(Vector2.ZERO, size), UiPalette.SHADE)
+	UiFrame.box(self, PANEL)
+	UiFrame.title_plate(self, PANEL.get_center().x, PANEL.position.y + 6, "PLANT A SEED")
 	var list := entries()
+	var name_size := _name_size(list, player)
+	var key := 0
 	for i in list.size():
 		var id: String = list[i]
 		var def: Dictionary = Farming.CROPS[id]
@@ -175,22 +196,22 @@ func _draw() -> void:
 		var r := _row_rect(i)
 		_box(r, CREAM if have > 0 else TAN, GOLD if i == _hover and have > 0 else BROWN)
 		var col := TEXT_DARK if have > 0 else FADED
-		if i < 9:
-			_text(r.position + Vector2(3, 13), "%d" % (i + 1), FADED, 10)
+		# Number keys sow: only rows you can sow now carry one (they come first).
+		if have > 0 and i < 9:
+			key = i + 1
+			_text(r.position + Vector2(3, 13), "%d" % key, FADED, 10)
 		if known:
 			_icon(r.position + Vector2(18, 9), def.yield, Color.WHITE if have > 0 else Color(1, 1, 1, 0.5))
 			var info := "x%d  %dm" % [have, ceili(def.minutes / 120.0)]
-			var w := _font.get_string_size(info, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-			_text(Vector2(r.end.x - w - 4, r.position.y + 13), info, col, 10)
-			_fit_text(r.position + Vector2(29, 13), ItemCatalog.item_name(def.yield), col, r.size.x - 29 - w - 8)
+			var w := _font.get_string_size(info, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x
+			draw_string(_font, Vector2(r.end.x - w - 4, r.position.y + 13), info, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size, col)
+			draw_string(_font, r.position + Vector2(29, 13), ItemCatalog.item_name(def.yield), HORIZONTAL_ALIGNMENT_LEFT, -1, name_size, col)
 		else:
-			_text(r.position + Vector2(29, 13), "? ? ?", FADED, 12)
-	var hint := "Click or 1-9 to sow  -  Esc to close"
+			draw_string(_font, r.position + Vector2(29, 13), "? ? ?", HORIZONTAL_ALIGNMENT_LEFT, -1, name_size, FADED)
 	if _hover >= 0 and _hover < list.size():
 		var def: Dictionary = Farming.CROPS[list[_hover]]
+		var hint := "Find this seed in the wild first."
 		if player.inventory.knows(def.seed):
 			hint = "%s: %d-%d %s, ripe in %d min, +%d XP" % [ItemCatalog.item_name(def.seed), def.min, def.max, ItemCatalog.item_name(def.yield), ceili(def.minutes / 120.0), def.xp]
-		else:
-			hint = "Find this seed in the wild first."
-	var hw := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	_text(Vector2(PANEL.get_center().x - hw / 2.0, PANEL.end.y - 8), hint, TEXT_LIGHT, 10)
+		_text(Vector2(PANEL.get_center().x - _text_w(hint, 10) / 2.0, PANEL.end.y - 10), hint, TEXT_LIGHT, 10)
+	UiFrame.footer(self, "[{click}] sow  [1-%d] sow by number  [{back}] close" % maxi(key, 1) if key > 0 else "[{back}] close")

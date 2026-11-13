@@ -5,15 +5,11 @@ extends Control
 const PANEL := Rect2(140, 50, 200, 170)
 const ROW := Vector2(184, 18)
 
-const INK := Color8(27, 20, 16)
-const CREAM := Color8(236, 222, 186)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const FADED := Color8(150, 126, 98)
-const GOLD := Color8(242, 210, 92)
-const SLATE := Color8(44, 58, 72)
-const SLATE_DARK := Color8(22, 30, 40)
-const TEXT_LIGHT := Color8(238, 226, 196)
+const CREAM := UiPalette.CREAM
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const FADED := UiPalette.FADED
+const GOLD := UiPalette.GOLD
 
 var stone: Node = null
 var _font: Font
@@ -97,31 +93,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _box(r: Rect2, fill: Color, border: Color) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	draw_style_box(sb, r)
-
-
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.05, 0.08, 0.6))
-	_box(PANEL, SLATE_DARK, INK)
-	draw_rect(PANEL.grow(-3), SLATE, false)
-	var title := Rect2(PANEL.get_center().x - 50, PANEL.position.y + 6, 100, 22)
-	_box(title, CREAM, BROWN)
-	var t := "WAYSTONE"
-	draw_string(_font, Vector2(title.get_center().x - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x / 2.0, title.end.y - 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
+	draw_rect(Rect2(Vector2.ZERO, size), UiPalette.SHADE)
+	UiFrame.box(self, PANEL)
+	UiFrame.title_plate(self, PANEL.get_center().x, PANEL.position.y + 6, "WAYSTONE", 100)
 	var list := destinations()
+	var num := UiFrame.fs(10)
+	var big := UiFrame.fs(12)
 	for i in list.size():
 		var r := _row_rect(i)
 		var here: bool = list[i] == GameState.area
-		_box(r, CREAM, GOLD if i == _hover else BROWN)
-		draw_string(_font, r.position + Vector2(4, 13), "%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, FADED)
+		UiFrame.plate(self, r, CREAM, GOLD if i == _hover else BROWN)
+		if i < 9:
+			draw_string(_font, r.position + Vector2(4, 13), "%d" % (i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, num, FADED)
 		var name := "The Clearing" if list[i] == "clearing" else Sectors.display_name(list[i])
-		draw_string(_font, r.position + Vector2(18, 13), name + ("  (here)" if here else ""), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, FADED if here else TEXT_DARK)
-	var hint := "Click or 1-9 to travel  -  Esc to close"
-	var hw := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	draw_string(_font, Vector2(PANEL.get_center().x - hw / 2.0, PANEL.end.y - 8), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+		draw_string(_font, r.position + Vector2(18, 13), name + ("  (here)" if here else ""), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 22, big, FADED if here else TEXT_DARK)
+	UiFrame.footer(self, "[{click}] / [1-%d] travel  [{back}] close" % mini(list.size(), 9))

@@ -47,7 +47,7 @@ func _ready() -> void:
 		_light = PointLight2D.new()
 		_light.texture = preload("res://resources/lights/light_banded.tres")
 		_light.color = Color(1, 0.72, 0.42)
-		_light.texture_scale = 2.6 * def.light
+		_light.texture_scale = 1.3 * def.light
 		_light.position = Vector2(0, -20)
 		add_child(_light)
 	_refresh()

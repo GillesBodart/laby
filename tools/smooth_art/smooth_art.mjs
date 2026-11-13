@@ -35,8 +35,10 @@ const GRIDS = {
   'assets/ui/icons/time_icons.png': [9, 9],
 };
 
-// Survivor walk strips (idle + 4 walk poses) are 48 px cells too.
-const gridOf = (rel) => GRIDS[rel] ?? (/characters\/survivors\/.*_walk\.png$/.test(rel) ? [48, 48] : undefined);
+// Survivor walk strips (idle + 4 walk poses) are 48 px cells too; sector tile
+// atlases share the clearing atlas layout.
+const gridOf = (rel) => GRIDS[rel] ?? (/characters\/survivors\/.*_walk\.png$/.test(rel) ? [48, 48]
+  : /tilesets\/sector_\w+_tiles\.png$/.test(rel) ? [32, 32] : undefined);
 
 // Drawn through their RID in texture pixels (StyleBoxTexture 9-slice), so
 // they keep their logical resolution; linear filtering smooths them.

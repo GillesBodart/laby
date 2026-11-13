@@ -92,6 +92,33 @@ static func _noise(x: float, y: float, cs: float, s: int) -> float:
 
 
 ## Pixel-art overlay; its top-left corner sits at bounds().position * tile.
+## Band borders (field values) blended over about one pixel.
+const BANDS := [0.64, 0.74, 0.86, WATER, 1.3, 1.9, 3.2]
+
+
+## Colour of the band holding field value f at pixel (x, y).
+static func _band(fs: PackedFloat32Array, w: int, h: int, x: int, y: int, f: float, seed_value: int) -> Color:
+	if f >= WATER:
+		# Foam on the rim (any drier neighbour), then deeper bands inwards.
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = Vector2i(x, y) + d
+			if n.x < 0 or n.y < 0 or n.x >= w or n.y >= h or fs[n.y * w + n.x] < WATER:
+				return FOAM
+		# Reflected sky: light falls on the north bank's water.
+		if y > 0 and fs[(y - 1) * w + x] < WATER:
+			return SHALLOW.lightened(0.15)
+		if f < 1.3:
+			return SHALLOW
+		if f < 1.9:
+			return MID
+		return DEEP if f < 3.2 else DEEPEST
+	if f >= 0.86:
+		return MUD
+	if f >= 0.74:
+		return MUD_LIGHT if _hash(x, y, seed_value + 2) > 0.25 else MUD
+	return SHADOW if f >= 0.64 else Color(SHADOW, 0.0)
+
+
 static func paint(blobs: Array, tile: int, seed_value: int) -> Image:
 	var area := bounds(blobs)
 	var origin := area.position * tile
@@ -109,33 +136,18 @@ static func paint(blobs: Array, tile: int, seed_value: int) -> Image:
 	for y in h:
 		for x in w:
 			var f := fs[y * w + x]
-			var col := Color(0, 0, 0, 0)
-			if f >= WATER:
-				# Foam on the rim (any drier neighbour), then deeper bands inwards.
-				var rim := false
-				for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-					var n: Vector2i = Vector2i(x, y) + d
-					if n.x < 0 or n.y < 0 or n.x >= w or n.y >= h or fs[n.y * w + n.x] < WATER:
-						rim = true
-				if rim:
-					col = FOAM
-				elif f < 1.3:
-					col = SHALLOW
-				elif f < 1.9:
-					col = MID
-				elif f < 3.2:
-					col = DEEP
-				else:
-					col = DEEPEST
-				# Reflected sky: light falls on the north bank's water.
-				if not rim and y > 0 and fs[(y - 1) * w + x] < WATER:
-					col = SHALLOW.lightened(0.15)
-			elif f >= 0.86:
-				col = MUD
-			elif f >= 0.74:
-				col = MUD_LIGHT if _hash(x, y, seed_value + 2) > 0.25 else MUD
-			elif f >= 0.64:
-				col = SHADOW
+			var col := _band(fs, w, h, x, y, f, seed_value)
+			# Anti-alias each band border over about one pixel of the field.
+			var gx := absf(fs[y * w + mini(x + 1, w - 1)] - fs[y * w + maxi(x - 1, 0)])
+			var gy := absf(fs[mini(y + 1, h - 1) * w + x] - fs[maxi(y - 1, 0) * w + x])
+			var g := maxf(maxf(gx, gy) * 0.5, 0.004)
+			for t in BANDS:
+				var cov: float = (f - t) / g + 0.5
+				if cov > 0.0 and cov < 1.0:
+					var lo := _band(fs, w, h, x, y, t - 0.0001, seed_value)
+					var hi := FOAM if t == WATER else _band(fs, w, h, x, y, t + 0.0001, seed_value)
+					col = lo.lerp(hi, cov)
+					break
 			img.set_pixel(x, y, col)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value

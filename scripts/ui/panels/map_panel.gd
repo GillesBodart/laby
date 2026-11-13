@@ -4,12 +4,10 @@ extends Control
 
 const SIZE := Vector2(480, 270)
 const FRAME := Rect2(24, 32, 432, 214)
-const INK := Color8(27, 20, 16)
+const INK := UiPalette.INK
 const BG := Color(0.03, 0.05, 0.08, 0.88)
-const PLATE := Color8(236, 222, 186)
-const EDGE := Color8(242, 210, 92)
-const TEXT_DARK := Color8(58, 42, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
+const EDGE := UiPalette.GOLD
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
 const REFRESH := 0.25
 
 const WALL := Color8(58, 64, 60)
@@ -24,7 +22,10 @@ const FOG := Color8(10, 12, 16)
 const UNSURE := Color8(150, 110, 60)
 const LANDMARK := Color8(242, 210, 92)
 const GLYPH := Color8(120, 230, 190)
-const MARKER_COLORS := {"danger": Color8(230, 70, 60), "resource": Color8(110, 210, 90), "door": Color8(240, 200, 80), "note": Color8(235, 235, 235)}
+## Danger / resource markers come from Accessibility (see marker_color).
+const MARKER_COLORS := {"door": Color8(240, 200, 80), "note": Color8(235, 235, 235)}
+## Pixels per cell in the blown-up map image.
+const UPSCALE := 4
 
 var _font: Font
 var _texture: ImageTexture
@@ -120,21 +121,29 @@ func _rebuild() -> void:
 	if _image == null or _image.get_size() != layout.size:
 		_image = Image.create(layout.size.x, layout.size.y, false, Image.FORMAT_RGBA8)
 	var props := layout.prop_cells()
+	var unsure: Array[Vector2i] = []
 	for y in layout.size.y:
 		for x in layout.size.x:
 			var cell := Vector2i(x, y)
 			if world.fog != null and not world.fog.is_explored(cell):
 				_image.set_pixel(x, y, FOG)
 			elif world.fog != null and world.fog.is_uncertain(cell):
-				# The walls moved here since: hatched, last known state faded.
-				var c := _cell_color(world, cell, props) if (x + y) % 3 != 0 else UNSURE
-				_image.set_pixel(x, y, c.lerp(FOG, 0.45))
+				# The walls moved here since: last known state faded, then hatched below.
+				_image.set_pixel(x, y, _cell_color(world, cell, props).lerp(FOG, 0.4))
+				unsure.append(cell)
 			else:
 				_image.set_pixel(x, y, _cell_color(world, cell, props))
 	# Blown up with hard cell edges, so the panel's smooth filtering only
 	# softens the outline of each cell instead of blurring the whole maze.
 	var shown := _image.duplicate() as Image
-	shown.resize(layout.size.x * 4, layout.size.y * 4, Image.INTERPOLATE_NEAREST)
+	shown.resize(layout.size.x * UPSCALE, layout.size.y * UPSCALE, Image.INTERPOLATE_NEAREST)
+	# A calm diagonal hatch across the unsure area, continuous from cell to cell.
+	for cell in unsure:
+		for i in UPSCALE:
+			var sx := cell.x * UPSCALE + i
+			var sy := cell.y * UPSCALE + posmod(UPSCALE * 2 - 1 - sx - cell.y * UPSCALE, UPSCALE * 2)
+			if sy < (cell.y + 1) * UPSCALE:
+				shown.set_pixel(sx, sy, shown.get_pixel(sx, sy).lerp(UNSURE, 0.45))
 	if _texture == null or _texture.get_size() != Vector2(shown.get_size()):
 		_texture = ImageTexture.create_from_image(shown)
 	else:
@@ -173,19 +182,16 @@ func _draw() -> void:
 	if world == null or _texture == null:
 		return
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BG)
-	var title := Sectors.display_name(GameState.area).to_upper() if world.layout.fogged else "THE CLEARING"
-	draw_rect(Rect2(160, 4, 160, 20), PLATE)
-	draw_rect(Rect2(160, 4, 160, 20), INK, false)
-	var tw := _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	draw_string(_font, Vector2(240 - tw / 2.0, 19), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
 	var scale := _scale(world)
 	var map_size := Vector2(world.layout.size) * scale
 	var origin := _origin(world)
-	draw_rect(Rect2(origin - Vector2(2, 2), map_size + Vector2(4, 4)), EDGE, false, 2.0)
+	UiFrame.box(self, Rect2(origin, map_size).grow(8), true)
+	UiFrame.title_plate(self, SIZE.x / 2.0, 2, Sectors.display_name(GameState.area).to_upper() if world.layout.fogged else "THE CLEARING", 160)
+	draw_rect(Rect2(origin - Vector2(1, 1), map_size + Vector2(2, 2)), EDGE, false, 1.0)
 	draw_texture_rect(_texture, Rect2(origin, map_size), false)
 	for portal_def in world.layout.all_portals():
 		var portal := Rect2(origin + Vector2(portal_def.rect.position) * scale, Vector2(portal_def.rect.size) * scale)
-		draw_rect(portal, Color8(120, 220, 120), false, 1.0)
+		draw_rect(portal, Accessibility.color("good"), false, 1.0)
 	var hints := _glyph_hints()
 	_draw_hints(world, hints, origin, scale)
 	if not world.layout.boss.is_empty() and world.fog != null and (world.fog.is_explored(world.layout.boss.cell) or hints.has("key")):
@@ -210,13 +216,19 @@ func _draw() -> void:
 		var c := world.clearing.walls.local_to_map(world.clearing.walls.to_local(player.global_position))
 		var p := origin + (Vector2(c) + Vector2(0.5, 0.5)) * scale
 		draw_circle(p, 3.0, INK)
-		draw_circle(p, 2.0, Color.WHITE if blink else Color8(230, 70, 70))
-	var footer := Gamepad.fill("[{map}] close")
+		draw_circle(p, 2.0, Color.WHITE if blink else Accessibility.color("danger"))
 	if world.fog != null:
-		footer = Gamepad.fill("Explored %d%%   1-4: %s   click: mark / erase   {map}: close") % [int(world.fog.explored_fraction() * 100.0), marker_kind]
-		draw_circle(Vector2(456, 260), 4.0, INK)
-		draw_circle(Vector2(456, 260), 3.0, marker_color(marker_kind))
-	draw_string(_font, Vector2(24, 266), footer, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_LIGHT)
+		# Exploration and the marker in hand sit on the title row, left and right.
+		var ts := mini(UiFrame.fs(11), 13)
+		draw_string(_font, Vector2(FRAME.position.x, 18), "Explored %d%%" % int(world.fog.explored_fraction() * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, ts, TEXT_LIGHT)
+		var kind_w := _font.get_string_size(marker_kind, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x
+		draw_string(_font, Vector2(FRAME.end.x - kind_w, 18), marker_kind, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, TEXT_LIGHT)
+		var dot := Vector2(FRAME.end.x - kind_w - 8, 14)
+		draw_circle(dot, 4.0, INK)
+		draw_circle(dot, 3.0, marker_color(marker_kind))
+		UiFrame.footer(self, "[1-4] marker  [{click}] mark  [{right_click}] erase  [{map}] close")
+	else:
+		UiFrame.footer(self, "[{map}] close")
 
 
 func _diamond(at: Vector2, r: float, color: Color) -> void:

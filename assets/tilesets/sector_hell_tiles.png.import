@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://13x743rti1r7"
+path="res://.godot/imported/sector_hell_tiles.png-26c436b3a5f390e80df126bc6a58b0e0.res"
+
+[deps]
+
+source_file="res://assets/tilesets/sector_hell_tiles.png"
+dest_files=["res://.godot/imported/sector_hell_tiles.png-26c436b3a5f390e80df126bc6a58b0e0.res"]
+
+[params]
+
+hd_scale=2

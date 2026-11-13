@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bst6mvnkopcfn"
+path="res://.godot/imported/sector_ice_tiles.png-024e5a36fac69e6b5f8908076953ea14.res"
+
+[deps]
+
+source_file="res://assets/tilesets/sector_ice_tiles.png"
+dest_files=["res://.godot/imported/sector_ice_tiles.png-024e5a36fac69e6b5f8908076953ea14.res"]
+
+[params]
+
+hd_scale=2

@@ -22,9 +22,13 @@ static func current_shift() -> int:
 
 
 func setup_area() -> void:
-	var tint: Color = Sectors.info(sector()).tint
-	clearing.ground.self_modulate = tint
-	clearing.walls.self_modulate = tint
+	# Each sector paints its own atlas (same layout); the tint is only a mood.
+	var info := Sectors.info(sector())
+	var tile_set := TileSetFactory.clearing_tileset(info.art.tiles)
+	clearing.ground.tile_set = tile_set
+	clearing.walls.tile_set = tile_set
+	clearing.ground.self_modulate = info.tint
+	clearing.walls.self_modulate = info.tint
 	if not layout.sector_gate.is_empty() and not GameState.has_keys(layout.sector_gate.keys):
 		clearing.entities.add_child(SectorGate.create(layout.sector_gate.rect, layout.sector_gate.keys))
 	if not layout.boss.is_empty() and not GameState.bosses_defeated.has(layout.boss.type):

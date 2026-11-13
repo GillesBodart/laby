@@ -202,7 +202,9 @@ func drop_slot(index: int, amount: int) -> int:
 	if pile != null:
 		_merge_into(pile.entry.items, stack)
 	else:
-		var entry := GameState.add_remains(GameState.area, global_position, [stack])
+		# Beside the feet, not under them, so the sprite does not hide the pile.
+		var side := -1.0 if facing.x < 0.0 else 1.0
+		var entry := GameState.add_remains(GameState.area, global_position + Vector2(14.0 * side, 4.0), [stack])
 		entry["dropped"] = true
 		if world != null:
 			world.spawn_remains(entry)
@@ -311,7 +313,8 @@ func _tick_effects(delta: float) -> void:
 			survival.damage(2.0)
 	var tint := Color.WHITE
 	if effects.has("poison"):
-		tint = Color(0.75, 1.15, 0.7)
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
+		tint = Color.WHITE.lerp(Color(0.86, 1.06, 0.84), 0.35 + 0.45 * pulse)
 	elif effects.has("slow"):
 		tint = Color(0.75, 0.85, 1.2)
 	if _hurt_timer <= 0.0:
@@ -699,7 +702,7 @@ func take_damage(amount: int, source: Node2D = null) -> void:
 	var dealt := maxi(amount - armor(), 1)
 	survival.damage(dealt)
 	Sound.play("hurt", global_position)
-	DamageNumber.pop(get_parent(), global_position + Vector2(0, -34), dealt, Color8(255, 112, 96))
+	DamageNumber.pop(get_parent(), global_position + Vector2(0, SPRITE_OFFSET.y - FRAME_SIZE.y / 2.0), dealt, Accessibility.color("bad").lightened(0.25))
 	var cam := get_viewport().get_camera_2d() as GameCamera
 	if cam and cam.target == self:
 		cam.shake(clampf(0.25 + dealt / 30.0, 0.25, 0.7))

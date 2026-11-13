@@ -40,13 +40,14 @@ func _draw() -> void:
 	Accessibility.scale_about(self, Vector2.ZERO)
 	# Each row: icon, fill, colour, critical (blinks and gets a "!" badge so
 	# the warning never relies on colour alone).
+	var starving := Accessibility.color("bad").darkened(0.3)
 	var rows := [
 		["heart", hp, Color8(214, 62, 62), hp < LOW_HEALTH],
-		["food", s.hunger / Survival.MAX_HUNGER, Color8(150, 40, 40) if s.is_starving() else Color8(228, 150, 56), s.is_starving()],
+		["food", s.hunger / Survival.MAX_HUNGER, starving if s.is_starving() else Color8(228, 150, 56), s.is_starving()],
 	]
 	if s.thirst_enabled:
-		rows.append(["water", s.thirst / Survival.MAX_THIRST, Color8(150, 40, 40) if s.is_dehydrated() else Color8(72, 152, 226), s.is_dehydrated()])
-	rows.append(["stamina", s.stamina / Survival.MAX_STAMINA, Color8(112, 190, 84), false])
+		rows.append(["water", s.thirst / Survival.MAX_THIRST, starving if s.is_dehydrated() else Color8(72, 152, 226), s.is_dehydrated()])
+	rows.append(["stamina", s.stamina / Survival.MAX_STAMINA, UiPalette.LEAF.lightened(0.2), false])
 	var blink := int(Time.get_ticks_msec() / 300) % 2 == 0
 	var climate := Sectors.climate_of(GameState.area)
 	var show_temp := climate != 0 or absf(s.temperature) > 1.0
@@ -85,7 +86,7 @@ func _draw_comfort(s: Survival, top: float) -> void:
 	var w := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT).x + 12.0
 	var r := Rect2(PANEL_POS.x, top, maxf(w, 60.0), 20)
 	UiFrame.panel(self, r)
-	draw_string(_font, Vector2(r.position.x + 6, r.position.y + 14), text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, Color8(156, 220, 124))
+	draw_string(_font, Vector2(r.position.x + 6, r.position.y + 14), text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, Accessibility.color("good"))
 
 
 ## Centred gauge: blue fills left when cold, orange fills right when hot.
@@ -104,9 +105,8 @@ func _temp_bar(pos: Vector2, t: float) -> void:
 
 ## "[E] Recover your backpack" above the notices when something usable is in reach.
 func _draw_prompt(player: Player) -> void:
-	for p in get_tree().get_nodes_in_group("ui_panels"):
-		if p.visible:
-			return
+	if UiFrame.any_panel_open(get_tree()):
+		return
 	var thing := player.find_interactable()
 	if thing == null or not thing.has_method("interact_hint"):
 		return
@@ -128,7 +128,8 @@ func _draw_prompt(player: Player) -> void:
 func _alert(pos: Vector2, lit: bool) -> void:
 	var r := Rect2(pos, Vector2(12, 15))
 	draw_rect(r.grow(1), INK)
-	draw_rect(r, Color8(214, 62, 62) if lit else Color8(120, 30, 34))
+	var bad := Accessibility.color("bad")
+	draw_rect(r, bad if lit else bad.darkened(0.45))
 	draw_string(_font, Vector2(r.position.x + 3, r.position.y + 12), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, Color8(255, 240, 210))
 
 

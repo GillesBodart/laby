@@ -280,28 +280,27 @@ func _draw_backdrop() -> void:
 # ------------------------------------------------------------- drawing
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 4) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
-func _text_center(cx: float, y: float, s: String, size_px: int, col: Color) -> void:
-	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
-	draw_string(_font, Vector2(cx - w / 2.0, y), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col)
+## Centred text at a base size scaled by the text-size setting, shrunk to
+## `width` when given.
+func _text_center(cx: float, y: float, s: String, size_px: int, col: Color, width := -1.0) -> void:
+	var sz := UiFrame.fs(size_px)
+	while width > 0.0 and sz > 8 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > width:
+		sz -= 1
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+	draw_string(_font, Vector2(cx - w / 2.0, y), s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 
 
 func _draw() -> void:
 	_draw_backdrop()
 	var cx := SIZE.x / 2.0
 	var plaque := Rect2(cx - 92, 14, 184, 62)
-	_box(plaque, Menu.GREEN_DARK, Menu.INK, 8)
-	_box(plaque.grow(-4), Menu.GREEN, Menu.GREEN_DARK, 6)
-	_text_center(cx + 2, 54, "LABY", 36, Menu.INK)
-	_text_center(cx, 52, "LABY", 36, Menu.GOLD)
-	_text_center(cx, 69, "The walls remember.", 10, Menu.TEXT_LIGHT)
+	UiFrame.box(self, plaque)
+	draw_string(_font, Vector2(cx - _font.get_string_size("LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x / 2.0 + 2, 54), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Menu.INK)
+	draw_string(_font, Vector2(cx - _font.get_string_size("LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x / 2.0, 52), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Menu.GOLD)
+	_text_center(cx, 69, "The walls remember.", 10, Menu.TEXT_LIGHT, plaque.size.x - 16)
 	var can_load := has_any_save()
 	var list := rows()
 	for i in list.size():
@@ -309,15 +308,16 @@ func _draw() -> void:
 		var usable := page != "" or i != 1 or can_load
 		var hot := i == _hover and not _settings.visible
 		var harsh := page == "new" and ((i == 1 and permadeath) or (i == 2 and companion_permadeath))
-		_box(r, Menu.CREAM if hot and usable else Menu.TAN, Menu.GOLD if hot else (Color8(170, 50, 40) if harsh else Menu.BROWN), 3)
-		_text_center(r.get_center().x, r.get_center().y + 5, list[i], 14 if page == "" else 12, Menu.TEXT_DARK if usable else Menu.FADED)
+		_box(r, Menu.CREAM if hot and usable else Menu.TAN, Menu.GOLD if hot else (Accessibility.color("bad") if harsh else Menu.BROWN), 3)
+		_text_center(r.get_center().x, r.get_center().y + 5, list[i], 14 if page == "" else 12, Menu.TEXT_DARK if usable else Menu.FADED, r.size.x - 6)
 	draw_rect(Rect2(0, 254, SIZE.x, 16), Color(0.03, 0.05, 0.08, 0.95))
 	if page == "new" and _hover >= 0 and not _settings.visible:
 		var lines: PackedStringArray = String(NEW_HINTS[_hover]).split("\n")
-		var box := Rect2(cx - 160, 202, 320, 8 + lines.size() * 12)
+		var lh := float(UiFrame.fs(10)) + 2.0
+		var box := Rect2(cx - 160, 202, 320, 8 + lines.size() * lh)
 		_box(box, Color(0.03, 0.05, 0.08, 0.85), Menu.BROWN, 3)
 		for k in lines.size():
-			_text_center(cx, box.position.y + 14 + k * 12, lines[k], 10, Menu.TEXT_LIGHT)
+			_text_center(cx, box.position.y + 2 + lh * (k + 1), lines[k], 10, Menu.TEXT_LIGHT, box.size.x - 8)
 	elif status != "":
-		_text_center(cx, 214, status, 11, Menu.GOLD)
-	_text_center(cx, 264, "[Up/Down] choose   [Enter]/[Click] select", 11, Menu.TEXT_LIGHT)
+		_text_center(cx, 214, status, 11, Menu.GOLD, SIZE.x - 16)
+	UiFrame.footer(self, "[Up/Down] choose  [Enter] / [{click}] select")

@@ -47,6 +47,7 @@ Core loop: **EXPLORE → GATHER → CRAFT → BUILD → SURVIVE → EXPLORE FURT
 ## 4. UI
 
 - Smooth rounded UI with the **Nunito** font (`resources/ui/ui_font.tres` through `resources/ui/theme.tres`). 9-slice frames (`UiFrame`, `hud_frame.tres`). Consistent item icons (32 px, plus 16 px small icons).
+- **UI palette**: four main colours, defined once in `UiPalette` (`scripts/ui/common/ui_palette.gd`): amber `#ffb852` (accents, titles), mustard `#d1bd19` (frame rims), leaf green `#328e13` (stitching, highlights), forest green `#00592e` (panel and HUD backgrounds). Derive other UI shades from them; never hard-code UI colours in panels.
 - The HUD must never hide gameplay. Notices are small, stacked, bottom right.
 - **Accessibility** (`Accessibility` autoload): every HUD element and floating number follows the text-size setting. Colours that carry meaning on their own come from `Accessibility` (colour-blind palette), never from hard-coded red/green.
 - Everything is playable with keyboard + mouse and with a gamepad (panels included). Prompts show the active device's buttons. Keys are rebindable (`KeyBindings`).

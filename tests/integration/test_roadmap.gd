@@ -808,15 +808,24 @@ func test_item_feed_stacks_and_merges() -> void:
 func test_long_notices_wrap_inside_the_screen() -> void:
 	var hud: Node = load("res://scenes/ui/hud.tscn").instantiate()
 	_tree().root.add_child(hud)
-	var notice: Label = hud.notice
-	hud.show_notice("short")
-	var one_line := notice.size.y
+	var feed: Control = hud.feed
+	EventBus.notify.emit("short")
+	check_eq(feed._rows.size(), 1, "notify lands in the bottom-right feed")
+	var one_line: float = feed._rows[-1].h
 	hud.show_notice("You find a carving of a key and a beast's eye. The guardian's den and its key are marked on your map. ".repeat(2))
-	check(notice.size.y > one_line * 1.5, "long text wraps onto more lines")
-	check(notice.size.x <= 960.0 and notice.position.x >= 0.0, "the box stays on screen")
-	check(notice.position.y + notice.size.y <= 540.0, "and above the bottom edge")
+	var long: Dictionary = feed._rows[-1]
+	check(long.h > one_line * 1.5, "long text wraps onto more lines")
+	check(long.w + feed.PAD * 2.0 <= feed.TEXT_W, "and stays a small corner box")
+	check(feed.RIGHT <= 960.0 and feed.BOTTOM <= 540.0, "anchored inside the screen")
 	hud.show_notice("short")
-	check_eq(notice.size.y, one_line, "a short notice shrinks the box back")
+	check_eq(feed._rows.size(), 2, "a repeated message refreshes its row")
+	var panel: Control = hud.get_children().filter(func(c): return c.is_in_group("ui_panels"))[0]
+	panel.visible = true
+	feed._process(60.0)
+	check(not feed.visible and feed._rows.size() == 2, "hidden while a panel is open, and kept for later")
+	panel.visible = false
+	feed._process(60.0)
+	check(feed.visible and feed._rows.is_empty(), "shown again once it closes, then fades")
 	hud.free()
 
 

@@ -29,25 +29,3 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.93, 0.89, 0.78, 1)
 theme_override_font_sizes/font_size = 16
 text = "Day 1  07:00"
-
-[node name="Notice" type="Label" parent="."]
-unique_name_in_owner = true
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -22.0
-offset_right = 200.0
-offset_bottom = -8.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.98, 0.92, 0.74, 1)
-theme_override_colors/font_outline_color = Color(0.06, 0.06, 0.09, 1)
-theme_override_constants/outline_size = 2
-theme_override_constants/line_spacing = -2
-theme_override_font_sizes/font_size = 16
-theme_override_styles/normal = ExtResource("2_frame")
-horizontal_alignment = 1
-autowrap_mode = 3

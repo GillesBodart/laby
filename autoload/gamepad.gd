@@ -79,8 +79,15 @@ func _add(action: String, ev: InputEvent) -> void:
 		InputMap.action_add_event(action, ev)
 
 
+## Menu-only prompts that are not rebindable actions: closing a panel and
+## clicking with the cursor ([keyboard / mouse, pad]).
+const MENU_PROMPTS := {"back": ["Esc", "B"], "click": ["Click", "A"], "right_click": ["Right-click", "X"]}
+
+
 ## Button or key to show in on-screen prompts, following the last device used.
 func prompt(action: String) -> String:
+	if MENU_PROMPTS.has(action):
+		return MENU_PROMPTS[action][1 if using_pad else 0]
 	if using_pad and BUTTONS.has(action):
 		return BUTTON_NAMES.get(BUTTONS[action][0], "?")
 	if using_pad and AXES.has(action) and AXES[action][0] in AXIS_NAMES:
@@ -97,7 +104,7 @@ func fill(text: String) -> String:
 		if end == -1:
 			break
 		var action := text.substr(start + 1, end - start - 1)
-		if InputMap.has_action(action):
+		if InputMap.has_action(action) or MENU_PROMPTS.has(action):
 			var label := prompt(action)
 			text = text.substr(0, start) + label + text.substr(end + 1)
 			start = text.find("{", start + label.length())

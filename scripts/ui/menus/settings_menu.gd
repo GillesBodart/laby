@@ -11,23 +11,23 @@ const PANEL := Rect2(90, 40, 300, 196)
 const WIDE := Rect2(30, 38, 420, 214)
 const ROW_H := 15.0
 
-const INK := Color8(27, 20, 16)
-const GREEN_DARK := Color8(24, 38, 30)
-const GREEN := Color8(50, 76, 58)
-const GREEN_LINE := Color8(108, 148, 116)
-const CREAM := Color8(236, 222, 186)
-const TAN := Color8(214, 176, 124)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
-const FADED := Color8(150, 126, 98)
-const GOLD := Color8(242, 210, 92)
+const INK := UiPalette.INK
+const GREEN_DARK := UiPalette.FELT_DARK
+const GREEN := UiPalette.FELT
+const GREEN_LINE := UiPalette.STITCH
+const CREAM := UiPalette.CREAM
+const TAN := UiPalette.TAN
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
+const FADED := UiPalette.FADED
+const GOLD := UiPalette.GOLD
 
 const MAIN := ["Resume", "Save game", "Load game", "Controls", "Sound", "Accessibility", "Quit game"]
 const TITLE_MAIN := ["Controls", "Sound", "Accessibility", "Back"]
 const ACCESS_HINTS := [
-	"Bigger HUD text: bars, clock, goal, prompts, notices, damage.",
-	"Orange / blue / yellow instead of red / green on the map,\ncompanion markers and durability bars.",
+	"Bigger text: HUD, panels, prompts, notices, damage.",
+	"Orange / blue / yellow instead of red / green on the map,\npanels, companion markers and durability bars.",
 ]
 const VOLUME_LABELS := {"master": "Master volume", "sfx": "Effects", "ambience": "Ambience"}
 
@@ -295,53 +295,38 @@ func _process(_delta: float) -> void:
 # ------------------------------------------------------------- drawing
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 4) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
+## Text at a base size scaled by the text-size setting.
 func _text(pos: Vector2, s: String, size_px: int, col: Color) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col)
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(size_px), col)
 
 
 func _text_center(cx: float, y: float, s: String, size_px: int, col: Color) -> void:
-	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(size_px)).x
 	_text(Vector2(cx - w / 2.0, y), s, size_px, col)
 
 
 func _frame(r: Rect2) -> void:
-	_box(r, GREEN_DARK, INK, 8)
-	var inner := r.grow(-5)
-	_box(inner, GREEN, GREEN_DARK, 6)
-	var f := inner.grow(-4)
-	var x := f.position.x
-	while x < f.end.x:
-		draw_rect(Rect2(x, f.position.y, 3, 1), GREEN_LINE)
-		draw_rect(Rect2(x, f.end.y - 1, 3, 1), GREEN_LINE)
-		x += 6
-	var y := f.position.y
-	while y < f.end.y:
-		draw_rect(Rect2(f.position.x, y, 1, 3), GREEN_LINE)
-		draw_rect(Rect2(f.end.x - 1, y, 1, 3), GREEN_LINE)
-		y += 6
+	UiFrame.box(self, r)
 
 
 func _button(r: Rect2, caption: String, hot: bool, size_px := 12) -> void:
 	_box(r, CREAM if hot else TAN, GOLD if hot else BROWN, 3)
-	_text_center(r.get_center().x, r.get_center().y + size_px * 0.35, caption, size_px, TEXT_DARK)
+	var sz := UiFrame.fs(size_px)
+	while sz > 8 and _font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > r.size.x - 6:
+		sz -= 1
+	var w := _font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+	draw_string(_font, Vector2(r.get_center().x - w / 2.0, roundf(r.get_center().y + minf(sz, r.size.y) * 0.35)), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, TEXT_DARK)
 
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.03, 0.05, 0.08, 0.78))
 	var frame := WIDE if page == "controls" else PANEL
 	var titles := {"main": "SETTINGS" if title_mode else "PAUSED", "save": "SAVE GAME", "load": "LOAD GAME", "controls": "CONTROLS", "sound": "SOUND", "access": "ACCESSIBILITY"}
-	var title := Rect2(frame.get_center().x - 80, 10, 160, 24)
-	_box(title, CREAM, BROWN, 3)
-	_text_center(title.get_center().x, 28, titles[page], 16, TEXT_DARK)
 	_frame(frame)
+	UiFrame.title_plate(self, frame.get_center().x, frame.position.y - 28, titles[page], 160)
 	var rows := _rows()
 	match page:
 		"main":
@@ -402,13 +387,13 @@ func _draw() -> void:
 				_text_center(key_box.get_center().x, key_box.position.y + 10, label, 10, TEXT_DARK)
 			_button(_row_rect(n), rows[n], _hover == n, 11)
 			_button(_row_rect(n + 1), rows[n + 1], _hover == n + 1, 11)
-	var hint := "[Esc] back   [Click] select" if page != "main" or title_mode else "[Esc] resume   [Click] select"
+	var hint := "[{back}] back  [{click}] select" if page != "main" or title_mode else "[{back}] resume  [{click}] select"
 	if page == "sound":
-		hint = "[Click]/[Right] louder   [Right-click]/[Left] softer   [Esc] back"
+		hint = "[{click}] / [Right] louder  [{right_click}] / [Left] softer  [{back}] back"
 	draw_rect(Rect2(0, 254, SIZE.x, 16), Color(0.03, 0.05, 0.08, 0.95))
 	if page == "controls" and status != "":
-		_text_center(frame.get_center().x, 264, status, 11, GOLD)
+		_text_center(frame.get_center().x, UiFrame.FOOTER_Y, status, 11, GOLD)
 		return
 	if status != "":
 		_text_center(frame.get_center().x, frame.end.y + 13, status, 11, GOLD)
-	_text_center(frame.get_center().x, 264, hint, 11, TEXT_LIGHT)
+	UiFrame.footer(self, hint)

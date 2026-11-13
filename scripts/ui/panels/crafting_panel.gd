@@ -30,18 +30,15 @@ const GRID_ROWS := 4
 const SLOT := Vector2(40, 36)
 const TABS := ["BACKPACK", "CRAFTING"]
 
-const INK := Color8(27, 20, 16)
-const GREEN_DARK := Color8(24, 38, 30)
-const GREEN := Color8(50, 76, 58)
-const GREEN_LINE := Color8(108, 148, 116)
-const CREAM := Color8(236, 222, 186)
-const TAN := Color8(214, 176, 124)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
-const FADED := Color8(150, 126, 98)
-const GOLD := Color8(242, 210, 92)
-const OK := Color8(46, 110, 50)
+const INK := UiPalette.INK
+const GREEN_LINE := UiPalette.STITCH
+const CREAM := UiPalette.CREAM
+const TAN := UiPalette.TAN
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
+const FADED := UiPalette.FADED
+const GOLD := UiPalette.GOLD
 
 var tab := 0
 var _font: Font
@@ -395,22 +392,20 @@ func _hover_index(m: Vector2) -> int:
 
 # ------------------------------------------------------------- drawing
 
-func _text(pos: Vector2, s: String, col: Color) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col)
+func _text(pos: Vector2, s: String, col: Color, size := 16) -> void:
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(size), col)
 
 
-func _text_center(cx: float, y: float, s: String, col: Color) -> void:
-	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	_text(Vector2(cx - w / 2.0, y), s, col)
+func _text_w(s: String, size := 16) -> float:
+	return _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(size)).x
+
+
+func _text_center(cx: float, y: float, s: String, col: Color, size := 16) -> void:
+	_text(Vector2(cx - _text_w(s, size) / 2.0, y), s, col, size)
 
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 4) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
 func _diamond(c: Vector2, r: float, fill: Color, border: Color) -> void:
@@ -457,13 +452,10 @@ func _draw() -> void:
 	var player := _player()
 	if player == null:
 		return
-	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.03, 0.05, 0.08, 0.72))
+	draw_rect(Rect2(Vector2.ZERO, SIZE), UiPalette.SHADE)
 
 	# Title plaque.
-	var title := Rect2(PANEL.position.x + PANEL.size.x / 2.0 - 70, 8, 140, 24)
-	_box(title, CREAM, BROWN, 3)
-	draw_rect(Rect2(title.position + Vector2(3, 3), title.size - Vector2(6, 6)), Color(0, 0, 0, 0), false)
-	_text_center(title.get_center().x, 26, TABS[tab] if tab == 0 else String(ItemCatalog.STATIONS[station]).to_upper(), TEXT_DARK)
+	UiFrame.title_plate(self, PANEL.get_center().x, 8, TABS[tab] if tab == 0 else String(ItemCatalog.STATIONS[station]).to_upper(), 140)
 
 	# Side tabs.
 	var books := _books()
@@ -482,21 +474,7 @@ func _draw() -> void:
 			draw_line(c + Vector2(-5, 5), c + Vector2(4, -4), BROWN, 2.0)
 			draw_rect(Rect2(c + Vector2(0, -7), Vector2(7, 4)), BROWN)
 
-	# Green panel with dashed inner frame.
-	_box(PANEL, GREEN_DARK, INK, 8)
-	var inner := PANEL.grow(-5)
-	_box(inner, GREEN, GREEN_DARK, 6)
-	var f := inner.grow(-4)
-	var x := f.position.x
-	while x < f.end.x:
-		draw_rect(Rect2(x, f.position.y, 3, 1), GREEN_LINE)
-		draw_rect(Rect2(x, f.end.y - 1, 3, 1), GREEN_LINE)
-		x += 6
-	var y := f.position.y
-	while y < f.end.y:
-		draw_rect(Rect2(f.position.x, y, 1, 3), GREEN_LINE)
-		draw_rect(Rect2(f.end.x - 1, y, 1, 3), GREEN_LINE)
-		y += 6
+	UiFrame.box(self, PANEL)
 
 	var detail_id := ""
 	var detail_extra := ""
@@ -524,15 +502,14 @@ func _draw() -> void:
 			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
 			detail_extra = _recipe_text(rec, player)
 	_draw_card(detail_id, detail_extra)
-	_text_center(PANEL.get_center().x, 247, Gamepad.fill("[{inventory}] close  [Tab] switch  [Click] equip / craft  [{interact}] station"), TEXT_LIGHT)
+	UiFrame.footer(self, "[{inventory}] close  [Tab] switch  [{click}] equip / craft  [{interact}] station")
 	if _dragging and _drag_from >= 0 and not player.inventory.slots[_drag_from].is_empty():
 		_icon(get_local_mouse_position(), player.inventory.slots[_drag_from].id)
 
 
 func _draw_small_button(r: Rect2, caption: String, hot: bool) -> void:
 	_box(r, CREAM if hot else TAN, GOLD if hot else BROWN, 3)
-	var w := _font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	draw_string(_font, Vector2(r.get_center().x - w / 2.0, r.end.y - 5), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
+	_text_center(r.get_center().x, r.end.y - 5, caption, TEXT_DARK, 12)
 
 
 func _draw_backpack(player: Player) -> String:
@@ -543,8 +520,9 @@ func _draw_backpack(player: Player) -> String:
 		var s: Dictionary = inv.slots[i]
 		var selected := i == _hover
 		var insured := i < player.survival.insured_slots()
-		_diamond(c, DIAMOND, CREAM, GOLD if selected else (OK if insured else BROWN))
-		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else (Color8(196, 214, 150) if insured else TAN), BROWN)
+		var safe := Accessibility.color("good")
+		_diamond(c, DIAMOND, CREAM, GOLD if selected else (safe.darkened(0.35) if insured else BROWN))
+		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else (TAN.lerp(safe, 0.3) if insured else TAN), BROWN)
 		if insured:
 			_padlock(c + Vector2(-11, -12))
 		if s.is_empty():
@@ -555,11 +533,20 @@ func _draw_backpack(player: Player) -> String:
 			hovered = s.id
 		UiFrame.wear_bar(self, c + Vector2(-9, 9), 18, s.id, int(s.get("wear", 0)))
 		if s.count > 1:
-			var t := "%d" % s.count
-			var p := c + Vector2(13 - _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x, 13)
-			draw_string(_font, p + Vector2(1, 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, INK)
-			draw_string(_font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, TEXT_LIGHT)
+			_count_pill(c + Vector2(0, 15), s.count)
 	return hovered
+
+
+## Stack count on a small dark pill whose bottom centre is `bottom`, kept
+## inside the slot so it never spills onto a neighbour.
+func _count_pill(bottom: Vector2, count: int) -> void:
+	var t := str(count)
+	var size := UiFrame.fs(8, 1.12)
+	var tw := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var h := roundf(size * 0.8) + 2.0
+	var pill := Rect2(roundf(bottom.x - tw / 2.0 - 2.0), bottom.y - h, ceilf(tw) + 4.0, h)
+	_box(pill, Color(INK, 0.85), Color(INK, 0.85), 3)
+	draw_string(_font, Vector2(pill.position.x + 2.0, pill.end.y - 2.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, size, TEXT_LIGHT)
 
 
 ## Tiny padlock marking an insured slot (kept on death).
@@ -600,8 +587,16 @@ func _draw_doll(player: Player) -> String:
 		"BLK %d%%" % player.block_chance(),
 		"STR %d (%d safe)" % [player.survival.strength(), player.survival.insured_slots()],
 	]
+	# Stacked under the doll and kept inside the felt: the size steps down
+	# when a larger text setting would push the last line past the frame.
+	var top := 160.0
+	var bottom := PANEL.end.y - 8.0
+	var size := UiFrame.fs(12)
+	while size > 8 and _font.get_height(size) * lines.size() > bottom - top:
+		size -= 1
+	var line_h := _font.get_height(size)
 	for i in lines.size():
-		draw_string(_font, Vector2(62, 174 + i * 12), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
+		draw_string(_font, Vector2(62, top + _font.get_ascent(size) + i * line_h), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, size, TEXT_LIGHT)
 	return hovered
 
 
@@ -620,10 +615,7 @@ func _draw_crafting(player: Player) -> String:
 		_box(r, CREAM if ok else TAN, GOLD if i == _hover else BROWN, 3)
 		_icon(r.get_center() + Vector2(0, -1), rec.id, 7)
 		if rec.out > 1:
-			var t := "%d" % rec.out
-			var p := r.end - Vector2(_font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 2, 2)
-			_text(p + Vector2(1, 1), t, INK)
-			_text(p, t, TEXT_LIGHT)
+			_count_pill(Vector2(r.end.x - 8, r.end.y - 2), rec.out)
 		if not ok:
 			draw_rect(r.grow(-1), Color(0.35, 0.28, 0.2, 0.45))
 	_draw_chips()
@@ -632,21 +624,14 @@ func _draw_crafting(player: Player) -> String:
 		if not ItemCatalog.recipe_known(i, player.inventory.known, GameState.blueprints):
 			locked += 1
 	if book.is_empty():
-		var msg := "No recipes yet: gather new materials to discover some."
-		var mw := _font.get_string_size(msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		draw_string(_font, Vector2(PANEL.get_center().x - mw / 2.0, PANEL.get_center().y), msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+		_text_center(PANEL.get_center().x, PANEL.get_center().y, "No recipes yet: gather new materials to discover some.", TEXT_LIGHT, 10)
 	if locked > 0:
 		var lt := "%d undiscovered" % locked
-		var lw := _font.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		draw_string(_font, Vector2(PANEL.end.x - lw - 14, PANEL.end.y - 10), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+		_text(Vector2(PANEL.end.x - _text_w(lt, 10) - 14, PANEL.end.y - 10), lt, TEXT_LIGHT, 10)
 	if station == "":
-		var hint := "E at a campfire, workbench, furnace, anvil... for more."
-		var w := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		draw_string(_font, Vector2(PANEL.get_center().x - w / 2.0, PANEL.end.y - 14), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_LIGHT)
+		_text_center(PANEL.get_center().x, PANEL.end.y - 14, "%s at a campfire, workbench, furnace, anvil... for more." % Gamepad.prompt("interact"), TEXT_LIGHT, 10)
 	elif station not in stations:
-		var warn := "Too far from the %s!" % ItemCatalog.STATIONS[station]
-		var w := _font.get_string_size(warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		draw_string(_font, Vector2(PANEL.get_center().x - w / 2.0, PANEL.end.y - 14), warn, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD)
+		_text_center(PANEL.get_center().x, PANEL.end.y - 14, "Too far from the %s!" % ItemCatalog.STATIONS[station], Accessibility.color("warn"), 10)
 	return ItemCatalog.RECIPES[_hover].id if _hover >= 0 else ""
 
 
@@ -666,10 +651,10 @@ func _draw_chips() -> void:
 	if _hover_chip > -2:
 		var label := "All" if _hover_chip < 0 else String(ItemCatalog.CATEGORY_NAMES[cats[_hover_chip]])
 		var r := _chip_rect(_hover_chip)
-		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		var tip := Rect2(r.get_center().x - w / 2.0 - 4, r.end.y + 2, w + 8, 13)
+		var w := _text_w(label, 10)
+		var tip := Rect2(r.get_center().x - w / 2.0 - 4, r.end.y + 2, w + 8, _font.get_height(UiFrame.fs(10)))
 		_box(tip, CREAM, BROWN, 2)
-		draw_string(_font, Vector2(tip.position.x + 4, tip.end.y - 3), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, TEXT_DARK)
+		_text(Vector2(tip.position.x + 4, tip.end.y - 3), label, TEXT_DARK, 10)
 
 
 ## Ingredient lines (have/need) plus the required station.
@@ -688,18 +673,22 @@ func _recipe_text(rec: Dictionary, player: Player) -> String:
 
 func _draw_card(id: String, extra: String) -> void:
 	_box(CARD, CREAM, BROWN, 2)
+	var body_size := UiFrame.fs(10, 1.2)
 	# Ruled lines sit just under each text baseline of the body.
-	var line_h := _font.get_height(10)
-	var ly := CARD.position.y + 36 + _font.get_ascent(10) + 2
+	var line_h := _font.get_height(body_size)
+	var ly := CARD.position.y + 36 + _font.get_ascent(body_size) + 2
 	while ly < CARD.end.y - 6:
 		draw_rect(Rect2(CARD.position.x + 6, ly, CARD.size.x - 12, 1), TAN)
 		ly += line_h
 	if id == "":
-		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, FADED)
+		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, body_size, -1, FADED)
 		return
 	var nm := ItemCatalog.item_name(id)
-	var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	draw_string(_font, Vector2(CARD.get_center().x - nw / 2.0, CARD.position.y + 16), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
+	var name_size := UiFrame.fs(12, 1.0)
+	while name_size > 9 and _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x > CARD.size.x - 8:
+		name_size -= 1
+	var nw := _font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x
+	draw_string(_font, Vector2(CARD.get_center().x - nw / 2.0, CARD.position.y + 16), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size, TEXT_DARK)
 	draw_rect(Rect2(CARD.position.x + 8, CARD.position.y + 21, CARD.size.x - 16, 1), BROWN)
 	var cat := ItemCatalog.category_name(id).to_upper()
 	var cw := _font.get_string_size(cat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
@@ -708,7 +697,7 @@ func _draw_card(id: String, extra: String) -> void:
 	if extra != "":
 		body += "\n" + extra
 	var para := TextParagraph.new()
-	para.add_string(body, _font, 10)
+	para.add_string(body, _font, body_size)
 	para.width = CARD.size.x - 16
 	para.break_flags = TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND
 	var top := CARD.position.y + 36

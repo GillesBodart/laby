@@ -13,16 +13,14 @@ const STASH_COLS := 8
 const BAG_ORIGIN := Vector2(52, 74)
 const STASH_ORIGIN := Vector2(228, 74)
 
-const INK := Color8(27, 20, 16)
-const CREAM := Color8(236, 222, 186)
-const TAN := Color8(214, 176, 124)
-const SLOT_FILL := Color8(176, 136, 92)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const GOLD := Color8(242, 210, 92)
-const GREEN := Color8(50, 76, 58)
-const GREEN_DARK := Color8(24, 38, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
+const INK := UiPalette.INK
+const CREAM := UiPalette.CREAM
+const TAN := UiPalette.TAN
+const SLOT_FILL := UiPalette.SLOT_FILL
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const GOLD := UiPalette.GOLD
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
 
 var _font: Font
 var _icons := {}
@@ -164,21 +162,21 @@ func _process(_delta: float) -> void:
 
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 3) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
+## Text at a base size scaled by the text-size setting.
 func _text(pos: Vector2, s: String, col: Color, fs := 12) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(fs), col)
 
 
+## Centred in r, shrinking (scaled size down to 8) so it fits r's width.
 func _centered(r: Rect2, s: String, col: Color, fs := 12) -> void:
-	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	_text(Vector2(r.get_center().x - w / 2.0, r.get_center().y + fs * 0.35), s, col, fs)
+	var sz := UiFrame.fs(fs)
+	while sz > 8 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > r.size.x - 4:
+		sz -= 1
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+	draw_string(_font, Vector2(r.get_center().x - w / 2.0, roundf(r.get_center().y + sz * 0.35)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 
 
 func _icon(c: Vector2, id: String) -> void:
@@ -208,25 +206,22 @@ func _grid(inv: RefCounted, origin: Vector2, cols: int, side: String) -> void:
 			var t := str(s.count)
 			var w := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
 			var p := r.end - Vector2(w + 1, 2)
-			_text(p + Vector2(1, 1), t, INK, 9)
-			_text(p, t, TEXT_LIGHT, 9)
+			draw_string(_font, p + Vector2(1, 1), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, INK)
+			draw_string(_font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, TEXT_LIGHT)
 
 
 func _draw() -> void:
 	var player := _player()
 	if player == null:
 		return
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.05, 0.08, 0.6))
-	_box(PANEL, GREEN_DARK, INK, 4)
-	draw_rect(PANEL.grow(-3), GREEN, false)
-	var title := Rect2(PANEL.get_center().x - 50, PANEL.position.y + 6, 100, 22)
-	_box(title, CREAM, BROWN)
-	_centered(title, "CHEST", TEXT_DARK, 16)
+	draw_rect(Rect2(Vector2.ZERO, size), UiPalette.SHADE)
+	UiFrame.box(self, PANEL)
+	UiFrame.title_plate(self, PANEL.get_center().x, PANEL.position.y + 6, "CHEST", 100)
 	_text(BAG_ORIGIN + Vector2(0, -6), "BACKPACK", TEXT_LIGHT)
 	var used := GameState.stash.slots.filter(func(s): return not s.is_empty()).size()
 	_text(STASH_ORIGIN + Vector2(0, -6), "STASH  %d/%d" % [used, GameState.stash.slots.size()], TEXT_LIGHT)
 	var note := "safe on death"
-	var nw := _font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+	var nw := _font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(9)).x
 	_text(Vector2(STASH_ORIGIN.x + STASH_COLS * PITCH - 2 - nw, STASH_ORIGIN.y - 6), note, GOLD, 9)
 	_grid(player.inventory, BAG_ORIGIN, BAG_COLS, "bag")
 	_grid(GameState.stash, STASH_ORIGIN, STASH_COLS, "stash")
@@ -239,10 +234,10 @@ func _draw() -> void:
 		var hot: bool = _hover.get("button", 0) == n
 		_box(r, CREAM if hot else TAN, GOLD if hot else BROWN)
 		_centered(r, "[1] Store materials" if n == 1 else "[2] Take all", TEXT_DARK, 10)
-	var hint := "Click: move stack   Right-click: move one   Esc: close"
 	if _hover.has("side"):
 		var inv: RefCounted = player.inventory if _hover.side == "bag" else GameState.stash
 		var s: Dictionary = inv.slots[_hover.index]
 		if not s.is_empty():
-			hint = "%s x%d  -  %s" % [ItemCatalog.item_name(s.id), s.count, "click to store" if _hover.side == "bag" else "click to take"]
-	_centered(Rect2(PANEL.position.x, PANEL.end.y - 16, PANEL.size.x, 12), hint, TEXT_LIGHT, 10)
+			var hint := "%s x%d  -  %s" % [ItemCatalog.item_name(s.id), s.count, "click to store" if _hover.side == "bag" else "click to take"]
+			_centered(Rect2(PANEL.position.x, PANEL.end.y - 16, PANEL.size.x, 12), hint, TEXT_LIGHT, 10)
+	UiFrame.footer(self, "[{click}] move stack  [{right_click}] move one  [1] store  [2] take all  [{back}] close")

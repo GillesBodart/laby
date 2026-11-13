@@ -6,13 +6,13 @@ extends Control
 
 const SIZE := Vector2(480, 270)
 const UNIT := 16.0
-const INK := Color8(27, 20, 16)
-const CREAM := Color8(236, 222, 186)
-const BROWN := Color8(120, 84, 52)
-const GOLD := Color8(242, 210, 92)
+const INK := UiPalette.INK
+const CREAM := UiPalette.CREAM
+const BROWN := UiPalette.BROWN
+const GOLD := UiPalette.GOLD
 const DIM := Color8(70, 72, 80)
-const TEXT_DARK := Color8(58, 42, 30)
-const TEXT_LIGHT := Color8(238, 226, 196)
+const TEXT_DARK := UiPalette.TEXT_DARK
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
 const RESPEC_RECT := Rect2(372, 240, 100, 22)
 const ALTAR_RANGE := 64.0
 
@@ -172,21 +172,17 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
+## Text at a base size scaled by the text-size setting.
 func _text(pos: Vector2, s: String, col: Color, fsize := 16) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, col)
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(fsize), col)
 
 
 func _text_w(s: String, fsize := 16) -> float:
-	return _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x
+	return _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, UiFrame.fs(fsize)).x
 
 
 func _box(r: Rect2, fill: Color, border: Color, radius := 4) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(radius)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border, radius)
 
 
 func _draw() -> void:
@@ -219,17 +215,23 @@ func _draw() -> void:
 	for id in SkillGraph.NODES:
 		_draw_node(id, s, pulse)
 	# Header.
-	var title := Rect2(SIZE.x / 2.0 - 60, 4, 120, 20)
-	_box(title, CREAM, BROWN, 3)
-	_text(Vector2(title.get_center().x - _text_w("SKILL GRAPH", 14) / 2.0, 19), "SKILL GRAPH", TEXT_DARK, 14)
+	UiFrame.title_plate(self, SIZE.x / 2.0, 4, "SKILL GRAPH")
 	_text(Vector2(8, 18), "Level %d" % s.level, TEXT_LIGHT, 14)
-	_text(Vector2(8, 34), "Points: %d" % s.skill_points, GOLD if s.skill_points > 0 else TEXT_LIGHT, 14)
+	_text(Vector2(8, 18 + UiFrame.fs(14) + 2), "Points: %d" % s.skill_points, GOLD if s.skill_points > 0 else TEXT_LIGHT, 14)
 	draw_rect(Rect2(0, SIZE.y - 20, SIZE.x, 20), Color(0.03, 0.04, 0.07, 1.0))
-	_text(Vector2(8, SIZE.y - 8), Gamepad.fill("[{skills}] close   click: learn   drag: pan   wheel: zoom"), Color8(160, 150, 130), 11)
+	var hint := "[{skills}] close  [{click}] learn  [Drag] pan  [Wheel] zoom"
 	if _at_altar():
+		# Keep the centred footer clear of the respec button.
+		UiFrame.footer(self, hint, SIZE.x / 2.0, (RESPEC_RECT.position.x - SIZE.x / 2.0) * 2.0 - 8.0)
 		var shards := player.inventory.count(Survival.RESPEC_ITEM)
 		_box(RESPEC_RECT, Color8(70, 44, 110), GOLD if shards > 0 else DIM, 3)
-		_text(RESPEC_RECT.position + Vector2(8, 15), "RESPEC (%d shard)" % shards, TEXT_LIGHT, 11)
+		var label := "RESPEC (%d shard)" % shards
+		var ls := UiFrame.fs(11)
+		while ls > 8 and _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, ls).x > RESPEC_RECT.size.x - 8:
+			ls -= 1
+		draw_string(_font, RESPEC_RECT.position + Vector2(4, 15), label, HORIZONTAL_ALIGNMENT_LEFT, -1, ls, TEXT_LIGHT)
+	else:
+		UiFrame.footer(self, hint)
 	if _hover != "":
 		_draw_tooltip(_hover, s)
 
@@ -269,20 +271,23 @@ func _draw_tooltip(id: String, s: Survival) -> void:
 		["%s, %s" % [SkillGraph.CLUSTERS[n.cluster].name, SkillGraph.kind(id)], BROWN],
 		[SkillGraph.describe(id) + (" per rank" if SkillGraph.max_rank(id) > 1 else ""), TEXT_DARK],
 	]
+	var warn := Accessibility.color("bad").darkened(0.3)
 	if not SkillGraph.reachable(id, s.skills):
 		var names := SkillGraph.requires(id).map(func(r): return SkillGraph.node(r).name)
-		lines.append(["Needs: " + " or ".join(PackedStringArray(names)), Color8(150, 60, 40)])
+		lines.append(["Needs: " + " or ".join(PackedStringArray(names)), warn])
 	if not SkillGraph.gate_open(id, GameState.reached):
-		lines.append(["Sealed until you reach the %s" % Sectors.display_name(SkillGraph.gate(id)), Color8(150, 60, 40)])
+		lines.append(["Sealed until you reach the %s" % Sectors.display_name(SkillGraph.gate(id)), warn])
 	var w := 0.0
 	for l in lines:
 		w = maxf(w, _text_w(l[0], 11))
+	var lh := float(UiFrame.fs(11)) + 2.0
 	var m := get_local_mouse_position() + Vector2(10, 10)
-	var box := Rect2(m, Vector2(w + 12, lines.size() * 13 + 6))
+	var box := Rect2(m, Vector2(w + 12, lines.size() * lh + 6))
 	if box.end.x > SIZE.x - 4:
 		box.position.x = m.x - box.size.x - 20
+	box.position.x = maxf(box.position.x, 4.0)
 	if box.end.y > SIZE.y - 4:
 		box.position.y = SIZE.y - 4 - box.size.y
 	_box(box, CREAM, BROWN, 3)
 	for i in lines.size():
-		_text(box.position + Vector2(6, 14 + i * 13), lines[i][0], lines[i][1], 11)
+		_text(box.position + Vector2(6, 1 + lh * (i + 1)), lines[i][0], lines[i][1], 11)

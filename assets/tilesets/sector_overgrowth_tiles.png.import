@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://t17rhgv3g6wp"
+path="res://.godot/imported/sector_overgrowth_tiles.png-e9b9a17a4a7ae64a056eacf4cd75bc65.res"
+
+[deps]
+
+source_file="res://assets/tilesets/sector_overgrowth_tiles.png"
+dest_files=["res://.godot/imported/sector_overgrowth_tiles.png-e9b9a17a4a7ae64a056eacf4cd75bc65.res"]
+
+[params]
+
+hd_scale=2

@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://dw1rugimxlopo"
+path="res://.godot/imported/sector_volcano_tiles.png-cd239200fbfe38f6a3236a67a77f5838.res"
+
+[deps]
+
+source_file="res://assets/tilesets/sector_volcano_tiles.png"
+dest_files=["res://.godot/imported/sector_volcano_tiles.png-cd239200fbfe38f6a3236a67a77f5838.res"]
+
+[params]
+
+hd_scale=2

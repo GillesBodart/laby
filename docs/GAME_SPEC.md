@@ -33,17 +33,17 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 - Each sector is a seeded maze (recursive backtracker plus loops), fully connected. It has a vestibule at the south, the guardian's arena at the north, open chambers, extra loops near the entrance, and a reward in most dead ends: rare deposit caches, plus **treasure chests** that hold blueprints and valuables and are opened once.
 - **Shifting**: at every nightfall a few regions re-carve themselves (seeded by `seed + night`). The maze always stays connected. Landmarks, glyph stones and treasure chests never move, and the shifting regions avoid them.
 - **Map** (M): fog of war, saved. Moved passages show hatched until seen again. The player can place manual markers.
-- **Glyph stones** (four per sector; the deeper ones need the Scholar's insight) reveal tonight's moving passages, the route to the arena, the guardian's den and the sector's story.
-- **Distance gating**: the deeper you go, the more danger and the better the loot. Dusk warnings and a countdown push the player to get back.
+- **Glyph stones** (four per sector, laid out from the entrance towards the arena; only the story stone needs the Scholar's insight) reveal tonight's moving passages, the route to the arena, the guardian's den and the sector's story.
+- **Distance gating**: depth is the walking distance from the entrance (1.0 at the guardian's door); each sector also hides two elite dens in its farthest dead ends. The deeper you go, the more danger and the better the loot. Dusk warnings and a countdown push the player to get back.
 
 ## 4. Character progression
 
 - **XP** from gathering, harvesting, combat, landmarks, glyphs and treasure chests. Level-ups grant skill points.
 - **Skill graph** (K): a radial passive tree. It has a hub ring and six clusters (Warrior, Ranger, Survivor, Scholar, Beastmaster, Builder) with multi-rank nodes, notables, hybrid bridges, and sector-gated keystones that carry trade-offs. **Respec** at a Skill Altar costs a Memory Shard (dropped by elites and bosses).
-- **Strength** = 10 + level + Brawn nodes. Every 10 points insure one backpack slot against death.
+- **Strength** = 10 + (level − 1) + Brawn nodes. Every 10 points insure one backpack slot against death.
 - **Knowledge**:
   - **Recipe discovery**: a recipe appears once you have found every special ingredient it needs. Staples (wood, sticks, planks, stone, fiber, rope, leather, coal, vials) reveal nothing on their own; a recipe made only of staples needs all of them.
-  - **Blueprints**: rare recipes that no ingredient reveals. They are found in the sector's treasure chests and, once read, are known to the whole camp.
+  - **Blueprints**: rare recipes that no ingredient reveals. They are found in the sector's treasure chests and, once read, are known to the whole camp. Each guardian also guards its sector's weapon blueprint, taught when it falls.
   - **Journal** (J): creatures, resources, glyphs, places.
 - **Taming** (Beastmaster): weaken a creature (gentle species need no fight), then feed it its favourite food. Beastmaster nodes raise the tame tier and the party cap; non-Beastmasters tame only the weakest tier, and guardians never yield. Companions follow or stay, fight, level up, travel and save with you. A downed companion recovers in the Clearing unless companion permadeath is on.
 
@@ -62,8 +62,8 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 - **Building** (B): grid placement on 32 px tiles of walls, floors, doors, stations, chests, beds, torches, farm plots and a well. Placement preview, removal with refund, structure HP and repair. Furniture stands on floors.
 - **Rooms**: a space closed by walls and doors (up to 64 tiles) is a room. Its contents grant comfort buffs (Rested, Nourished, Handy, Organised, Cosy, Comfortable). Crafting inside a room that holds a chest also draws ingredients from the Stash. **Sleeping** in a bed inside a closed room at night skips to 07:00. Hostiles outside a sealed room do not prevent sleep.
 - **Stations**, each with its own recipe book: campfire, workbench, furnace, anvil, cooking pot, tanning rack, stonecutter, loom, alchemy table. Farm plots grow 13 crops.
-- **Settlement tiers**: Camp → Shelters → Village → Fortified Base → Community. Up to eight quirky survivors with roles (gatherer, farmer, builder, cook, guard, cartographer, healer). At each dawn they eat from the Stash and work.
-- **Night raids**: from the second night, raiders attack every other night. They scale with the camp's size and are reduced by its defences.
+- **Settlement tiers**: Camp → Shelters → Village → Fortified Base → Community. Up to eight quirky survivors with roles (gatherer, farmer, builder, cook, guard, cartographer, healer). At each dawn they eat a ration each from the Stash (simplest food first; medicine and precious food are kept) and work. Cooks cook before breakfast; healers brew potions from herbs and glass vials.
+- **Night raids**: once the camp is a Village, from the second night, raiders attack every other night. They mostly come through the north gate. They scale with the camp's size and are reduced by its defences.
 - **Goal chain** in the HUD guides the early game: wood, tools, workbench, house, bed, maze, glyphs, survivors, guardians, escape.
 
 ## 7. Technical frame

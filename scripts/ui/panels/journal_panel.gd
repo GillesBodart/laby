@@ -5,15 +5,17 @@ extends Control
 ## Drawn in 480x270 UI space. Tabs: click, 1-4 or A/D; scroll: wheel or W/S.
 
 const SIZE := Vector2(480, 270)
-const INK := Color8(27, 20, 16)
+const INK := UiPalette.INK
 const BG := Color(0.03, 0.05, 0.08, 0.92)
-const PAGE := Color8(236, 222, 186)
-const PAGE_DARK := Color8(214, 196, 152)
-const GOLD := Color8(242, 210, 92)
-const TEXT_DARK := Color8(58, 42, 30)
-const TEXT_MID := Color8(110, 84, 60)
-const TEXT_LIGHT := Color8(238, 226, 196)
-const BOOK := Rect2(20, 34, 440, 216)
+const PAGE := UiPalette.PAGE
+const PAGE_DARK := UiPalette.PAGE_DARK
+const GOLD := UiPalette.GOLD
+const TEXT_DARK := UiPalette.TEXT_DARK
+const TEXT_MID := UiPalette.TEXT_MID
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
+## The page, inside the shared parchment frame (FRAME); tabs stand on its top.
+const BOOK := Rect2(20, 45, 440, 202)
+const FRAME := Rect2(15, 40, 450, 212)
 const TABS := ["creatures", "resources", "glyphs", "places"]
 const TAB_NAMES := ["Creatures", "Resources", "Glyphs", "Places"]
 const ROW_H := 26.0
@@ -97,16 +99,22 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
+## Row height, grown with the text size (up to the body cap).
 func _row_h() -> float:
-	return CREATURE_ROW_H if TABS[tab] == "creatures" else ROW_H
+	return (CREATURE_ROW_H if TABS[tab] == "creatures" else ROW_H) * _k()
+
+
+## Layout scale of the page text.
+func _k() -> float:
+	return minf(Accessibility.text_scale(), UiFrame.BODY_CAP)
 
 
 func _rows_visible() -> int:
-	return int((BOOK.size.y - 8.0) / _row_h())
+	return int((BOOK.size.y - 2.0) / _row_h())
 
 
 func _tab_rect(i: int) -> Rect2:
-	return Rect2(BOOK.position.x + 8 + i * 84, BOOK.position.y - 16, 80, 16)
+	return Rect2(BOOK.position.x + 8 + i * 84, FRAME.position.y - 15, 80, 17)
 
 
 ## Rows of the current tab: [{icon, title, sub, text}], undiscovered ones hidden.
@@ -186,56 +194,60 @@ func _tex(path: String) -> Texture2D:
 
 
 func _text(pos: Vector2, s: String, col: Color, fsize := 12, width := -1.0) -> void:
-	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, width, fsize, col)
+	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, width, UiFrame.fs(fsize), col)
 
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, SIZE), BG)
-	draw_rect(Rect2(170, 2, 140, 18), PAGE)
-	draw_rect(Rect2(170, 2, 140, 18), INK, false)
-	var tw := _font.get_string_size("JOURNAL", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	_text(Vector2(240 - tw / 2.0, 16), "JOURNAL", TEXT_DARK, 14)
+	UiFrame.title_plate(self, SIZE.x / 2.0, 2, "JOURNAL", 140)
+	UiFrame.box(self, FRAME, true)
+	var tab_size := mini(UiFrame.fs(11), 13)
 	for i in TABS.size():
 		var r := _tab_rect(i)
-		draw_rect(r, PAGE if i == tab else PAGE_DARK.darkened(0.25))
-		draw_rect(r, INK, false)
+		var active := i == tab
+		UiFrame.plate(self, r, PAGE if active else PAGE_DARK, UiPalette.BRASS_DARK, 3)
+		if active:
+			# Open at the bottom: the tab runs into the page.
+			draw_rect(Rect2(r.position.x + 1, r.end.y - 3, r.size.x - 2, BOOK.position.y - r.end.y + 4), PAGE)
 		var label := "%d %s" % [i + 1, TAB_NAMES[i]]
-		_text(r.position + Vector2(6, 12), label, TEXT_DARK if i == tab else TEXT_MID, 11)
-	draw_rect(BOOK, PAGE)
-	draw_rect(BOOK, INK, false, 2.0)
-	draw_line(BOOK.position + Vector2(0, 2), BOOK.position + Vector2(BOOK.size.x, 2), GOLD, 1.0)
+		draw_string(_font, r.position + Vector2(6, 12), label, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, tab_size, TEXT_DARK if active else TEXT_MID.darkened(0.25))
 	var rows := entries()
 	if rows.is_empty():
-		_text(BOOK.position + Vector2(16, 30), "Nothing recorded yet. Explore, gather, fight, read the walls.", TEXT_MID, 12)
+		_text(BOOK.position + Vector2(16, 30), "Nothing recorded yet. Explore, gather, fight, read the walls.", TEXT_MID, 12, BOOK.size.x - 24)
+	var k := _k()
 	var row_h := _row_h()
 	var visible_rows := _rows_visible()
-	for k in mini(visible_rows, rows.size() - _scroll):
-		var e: Dictionary = rows[_scroll + k]
-		var y := BOOK.position.y + 4 + k * row_h
-		if k % 2 == 1:
+	var title_size := UiFrame.fs(12)
+	var small := UiFrame.fs(10)
+	for n in mini(visible_rows, rows.size() - _scroll):
+		var e: Dictionary = rows[_scroll + n]
+		var y := BOOK.position.y + 1 + n * row_h
+		if n % 2 == 1:
 			draw_rect(Rect2(BOOK.position.x + 2, y, BOOK.size.x - 4, row_h), PAGE_DARK.lerp(PAGE, 0.5))
 		var tex := _tex(e.icon)
 		if tex:
 			var s := 22.0 / maxf(tex.get_width(), tex.get_height())
 			var sz := Vector2(tex.get_size()) * s
-			draw_texture_rect(tex, Rect2(Vector2(BOOK.position.x + 17, y + 13) - sz / 2.0, sz), false)
-		_text(Vector2(BOOK.position.x + 34, y + 11), e.title, TEXT_DARK, 12)
-		var tw2 := _font.get_string_size(e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		_text(Vector2(BOOK.position.x + 40 + tw2, y + 11), e.sub, TEXT_MID, 10)
+			draw_texture_rect(tex, Rect2(Vector2(BOOK.position.x + 17, y + 13 * k) - sz / 2.0, sz), false)
+		draw_string(_font, Vector2(BOOK.position.x + 34, y + 11 * k), e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, TEXT_DARK)
+		var tw2 := _font.get_string_size(e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
+		draw_string(_font, Vector2(BOOK.position.x + 40 + tw2, y + 11 * k), e.sub, HORIZONTAL_ALIGNMENT_LEFT, -1, small, TEXT_MID)
 		if e.has("stats"):
-			draw_string(_font, Vector2(BOOK.position.x + 34, y + 11), e.stats, HORIZONTAL_ALIGNMENT_RIGHT, BOOK.size.x - 42, 10, TEXT_MID)
-			draw_multiline_string(_font, Vector2(BOOK.position.x + 34, y + 23), e.text, HORIZONTAL_ALIGNMENT_LEFT,
-				BOOK.size.x - 40, 10, 2, TEXT_DARK)
+			draw_string(_font, Vector2(BOOK.position.x + 34, y + 11 * k), e.stats, HORIZONTAL_ALIGNMENT_RIGHT, BOOK.size.x - 42, small, TEXT_MID)
+			draw_multiline_string(_font, Vector2(BOOK.position.x + 34, y + 23 * k), e.text, HORIZONTAL_ALIGNMENT_LEFT,
+				BOOK.size.x - 40, small, 2, TEXT_DARK)
 		else:
-			_text(Vector2(BOOK.position.x + 34, y + 23), e.text, TEXT_MID, 10, BOOK.size.x - 40)
+			draw_string(_font, Vector2(BOOK.position.x + 34, y + 23 * k), e.text, HORIZONTAL_ALIGNMENT_LEFT, BOOK.size.x - 40, small, TEXT_MID)
 	var total := _total()
 	var count := rows.size()
 	if TABS[tab] == "glyphs":
 		count = GameState.journal.get("glyphs", {}).size()
 	elif TABS[tab] == "places":
 		count = GameState.journal.get("places", {}).size() + Sectors.ORDER.filter(func(s): return GameState.reached.has(s)).size()
+	# Count and scroll range sit at the right end of the tab row.
 	var status := "%d recorded" % count if total == 0 else "%d / %d" % [count, total]
-	_text(Vector2(BOOK.end.x - 70, BOOK.end.y + 14), status, GOLD, 11)
 	if rows.size() > visible_rows:
-		_text(Vector2(BOOK.end.x - 160, BOOK.end.y + 14), "%d-%d" % [_scroll + 1, mini(_scroll + visible_rows, rows.size())], TEXT_LIGHT, 11)
-	_text(Vector2(8, SIZE.y - 6), Gamepad.fill("{journal}: close    1-4 / A D: tabs    wheel / W S: scroll"), Color8(160, 150, 130), 11)
+		status = "%d-%d   %s" % [_scroll + 1, mini(_scroll + visible_rows, rows.size()), status]
+	var ss := mini(UiFrame.fs(11), 13)
+	draw_string(_font, Vector2(_tab_rect(TABS.size() - 1).end.x + 4, FRAME.position.y - 4), status, HORIZONTAL_ALIGNMENT_RIGHT, FRAME.end.x - 6 - _tab_rect(TABS.size() - 1).end.x - 4, ss, GOLD)
+	UiFrame.footer(self, "[{journal}] close  [1-4] / [A][D] tabs  [Wheel] / [W][S] scroll")

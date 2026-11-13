@@ -10,11 +10,29 @@ const CHUNK := 16
 const INK := Color8(16, 18, 22)
 const LIP := Color(1, 1, 0.9, 0.22)
 const SHADE := Color(0, 0, 0.04, 0.28)
-const CAST := Color(0.02, 0.03, 0.06, 0.26)
-const CAST_SOFT := Color(0.02, 0.03, 0.06, 0.12)
+## Soft contact shadow on the ground: a smooth fade over CAST_DEPTH px.
+const CAST := Color(0.02, 0.02, 0.05, 0.48)
+const CAST_DEPTH := 12.0
+
+static var _fade_down: GradientTexture2D
+static var _fade_right: GradientTexture2D
 
 var layout: ClearingLayout
 var _chunks: Array[Node2D] = []
+
+
+static func _fade(to: Vector2) -> GradientTexture2D:
+	var g := Gradient.new()
+	g.set_color(0, CAST)
+	g.set_color(1, Color(CAST, 0.0))
+	g.add_point(0.35, Color(CAST, CAST.a * 0.5))
+	g.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_CUBIC
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.width = 16 if to.x > 0.0 else 1
+	tex.height = 16 if to.y > 0.0 else 1
+	tex.fill_to = to
+	return tex
 
 
 static func is_top(id: int) -> bool:
@@ -27,6 +45,9 @@ static func is_face(id: int) -> bool:
 
 
 func setup(new_layout: ClearingLayout) -> void:
+	if _fade_down == null:
+		_fade_down = _fade(Vector2(0, 1))
+		_fade_right = _fade(Vector2(1, 0))
 	layout = new_layout
 	for ch in _chunks:
 		ch.free()
@@ -70,17 +91,14 @@ func _draw_chunk(ci: Node2D, r: Rect2i) -> void:
 				if _open(c + Vector2i.RIGHT):
 					ci.draw_rect(Rect2(o + Vector2(t - 1, 0), Vector2(1, t)), INK)
 					ci.draw_rect(Rect2(o + Vector2(t - 3, 0), Vector2(2, t)), SHADE)
-					ci.draw_rect(Rect2(o + Vector2(t, 0), Vector2(4, t)), CAST)
-					ci.draw_rect(Rect2(o + Vector2(t + 4, 0), Vector2(3, t)), CAST_SOFT)
+					ci.draw_texture_rect(_fade_right, Rect2(o + Vector2(t, 0), Vector2(CAST_DEPTH, t)), false)
 				if _open(c + Vector2i.DOWN):
 					ci.draw_rect(Rect2(o + Vector2(0, t - 1), Vector2(t, 1)), INK)
 			elif is_face(id):
 				if _open(c + Vector2i.DOWN):
-					ci.draw_rect(Rect2(o + Vector2(0, t), Vector2(t, 3)), CAST)
-					ci.draw_rect(Rect2(o + Vector2(0, t + 3), Vector2(t, 3)), CAST_SOFT)
+					ci.draw_texture_rect(_fade_down, Rect2(o + Vector2(0, t), Vector2(t, CAST_DEPTH)), false)
 				if _open(c + Vector2i.LEFT):
 					ci.draw_rect(Rect2(o, Vector2(1, t)), INK)
 				if _open(c + Vector2i.RIGHT):
 					ci.draw_rect(Rect2(o + Vector2(t - 1, 0), Vector2(1, t)), INK)
-					ci.draw_rect(Rect2(o + Vector2(t, 0), Vector2(4, t)), CAST)
-					ci.draw_rect(Rect2(o + Vector2(t + 4, 0), Vector2(3, t)), CAST_SOFT)
+					ci.draw_texture_rect(_fade_right, Rect2(o + Vector2(t, 0), Vector2(CAST_DEPTH, t)), false)

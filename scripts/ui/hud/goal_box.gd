@@ -11,8 +11,8 @@ const PAD := 6.0
 const FONT := 16
 const LINE := 17.0
 const CHECK_EVERY := 0.5
-const GOLD := Color8(240, 196, 92)
-const DIM := Color8(184, 172, 148)
+const GOLD := UiPalette.GOLD
+const DIM := UiPalette.TEXT_DIM
 
 var _font: Font
 var _wait := 0.0

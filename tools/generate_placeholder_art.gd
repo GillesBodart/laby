@@ -9,6 +9,7 @@ extends SceneTree
 ##   godot --headless --path . --editor --quit-after 600
 
 const Catalog := preload("res://scripts/data/tile_catalog.gd")
+const SectorData := preload("res://scripts/data/sectors.gd")
 const T := 32
 const VARIANTS := 10
 const STRUCTURES := ["workbench", "chest", "wooden_wall", "wooden_floor", "wooden_door_closed", "wooden_door_open", "furnace",
@@ -92,6 +93,8 @@ const C := {
 var rng := RandomNumberGenerator.new()
 ## Palette the character routines draw with: C, or C with a survivor's colours.
 var P: Dictionary = C.duplicate()
+## Art block (Sectors.DATA[...].art) of the tile atlas being painted.
+var _art: Dictionary = SectorData.DATA.labyrinth.art
 
 
 func _init() -> void:
@@ -101,7 +104,7 @@ func _init() -> void:
 		quit()
 		return
 	if "--tiles" in OS.get_cmdline_user_args():
-		_save(_make_tileset(), Catalog.TEXTURE_PATH)
+		_make_tilesets()
 		print("Tileset generated.")
 		quit()
 		return
@@ -140,7 +143,7 @@ func _init() -> void:
 		return
 	for dir in ["res://assets/tilesets", "res://assets/sprites/characters", "res://assets/sprites/effects", "res://assets/sprites/environment/trees", "res://assets/sprites/environment/rocks", "res://assets/sprites/environment/gatherables", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/icons/items/small", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
-	_save(_make_tileset(), Catalog.TEXTURE_PATH)
+	_make_tilesets()
 	_save(_make_player(), "res://assets/sprites/characters/player.png")
 	_make_npcs()
 	for v in VARIANTS:
@@ -884,7 +887,7 @@ func _paint_flagstones(img: Image) -> void:
 ## bottom/right edge) and a selective outline - each outline pixel is a deep
 ## shade of the colour it borders, pure ink only along the bottom so the
 ## sprite stays grounded.
-func _ink(img: Image) -> void:
+static func _ink(img: Image) -> void:
 	var w := img.get_width()
 	var h := img.get_height()
 	var src := img.duplicate() as Image
@@ -949,7 +952,16 @@ func _tint(color: Color, t: float) -> Color:
 
 # ---------------------------------------------------------------- tiles
 
-func _make_tileset() -> Image:
+## The Clearing atlas (Stone Labyrinth palette) plus one atlas per sector, all
+## with the TileCatalog layout; the sector's art block picks the palette.
+func _make_tilesets() -> void:
+	for sector in SectorData.ORDER:
+		_save(_make_tileset(sector), SectorData.DATA[sector].art.tiles)
+	_art = SectorData.DATA.labyrinth.art
+
+
+func _make_tileset(sector := "labyrinth") -> Image:
+	_art = SectorData.DATA[sector].art
 	var img := _new_image(Catalog.ATLAS_COLUMNS * T, Catalog.ATLAS_ROWS * T)
 	var painters := {
 		Catalog.Id.GRASS: _paint_grass.bind(0),
@@ -1124,63 +1136,127 @@ func _paint_dirt(img: Image) -> void:
 			_wpx(img, cx + j, cy + (j % 2), C.dirt_deep)
 
 
-## Irregular flagstones laid in two staggered rows.
+## Flagstone centres of the maze floor: a wrapped Voronoi of irregular stones
+## in one tile, so every floor cell joins its neighbours.
+const FLAG_SEEDS := [Vector2(7, 6), Vector2(22, 4), Vector2(15, 17), Vector2(29, 19), Vector2(5, 26), Vector2(21, 29)]
+
+
+## Nearest flagstone and the gap to the second nearest (joint when small).
+func _flag_at(x: int, y: int) -> Vector2:
+	var d1 := 999.0
+	var d2 := 999.0
+	var best := 0
+	for i in FLAG_SEEDS.size():
+		var c: Vector2 = FLAG_SEEDS[i] + Vector2(_hash(i, 1, 811) - 0.5, _hash(i, 2, 811) - 0.5) * 4.0
+		var dx := absf(x + 0.5 - c.x)
+		var dy := absf(y + 0.5 - c.y)
+		dx = minf(dx, T - dx)
+		dy = minf(dy, T - dy)
+		# Slightly squashed metric: stones read wider than tall in 3/4 view.
+		var d := sqrt(dx * dx + dy * dy * 1.3) + (_tnoise(x, y, 8, 812) - 0.5) * 2.2
+		if d < d1:
+			d2 = d1
+			d1 = d
+			best = i
+		elif d < d2:
+			d2 = d
+	return Vector2(best, d2 - d1)
+
+
+## Distance (px) to the nearest tile edge, for accents that must not cross it.
+func _edge_dist(x: int, y: int) -> int:
+	return mini(mini(x, y), mini(T - 1 - x, T - 1 - y))
+
+
+## Maze floor: dark, low-contrast irregular flagstones in the sector's floor
+## tones, so walls (bricks, brighter) read clearly against the corridor. The
+## accent variant adds the sector's accent away from the tile edges.
 func _paint_floor(img: Image, moss: bool) -> void:
-	var rows := [[0, 18], [9, 25]]
+	var fl: Array = _art.floor
+	var glow: Array = _art.glow
+	var stone := PackedInt32Array()
+	stone.resize(T * T)
+	var joint := PackedByteArray()
+	joint.resize(T * T)
 	for y in T:
-		var r := y / 16
-		var ry := y % 16
-		var bounds: Array = rows[r]
 		for x in T:
-			var s0: int = bounds[0]
-			var s1: int = bounds[1]
-			var start: int
-			var width: int
-			if posmod(x - s0, T) < posmod(s1 - s0, T):
-				start = s0
-				width = posmod(s1 - s0, T)
-			else:
-				start = s1
-				width = posmod(s0 - s1, T)
-			var rx := posmod(x - start, T)
-			var slab := _hash(start, r, 31)
-			var n := _tnoise(x, y, 8, 32) * 0.5 + _hash(x, y, 33) * 0.3 + slab * 0.2
-			var col: Color = C.stone
-			if n < 0.36:
-				col = C.stone_dark.lightened(0.12)
-			elif n > 0.7:
-				col = C.stone_light
-			if ry == 15 or rx == width - 1:
-				col = C.stone_dark
-			elif ry == 0 or rx == 0:
-				col = C.stone_light.lightened(0.12)
-			elif ry == 14 or rx == width - 2:
-				col = col.darkened(0.15)
-			img.set_pixel(x, y, col)
-	# Hairline cracks.
+			var f := _flag_at(x, y)
+			stone[y * T + x] = int(f.x)
+			joint[y * T + x] = 1 if f.y < 1.15 else 0
+	for y in T:
+		for x in T:
+			var k := y * T + x
+			var lv := 0
+			if joint[k] == 0:
+				var tone := 2.0 + (_hash(stone[k], 3, 813) - 0.5) * 0.9
+				tone += (_tnoise(x, y, 8, 814) - 0.5) * 1.1 + (_hash(x, y, 815) - 0.5) * 0.35
+				lv = clampi(int(round(tone)), 1, 3)
+				# Worn lit lip on the upper left of each stone, shade on the lower right.
+				if joint[posmod(y - 1, T) * T + x] == 1 or joint[y * T + posmod(x - 1, T)] == 1:
+					lv = mini(lv + 1, 4)
+				elif joint[posmod(y + 1, T) * T + x] == 1 or joint[y * T + posmod(x + 1, T)] == 1:
+					lv = maxi(lv - 1, 1)
+			img.set_pixel(x, y, fl[lv])
+	# Hairline cracks, kept inside the tile so plain and accent cells join.
 	for i in 2:
-		var x := rng.randi_range(4, T - 8)
-		var y := rng.randi_range(2, T - 4)
+		var x := rng.randi_range(4, T - 13)
+		var y := rng.randi_range(4, T - 7)
 		for j in rng.randi_range(4, 8):
-			_wpx(img, x + j, y + (j / 2) % 3, C.stone_dark)
-	if moss:
-		for i in 5:
-			var cx := rng.randi_range(0, T - 1)
-			var cy := rng.randi_range(0, T - 1)
-			for j in 16:
-				var x := cx + rng.randi_range(-4, 4)
-				var y := cy + rng.randi_range(-2, 2)
-				var col: Color = C.moss_dark if j < 8 else C.moss
-				_wpx(img, x, y, col)
-				if j % 4 == 0:
-					_wpx(img, x, y - 1, C.moss_light)
+			_px(img, x + j, y + (j / 2) % 3, fl[1])
+	if not moss:
+		return
+	# A few small scattered patches plus accent creeping along the joints, never
+	# touching the tile edges (one centred blob reads as polka dots when tiled).
+	var spots: Array[Vector3] = []
+	var sr := RandomNumberGenerator.new()
+	sr.seed = 8160
+	for i in 3:
+		spots.append(Vector3(sr.randf_range(6, T - 7), sr.randf_range(6, T - 7), sr.randf_range(2.5, 4.5)))
+	for y in T:
+		for x in T:
+			var k := y * T + x
+			var w := clampf((_edge_dist(x, y) - 1) / 3.0, 0.0, 1.0)
+			var m := -1.0
+			for s in spots:
+				m = maxf(m, 1.0 - Vector2(x + 0.5 - s.x, y + 0.5 - s.y).length() / s.z)
+			m += (_tnoise(x, y, 8, 816) - 0.5) * 0.5 + (_hash(x, y, 817) - 0.5) * 0.25
+			if joint[k] == 1 and _tnoise(x, y, 8, 820) > 0.45:
+				m = maxf(m, 0.1)
+			m *= w
+			if m <= 0.03:
+				continue
+			var deep := m > 0.22
+			var base: Color = img.get_pixel(x, y)
+			var col := base
+			match _art.accent:
+				"ivy", "moss":
+					col = glow[1] if joint[k] == 1 else (glow[2] if deep else glow[1])
+					if deep and _hash(x, y, 818) > 0.8:
+						col = glow[3]
+				"sand":
+					var ripple := sin(TAU * (x * 2 + y * 5) / T + _tnoise(x, y, 16, 819) * 5.0)
+					col = glow[1] if not deep else (glow[3] if ripple > 0.55 else glow[2])
+				"frost":
+					col = glow[0] if not deep else (glow[4] if _hash(x, y, 818) > 0.9 else glow[1])
+				"ember":
+					if joint[k] == 1:
+						col = glow[3] if deep else glow[2]
+					else:
+						col = base.lerp(glow[0], 0.45 if deep else 0.25)
+				"corruption":
+					if joint[k] == 1:
+						col = glow[2] if deep else glow[1]
+					else:
+						col = base.lerp(glow[0], 0.5 if deep else 0.3)
+			img.set_pixel(x, y, col)
 
 
 func _paint_void(img: Image) -> void:
+	var dark: Color = _art.void
 	for y in T:
 		for x in T:
 			var n := _tnoise(x, y, 8, 41)
-			img.set_pixel(x, y, C.void.lightened(0.04) if n > 0.62 else C.void)
+			img.set_pixel(x, y, dark.lightened(0.04) if n > 0.62 else dark)
 
 
 func _paint_gate_floor(img: Image) -> void:
@@ -1231,39 +1307,52 @@ func _paint_wall_top(img: Image, moss: bool) -> void:
 				_wpx(img, x, y, C.moss_dark if j < 6 else (C.moss if j < 14 else C.moss_light))
 
 
-## Weathered concrete cap slabs, 6 tones, lit from the upper left.
-const STONE6 := [Color8(64, 72, 72), Color8(84, 94, 92), Color8(104, 114, 108), Color8(124, 134, 124),
-	Color8(146, 154, 142), Color8(172, 178, 162)]
-## Ivy mats creeping over the wall tops: ink, shade, body, lit, sunlit.
-const IVY5 := [Color8(22, 42, 32), Color8(36, 66, 42), Color8(54, 94, 50), Color8(80, 124, 58),
-	Color8(118, 158, 74)]
 ## Slab row heights of the wall-top macro; they sum to T * MACRO so it tiles.
 const SLAB_ROWS := [28, 36, 24, 32, 40, 28, 36, 32]
 
 
-## Seamless MACRO x MACRO tile wall-top texture: big irregular slabs with
-## bevels, cracks and stains, partly covered by ivy mats. WALL_TOP and
-## WALL_TOP_MOSS share the same slabs and ivy so neighbouring cells join; the
-## moss variant only adds tufts that stay inside each tile.
-func _paint_wall_top_macro(moss: bool) -> Image:
-	var P := T * Catalog.MACRO
-	var img := _new_image(P, P)
+## Seamless MACRO x MACRO tile wall-top texture in the sector's stone tones:
+## big irregular slabs with bevels, cracks and stains, partly covered by the
+## sector accent (ivy, moss, sand drifts, frost, ember cracks, corruption).
+## WALL_TOP_MOSS (alt) reshapes the accent inside each tile with a per-tile
+## bump, so cells picked by the decoration rng break the macro repetition; its
+## outer 3 px come from the plain layer so neighbouring cells always join.
+func _paint_wall_top_macro(alt: bool) -> Image:
+	var base := _wall_top_layer(false)
+	if not alt:
+		return base
+	var img := _wall_top_layer(true)
+	var S := T * Catalog.MACRO
+	for y in S:
+		for x in S:
+			if _edge_dist(x % T, y % T) < 3:
+				img.set_pixel(x, y, base.get_pixel(x, y))
+	_wall_top_tufts(img)
+	return img
+
+
+func _wall_top_layer(alt: bool) -> Image:
+	var S := T * Catalog.MACRO
+	var stone: Array = _art.stone
+	var img := _new_image(S, S)
 	var r := RandomNumberGenerator.new()
 	r.seed = 7171
 	var slab := PackedInt32Array()
-	slab.resize(P * P)
+	slab.resize(S * S)
 	var level := PackedInt32Array()
-	level.resize(P * P)
+	level.resize(S * S)
+	var bevel := PackedByteArray()
+	bevel.resize(S * S)
 	var y0 := 0
 	for row in SLAB_ROWS.size():
 		var h: int = SLAB_ROWS[row]
 		var x0 := r.randi_range(0, 40)
 		var widths: Array[int] = []
 		var total := 0
-		while total < P:
+		while total < S:
 			var w := r.randi_range(28, 56)
-			if P - total - w < 28:
-				w = P - total
+			if S - total - w < 28:
+				w = S - total
 			widths.append(w)
 			total += w
 		var sx := x0
@@ -1274,11 +1363,11 @@ func _paint_wall_top_macro(moss: bool) -> Image:
 			var chip := r.randi_range(0, 3) if r.randf() < 0.35 else -1
 			for yy in h:
 				for xx in w:
-					var x := posmod(sx + xx, P)
+					var x := posmod(sx + xx, S)
 					var y := y0 + yy
-					var k := y * P + x
+					var k := y * S + x
 					slab[k] = id
-					var n := _pnoise(x, y, 64, 62, P) * 0.55 + _pnoise(x, y, 16, 63, P) * 0.37 + _hash(x, y, 64) * 0.08
+					var n := _pnoise(x, y, 64, 62, S) * 0.55 + _pnoise(x, y, 16, 63, S) * 0.37 + _hash(x, y, 64) * 0.08
 					var lv := tone
 					if n < 0.34:
 						lv -= 1
@@ -1287,8 +1376,10 @@ func _paint_wall_top_macro(moss: bool) -> Image:
 					# Bevel: lit top/left rim, shaded bottom/right, dark joint.
 					if yy == h - 1 or xx == w - 1:
 						lv = 0
+						bevel[k] = 2
 					elif yy == 0 or xx == 0:
 						lv = mini(tone + 2, 5)
+						bevel[k] = 1
 					elif yy == h - 2 or xx == w - 2:
 						lv = maxi(tone - 1, 1)
 					# Chipped corner.
@@ -1300,14 +1391,14 @@ func _paint_wall_top_macro(moss: bool) -> Image:
 		y0 += h
 	# Hairline cracks wandering across slabs.
 	for i in 22:
-		var x := r.randi_range(0, P - 1)
-		var y := r.randi_range(0, P - 1)
+		var x := r.randi_range(0, S - 1)
+		var y := r.randi_range(0, S - 1)
 		var dir := Vector2i(1 if r.randf() < 0.5 else -1, 0) if r.randf() < 0.5 else Vector2i(0, 1)
 		for s in r.randi_range(6, 16):
-			var k := posmod(y, P) * P + posmod(x, P)
+			var k := posmod(y, S) * S + posmod(x, S)
 			if level[k] > 1:
 				level[k] = 1
-				var k2 := posmod(y + 1, P) * P + posmod(x + 1, P)
+				var k2 := posmod(y + 1, S) * S + posmod(x + 1, S)
 				level[k2] = mini(level[k2] + 1, 5)
 			if r.randf() < 0.4:
 				if dir.y == 0:
@@ -1316,89 +1407,298 @@ func _paint_wall_top_macro(moss: bool) -> Image:
 					x += r.randi_range(-1, 1)
 			x += dir.x
 			y += dir.y
-	for y in P:
-		for x in P:
-			img.set_pixel(x, y, STONE6[level[y * P + x]])
-	# Ivy cover from tileable noise; leaves are drawn as small lit clusters.
-	var ivy := PackedByteArray()
-	ivy.resize(P * P)
-	for y in P:
-		for x in P:
-			var n := _pnoise(x, y, 64, 71, P) * 0.62 + _pnoise(x, y, 16, 72, P) * 0.34 + _hash(x, y, 73) * 0.04
-			ivy[y * P + x] = 1 if n > 0.6 else 0
-	for y in P:
-		for x in P:
-			if ivy[y * P + x] == 0:
-				# Ivy casts a short shadow down and to the right.
-				if ivy[posmod(y - 1, P) * P + x] == 1 or ivy[posmod(y - 2, P) * P + posmod(x - 1, P)] == 1:
-					img.set_pixel(x, y, STONE6[maxi(level[y * P + x] - 2, 0)])
+	for y in S:
+		for x in S:
+			img.set_pixel(x, y, stone[level[y * S + x]])
+	# Accent cover from tileable noise; `cover` sets how much of the top it takes.
+	var thr := 0.6 + (0.36 - float(_art.cover)) * 0.6
+	var field := PackedFloat32Array()
+	field.resize(S * S)
+	var mask := PackedByteArray()
+	mask.resize(S * S)
+	for y in S:
+		for x in S:
+			var n := _pnoise(x, y, 64, 71, S) * 0.62 + _pnoise(x, y, 16, 72, S) * 0.34 + _hash(x, y, 73) * 0.04
+			if alt:
+				var w := clampf((_edge_dist(x % T, y % T) - 3) / 5.0, 0.0, 1.0)
+				# Inside the tile, sample a shifted field so alt cells carry different
+				# clumps than the macro, plus a per-tile bump in amount.
+				var sx := posmod(x + 97, S)
+				var sy := posmod(y + 151, S)
+				var other := _pnoise(sx, sy, 64, 71, S) * 0.62 + _pnoise(sx, sy, 16, 72, S) * 0.34 + _hash(x, y, 73) * 0.04
+				var bump := (_hash(x / T, y / T, 74) - 0.45) * 0.2 + (_pnoise(x, y, 16, 75, S) - 0.5) * 0.2
+				n = lerpf(n, other, w) + w * bump
+			field[y * S + x] = n - thr
+			mask[y * S + x] = 1 if n > thr else 0
+	match _art.accent:
+		"ivy", "moss":
+			_top_ivy(img, r, level, mask)
+		"sand":
+			_top_sand(img, level, field, mask)
+		"frost":
+			_top_frost(img, level, bevel, field, mask)
+		"ember":
+			_top_ember(img, level, bevel, field)
+		"corruption":
+			_top_corruption(img, r, level, field, mask)
+	return img
+
+
+func _mask_edge(mask: PackedByteArray, x: int, y: int, S: int) -> bool:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if mask[posmod(y + d.y, S) * S + posmod(x + d.x, S)] == 0:
+			return true
+	return false
+
+
+## Ivy (Labyrinth) or thick moss (Overgrowth) mats, lit leaf clusters,
+## a short cast shadow and tendrils escaping along the slab joints.
+func _top_ivy(img: Image, r: RandomNumberGenerator, level: PackedInt32Array, ivy: PackedByteArray) -> void:
+	var S := img.get_width()
+	var stone: Array = _art.stone
+	var leaf: Array = _art.glow
+	var heavy: bool = _art.accent == "moss"
+	for y in S:
+		for x in S:
+			var k := y * S + x
+			if ivy[k] == 0:
+				if ivy[posmod(y - 1, S) * S + x] == 1 or ivy[posmod(y - 2, S) * S + posmod(x - 1, S)] == 1:
+					img.set_pixel(x, y, stone[maxi(level[k] - 2, 0)])
+				elif heavy and level[k] == 0 and _hash(x, y, 76) > 0.35:
+					# Moss creeping into every joint.
+					img.set_pixel(x, y, leaf[1] if _hash(x, y, 77) > 0.3 else leaf[2])
 				continue
-			var edge := false
-			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				if ivy[posmod(y + d.y, P) * P + posmod(x + d.x, P)] == 0:
-					edge = true
-			img.set_pixel(x, y, IVY5[0] if edge else IVY5[1])
-	for i in 5200:
-		var x := r.randi_range(0, P - 1)
-		var y := r.randi_range(0, P - 1)
-		if ivy[y * P + x] == 0:
+			img.set_pixel(x, y, leaf[0] if _mask_edge(ivy, x, y, S) else leaf[1])
+	for i in (8000 if heavy else 5200):
+		var x := r.randi_range(0, S - 1)
+		var y := r.randi_range(0, S - 1)
+		if ivy[y * S + x] == 0:
 			continue
 		var lit := 3 if r.randf() < 0.7 else 4
 		for d in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
-			if ivy[posmod(y + d.y, P) * P + posmod(x + d.x, P)] == 1:
-				_wpx(img, x + d.x, y + d.y, IVY5[2])
-		_wpx(img, x, y, IVY5[lit])
-		if ivy[posmod(y + 2, P) * P + posmod(x + 1, P)] == 1:
-			_wpx(img, x + 1, y + 2, IVY5[1])
-	# Trailing tendrils escaping the mats along slab joints.
-	for i in 90:
-		var x := r.randi_range(0, P - 1)
-		var y := r.randi_range(0, P - 1)
-		if ivy[y * P + x] == 0:
+			if ivy[posmod(y + d.y, S) * S + posmod(x + d.x, S)] == 1:
+				_wpx(img, x + d.x, y + d.y, leaf[2])
+		_wpx(img, x, y, leaf[lit])
+		if ivy[posmod(y + 2, S) * S + posmod(x + 1, S)] == 1:
+			_wpx(img, x + 1, y + 2, leaf[1])
+	for i in (160 if heavy else 90):
+		var x := r.randi_range(0, S - 1)
+		var y := r.randi_range(0, S - 1)
+		if ivy[y * S + x] == 0:
 			continue
 		var dir: Vector2i = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)][r.randi_range(0, 3)]
 		for s in r.randi_range(4, 12):
 			x += dir.x + (r.randi_range(-1, 1) if dir.y != 0 and r.randf() < 0.3 else 0)
 			y += dir.y + (r.randi_range(-1, 1) if dir.x != 0 and r.randf() < 0.3 else 0)
-			_wpx(img, x, y, IVY5[1])
+			_wpx(img, x, y, leaf[1])
 			if s % 3 == 1:
-				_wpx(img, x + 1, y - 1, IVY5[3])
-	if moss:
-		# Tufts kept 4 px inside each tile so moss cells still join plain ones.
-		for ty in Catalog.MACRO:
-			for tx in Catalog.MACRO:
-				for j in 3:
-					var cx := tx * T + r.randi_range(6, T - 7)
-					var cy := ty * T + r.randi_range(6, T - 7)
-					for q in 10:
-						var x := cx + r.randi_range(-2, 2)
-						var y := cy + r.randi_range(-1, 1)
-						_wpx(img, x, y, IVY5[2] if q < 5 else (IVY5[3] if q < 8 else IVY5[4]))
-					_wpx(img, cx - 2, cy + 2, IVY5[0])
-					_wpx(img, cx + 2, cy + 2, IVY5[0])
-	return img
+				_wpx(img, x + 1, y - 1, leaf[3])
 
-## Front of a wall: staggered bricks, darker toward the ground.
+
+## Wind-blown sand drifts with ripples, dust grains around them; no plants.
+func _top_sand(img: Image, level: PackedInt32Array, field: PackedFloat32Array, mask: PackedByteArray) -> void:
+	var S := img.get_width()
+	var sand: Array = _art.glow
+	for y in S:
+		for x in S:
+			var k := y * S + x
+			if mask[k] == 0:
+				if field[k] > -0.05 and _hash(x, y, 78) > 0.6:
+					img.set_pixel(x, y, sand[1] if level[k] > 0 else sand[0])
+				continue
+			var ripple := sin(TAU * (x * 12 + y * 32) / S + _pnoise(x, y, 32, 79, S) * 7.0)
+			var col: Color = sand[2]
+			if _mask_edge(mask, x, y, S):
+				col = sand[0]
+			elif field[k] < 0.025:
+				col = sand[1]
+			elif ripple > 0.6:
+				col = sand[3] if field[k] < 0.09 else sand[4]
+			elif ripple < -0.7:
+				col = sand[1]
+			img.set_pixel(x, y, col)
+
+
+## Frost: rime on every lit bevel, frozen patches with sparkles.
+func _top_frost(img: Image, level: PackedInt32Array, bevel: PackedByteArray, field: PackedFloat32Array, mask: PackedByteArray) -> void:
+	var S := img.get_width()
+	var ice: Array = _art.glow
+	for y in S:
+		for x in S:
+			var k := y * S + x
+			if mask[k] == 0:
+				if bevel[k] == 1 and _hash(x, y, 80) > 0.2:
+					img.set_pixel(x, y, ice[2] if _hash(x, y, 81) > 0.5 else ice[1])
+				elif field[k] > -0.04 and (x + y) % 2 == 0:
+					img.set_pixel(x, y, ice[0])
+				continue
+			var col: Color = ice[1]
+			if _mask_edge(mask, x, y, S):
+				col = ice[0]
+			elif bevel[k] == 2 or level[k] <= 1:
+				col = ice[0]
+			elif field[k] > 0.06:
+				col = ice[2]
+			if _hash(x, y, 82) > 0.96:
+				col = ice[4]
+			img.set_pixel(x, y, col)
+
+
+## 1 where a tileable noise crosses 0.5: long continuous 1 px lines.
+func _contour(S: int, s0: int) -> PackedByteArray:
+	var n := PackedFloat32Array()
+	n.resize(S * S)
+	for y in S:
+		for x in S:
+			n[y * S + x] = _pnoise(x, y, 64, s0, S) * 0.55 + _pnoise(x, y, 32, s0 + 1, S) * 0.3 + _pnoise(x, y, 16, s0 + 2, S) * 0.15
+	var line := PackedByteArray()
+	line.resize(S * S)
+	for y in S:
+		for x in S:
+			var a := n[y * S + x] > 0.5
+			if a != (n[y * S + posmod(x + 1, S)] > 0.5) or a != (n[posmod(y + 1, S) * S + x] > 0.5):
+				line[y * S + x] = 1
+	return line
+
+
+## Ember cracks: winding lines glowing orange to yellow with a red halo,
+## strongest where the accent field is high; joints smoulder near them.
+func _top_ember(img: Image, level: PackedInt32Array, bevel: PackedByteArray, field: PackedFloat32Array) -> void:
+	var S := img.get_width()
+	var fire: Array = _art.glow
+	var a := _contour(S, 83)
+	var b := _contour(S, 87)
+	var heat := PackedFloat32Array()
+	heat.resize(S * S)
+	for k in S * S:
+		var on := clampf((field[k] + 0.22) * 5.0, 0.0, 1.0)
+		heat[k] = on if a[k] == 1 or (b[k] == 1 and field[k] > 0.0) else 0.0
+	for y in S:
+		for x in S:
+			var k := y * S + x
+			var base: Color = img.get_pixel(x, y)
+			if heat[k] > 0.15:
+				img.set_pixel(x, y, fire[4] if heat[k] > 0.8 and _hash(x, y, 86) > 0.5 else (fire[3] if heat[k] > 0.5 else fire[2]))
+				continue
+			var halo := 0.0
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 2), Vector2i(0, -2)]:
+				var h2 := heat[posmod(y + d.y, S) * S + posmod(x + d.x, S)]
+				if h2 > 0.15:
+					halo = maxf(halo, (0.65 if absi(d.x) + absi(d.y) == 1 else 0.3) * minf(h2 * 1.5, 1.0))
+			if halo > 0.0:
+				img.set_pixel(x, y, base.lerp(fire[1], halo))
+			elif bevel[k] == 2 and field[k] > -0.08:
+				img.set_pixel(x, y, base.lerp(fire[0], 0.6))
+
+
+## Corruption: crimson veins with pustules over bruised purple blotches.
+func _top_corruption(img: Image, r: RandomNumberGenerator, level: PackedInt32Array, field: PackedFloat32Array, mask: PackedByteArray) -> void:
+	var S := img.get_width()
+	var gore: Array = _art.glow
+	var vein := _contour(S, 85)
+	for y in S:
+		for x in S:
+			var k := y * S + x
+			var on := field[k] + 0.2
+			var base: Color = img.get_pixel(x, y)
+			if vein[k] == 1 and on > 0.0:
+				img.set_pixel(x, y, gore[3] if on > 0.2 and _hash(x, y, 88) > 0.6 else (gore[2] if on > 0.08 else gore[1]))
+			elif mask[k] == 1:
+				img.set_pixel(x, y, base.lerp(gore[0], 0.55 if field[k] > 0.05 else 0.35))
+			elif on > 0.0 and (vein[posmod(y + 1, S) * S + x] == 1 or vein[y * S + posmod(x - 1, S)] == 1):
+				img.set_pixel(x, y, base.lerp(gore[0], 0.6))
+	for i in 260:
+		var x := r.randi_range(0, S - 1)
+		var y := r.randi_range(0, S - 1)
+		if mask[y * S + x] == 0:
+			continue
+		_wpx(img, x, y + 1, gore[0])
+		_wpx(img, x + 1, y + 1, gore[0])
+		_wpx(img, x, y, gore[2])
+		_wpx(img, x + 1, y, gore[2])
+		_wpx(img, x, y - 1, gore[4] if r.randf() < 0.4 else gore[3])
+
+## Small accent tufts kept 6 px inside each tile (alt wall tops only).
+func _wall_top_tufts(img: Image) -> void:
+	var g: Array = _art.glow
+	var r := RandomNumberGenerator.new()
+	r.seed = 7272
+	for ty in Catalog.MACRO:
+		for tx in Catalog.MACRO:
+			for j in 3:
+				var cx := tx * T + r.randi_range(6, T - 7)
+				var cy := ty * T + r.randi_range(6, T - 7)
+				var skip := r.randf() < 0.4
+				for q in 10:
+					var x := cx + r.randi_range(-2, 2)
+					var y := cy + r.randi_range(-1, 1)
+					if skip:
+						continue
+					match _art.accent:
+						"ivy", "moss":
+							_wpx(img, x, y, g[2] if q < 5 else (g[3] if q < 8 else g[4]))
+						"sand":
+							_wpx(img, x, y, g[1] if q < 5 else g[3])
+						"frost":
+							_wpx(img, x, y, g[2] if q < 7 else g[4])
+						"ember":
+							if q < 3:
+								_wpx(img, x, y, g[1] if q < 2 else g[3])
+						"corruption":
+							if q < 4:
+								_wpx(img, x, y, g[1] if q < 3 else g[3])
+				if skip or _art.accent in ["ember", "corruption"]:
+					continue
+				_wpx(img, cx - 2, cy + 2, g[0])
+				_wpx(img, cx + 2, cy + 2, g[0])
+
+
+## Vine colours on wall faces by accent: stem, lit leaf, shade.
+func _vine_tones() -> Array:
+	var g: Array = _art.glow
+	match _art.accent:
+		"ivy":
+			return [C.vine, C.vine_light, C.moss_dark]
+		"sand":
+			return [Color8(112, 104, 52), Color8(156, 146, 78), Color8(74, 66, 34)]
+		"frost":
+			return [Color8(74, 96, 104), Color8(160, 200, 214), Color8(42, 58, 68)]
+		"ember":
+			return [Color8(44, 32, 30), Color8(150, 50, 22), Color8(22, 16, 16)]
+	return [g[1], g[3], g[0]]
+
+
+## Front of a wall: staggered bricks in the sector's face tones, darker toward
+## the ground, plus the sector accent (frost rim, ember mortar, veins, sand).
 func _paint_wall_face(img: Image, low: bool, vines: bool) -> void:
+	var face: Array = _art.face
+	var g: Array = _art.glow
 	for r in 4:
 		var shift := 0 if r % 2 == 0 else 8
 		for b in 2:
 			var bx := posmod(b * 16 + shift, T)
 			var tone := _hash(bx, r, 61) - 0.5
+			var hot: bool = _art.accent == "ember" and _hash(bx, r + (4 if low else 0), 65) > 0.45
 			for yy in 8:
 				for xx in 16:
 					var x := posmod(bx + xx, T)
 					var y := r * 8 + yy
 					var n := _tnoise(x, y, 4, 62) * 0.5 + _hash(x, y, 63) * 0.5
-					var col: Color = C.wall_face.lightened(tone * 0.14)
+					var col: Color = (face[1] as Color).lightened(tone * 0.14)
 					if n < 0.34:
 						col = col.darkened(0.14)
 					elif n > 0.74:
 						col = col.lightened(0.08)
 					if yy == 7 or xx == 15:
-						col = C.wall_face_dark
+						col = face[0]
+						if hot:
+							col = g[2] if _hash(x, y, 66) > 0.55 else g[1]
+						elif _art.accent == "moss" and _hash(x, y, 71) > 0.5:
+							col = g[1]
 					elif yy == 0 or xx == 0:
-						col = C.wall_face_light
+						col = face[2]
+					elif hot and (yy == 6 or xx == 14):
+						col = col.lerp(g[0], 0.5)
 					col = col.darkened(float(y) / T * 0.22)
 					img.set_pixel(x, y, col)
 	if low:
@@ -1406,21 +1706,60 @@ func _paint_wall_face(img: Image, low: bool, vines: bool) -> void:
 			for y in range(T - 5, T):
 				var shade: float = 0.25 + (y - (T - 5)) * 0.12
 				img.set_pixel(x, y, img.get_pixel(x, y).darkened(shade))
+	match _art.accent:
+		"frost":
+			if not low:
+				# Rime along the top edge and short icicles.
+				for x in T:
+					_px(img, x, 0, g[3])
+					_px(img, x, 1, g[2] if _hash(x, 1, 67) > 0.3 else g[1])
+					if _hash(x, 2, 67) > 0.7 and x % 2 == 0:
+						var drip := 2 + int(_hash(x, 3, 67) * 5.0)
+						for y in drip:
+							_px(img, x, 2 + y, g[1] if y < drip - 1 else g[3])
+			else:
+				for x in T:
+					var h := 2 + int(_tnoise(x, 0, 8, 68) * 4.0)
+					for y in range(T - h, T):
+						_px(img, x, y, g[0] if y == T - h else g[1])
+		"sand":
+			if low:
+				for x in T:
+					var h := 3 + int(round(2.5 * sin(TAU * x * 2 / T + 1.3) + _tnoise(x, 0, 8, 69) * 2.0))
+					for y in range(T - h, T):
+						_px(img, x, y, g[3] if y == T - h else (g[1] if y > T - 2 else g[2]))
+		"ember":
+			if low:
+				for x in T:
+					for y in range(T - 4, T):
+						img.set_pixel(x, y, img.get_pixel(x, y).lerp(g[1], 0.12 * (y - (T - 5))))
+		"corruption":
+			for vx in [7, 22]:
+				if _hash(vx, 1 if low else 0, 72) < 0.5:
+					continue
+				var x: int = vx + int(_hash(vx, 1 if low else 0, 70) * 4.0)
+				for y in T:
+					var wx: int = x + int(round(sin(y * 0.45 + vx) * 1.4))
+					_px(img, wx, y, g[1])
+					if y % 6 == 3:
+						_px(img, wx + 1, y, g[3])
+						_px(img, wx - 1, y + 1, g[0])
 	if vines:
+		var v := _vine_tones()
 		for vx in [4, 13, 24]:
 			var length := rng.randi_range(14, 30)
 			for y in length:
 				var x: int = vx + int(round(sin(y * 0.5 + vx) * 1.2))
-				_wpx(img, x, y, C.vine)
-				_wpx(img, x + 1, y, C.moss_dark)
+				_wpx(img, x, y, v[0])
+				_wpx(img, x + 1, y, v[2])
 				if y % 5 == 2:
-					_wpx(img, x - 2, y, C.vine_light)
-					_wpx(img, x - 1, y, C.vine_light)
-					_wpx(img, x - 2, y + 1, C.vine)
+					_wpx(img, x - 2, y, v[1])
+					_wpx(img, x - 1, y, v[1])
+					_wpx(img, x - 2, y + 1, v[0])
 				elif y % 5 == 4:
-					_wpx(img, x + 2, y, C.vine_light)
-					_wpx(img, x + 3, y, C.vine_light)
-					_wpx(img, x + 3, y + 1, C.vine)
+					_wpx(img, x + 2, y, v[1])
+					_wpx(img, x + 3, y, v[1])
+					_wpx(img, x + 3, y + 1, v[0])
 
 
 func _paint_gate_closed(img: Image) -> void:
@@ -1968,10 +2307,9 @@ func _roof_tile(img: Image, ox: int, oy: int, tile: int, v: int) -> void:
 				col = ROOF5[4] if back else ROOF5[3]
 			elif not back and gy == sh - 2:
 				col = col.darkened(0.14 if gx in [0, 6] else 0.08)
-			# Moss and lichen gather in a few clumps on the shaded front slope.
-			if not back and _hash(x / 8, (y + oy) / 8, 604 + v) > 0.9 and _hash(x, y, 605 + v) > 0.2:
-				col = C.moss_dark if gy >= sh - 2 else (C.moss if _hash(x, y, 606) > 0.4 else C.moss_light)
 			img.set_pixel(ox + x, oy + y, col)
+	if tile >= 1:
+		_roof_moss(img, ox, oy, tile, v)
 	if tile == 1:
 		var beam := [C.outline, ROOF5[4], ROOF5[3], ROOF5[3], ROOF5[2], ROOF5[1], C.outline, ROOF5[0]]
 		for i in beam.size():
@@ -1988,6 +2326,43 @@ func _roof_tile(img: Image, ox: int, oy: int, tile: int, v: int) -> void:
 				if i in [2, 3] and _hash(x / 4, i, 603 + v) > 0.8:
 					c = C.wood
 				img.set_pixel(ox + x, oy + 26 + i, c)
+
+
+## Moss and lichen in a few irregular round clumps on the shaded front slope,
+## crossing the shingle lines; kept inside the tile so the strip still tiles.
+func _roof_moss(img: Image, ox: int, oy: int, tile: int, v: int) -> void:
+	var top: int = [0, 19, 2, 3][tile]
+	var bottom: int = [0, 30, 29, 23][tile]
+	var count := 0 if _hash(tile, v, 604) < 0.45 else 1
+	for i in count:
+		var r := 4.0 + _hash(i, tile * 3 + v, 605) * 2.5
+		var cx := r + 2.0 + _hash(i, tile * 3 + v, 606) * (T - 2.0 * r - 4.0)
+		var cy := clampf(top + r + _hash(i, tile * 3 + v, 607) * (bottom - top - 2.0 * r), top + r * 0.6, bottom - r * 0.6)
+		var s := 610 + i * 13 + tile * 5 + v * 37
+		for y in range(int(cy - r) - 2, int(cy + r) + 3):
+			for x in range(int(cx - r) - 2, int(cx + r) + 3):
+				if x < 0 or x >= T or y < top or y > bottom:
+					continue
+				var p := Vector2(x + 0.5 - cx, (y + 0.5 - cy) * 1.25)
+				var wobble := 1.0 + (_snoise(x, y, 3.0, s) - 0.5) * 0.7
+				var d := p.length() / (r * wobble)
+				var q := ox + x
+				var w := oy + y
+				if d > 1.0:
+					# Soft shadow under the lower right of the clump.
+					var sd := Vector2(x - 0.5 - cx, (y - 1.0 - cy) * 1.25).length() / (r * wobble)
+					if sd <= 1.0:
+						img.set_pixel(q, w, img.get_pixel(q, w).darkened(0.22))
+					continue
+				var lit := -(p.x * 0.6 + p.y * 0.8) / r + (_hash(x, y, s) - 0.5) * 0.5
+				var col: Color = C.moss
+				if d > 0.78 and (p.x > 0.0 or p.y > 0.0):
+					col = C.moss_dark
+				elif lit > 0.35:
+					col = C.moss_light
+				elif lit < -0.35:
+					col = C.moss_dark
+				img.set_pixel(q, w, col)
 
 func _make_shadow() -> Image:
 	var img := _new_image(T, 12)
@@ -2022,8 +2397,8 @@ func _make_time_icons() -> Image:
 ## brass edge and a faint top highlight over a translucent night-blue fill.
 func _make_ui_frame() -> Image:
 	var rows := [".kkkkkk.", "kLLLLLLk", "kLhhhhDk", "kLbbbbDk", "kLbbbbDk", "kLbbbbDk", "kDDDDDDk", ".kkkkkk."]
-	var cols := {"k": Color8(14, 11, 14), "L": Color8(176, 152, 104), "D": Color8(104, 82, 56),
-		"h": Color8(40, 36, 48, 236), "b": Color8(20, 18, 28, 228)}
+	var cols := {"k": Color8(14, 11, 14), "L": Color("#d1bd19"), "D": Color(0.45, 0.4, 0.04),
+		"h": Color(0.0, 0.27, 0.14, 0.93), "b": Color(0.0, 0.2, 0.1, 0.9)}
 	var img := _new_image(8, 8)
 	for y in 8:
 		for x in 8:
@@ -2327,7 +2702,7 @@ func _make_item_icons() -> void:
 	icons["meat_stew"] = _ic_bowl([Color8(170, 100, 56), Color8(132, 72, 40)], [COOK5[0], Color8(232, 150, 60), LEAF5[3]], true)
 	icons["forest_salad"] = _ic_bowl([LEAF5[3], LEAF5[2]], [BERRY[2], LEAF5[4], CAP5[3], BERRY[1]], false)
 	for id in icons:
-		var big: Image = icons[id]
+		var big := _fit_icon(icons[id])
 		_save(big, "res://assets/ui/icons/items/%s.png" % id)
 		var small := big.duplicate() as Image
 		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
@@ -3105,7 +3480,7 @@ func _make_biome_art() -> void:
 	icons["loom"] = _make_structure_m10("loom")
 	icons["alchemy_table"] = _make_structure_m10("alchemy_table")
 	for id in icons:
-		var big: Image = icons[id]
+		var big := _fit_icon(icons[id])
 		_save(big, "res://assets/ui/icons/items/%s.png" % id)
 		var small := big.duplicate() as Image
 		small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
@@ -3204,21 +3579,24 @@ func _make_crop(shape: String, col: Color, stage: int) -> Image:
 ## Catalog sizes were tuned for the old 32 px hero; creatures now stand next to
 ## a 42 px one.
 const CREATURE_SCALE := 1.4
+## Smallest creature sprite (longest side, outline included).
+const MIN_CREATURE := 32
 
 
 ## Crops a creature to its pixels and fits its longest side to the catalog size
 ## (x CREATURE_SCALE). The source art is kept at its native 1:1 detail whenever
 ## it fits, doubled with scale2x for the big ones; only tiny critters are
-## filtered down. Finished with the same rim light and outline as our sprites.
+## filtered down. Tiny critters are kept at least MIN_CREATURE px so they stay
+## readable. Finished with the same rim light and outline as our sprites.
 func _fit_creature(src: Image, size: int) -> Image:
 	var used := src.get_used_rect()
 	var body := src.get_region(used)
-	var target := mini(int(round(size * CREATURE_SCALE)), 88) - 2
+	var target := maxi(mini(int(round(size * CREATURE_SCALE)), 88) - 2, MIN_CREATURE - 2)
 	var native := maxi(used.size.x, used.size.y)
 	var big := body
 	if target >= native * 1.75:
 		big = _scale2x(body)
-	elif target < native * 0.9:
+	elif target < native * 0.9 or (native < MIN_CREATURE - 2 and target > native):
 		var k := float(target) / native
 		big = _scale2x(body)
 		big.resize(maxi(int(round(used.size.x * k)), 1), maxi(int(round(used.size.y * k)), 1), Image.INTERPOLATE_LANCZOS)
@@ -3235,7 +3613,7 @@ func _fit_creature(src: Image, size: int) -> Image:
 
 
 ## EPX / Scale2x: doubles pixel art while keeping diagonal edges smooth.
-func _scale2x(src: Image) -> Image:
+static func _scale2x(src: Image) -> Image:
 	var w := src.get_width()
 	var h := src.get_height()
 	var out := Image.create(w * 2, h * 2, false, Image.FORMAT_RGBA8)
@@ -3254,7 +3632,8 @@ func _scale2x(src: Image) -> Image:
 	return out
 
 
-## Loads a vendored 32px tile, hardens its alpha and adds our dark outline.
+## Loads a vendored 32px tile, strips its baked drop shadow and thick black
+## outline (see _strip_dcss), hardens its alpha and adds our ink outline.
 func _dcss(rel: String, outline := true) -> Image:
 	var img := Image.load_from_file(ProjectSettings.globalize_path("%s/%s.png" % [DCSS, rel]))
 	if img == null:
@@ -3263,13 +3642,133 @@ func _dcss(rel: String, outline := true) -> Image:
 	img.convert(Image.FORMAT_RGBA8)
 	if img.get_width() != T or img.get_height() != T:
 		img.resize(T, T, Image.INTERPOLATE_NEAREST)
-	for y in T:
-		for x in T:
-			var c := img.get_pixel(x, y)
-			img.set_pixel(x, y, Color(0, 0, 0, 0) if c.a < 0.5 else Color(c.r, c.g, c.b, 1.0))
+	_strip_dcss(img)
 	if outline:
 		_outline(img, C.outline)
 	return img
+
+
+## DCSS tiles carry a thick pure-black outline and a drop shadow baked down
+## and to the right (opaque black blobs on monsters, translucent dark pixels on
+## items), which double the game's own shadow sprite and outline. Removes the
+## translucent shadow, black areas reachable from the outside that lie two or
+## more pixels from the body (the opaque shadow), then peels the remaining
+## black rim so _ink can draw ours. Leaves the alpha hard.
+static func _strip_dcss(img: Image) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var black := func(c: Color) -> bool: return c.a >= 0.5 and maxf(c.r, maxf(c.g, c.b)) < 0.1
+	for y in h:
+		for x in w:
+			var c := img.get_pixel(x, y)
+			if c.a < 0.5 or (c.a < 0.95 and maxf(c.r, maxf(c.g, c.b)) < 0.3):
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+			else:
+				img.set_pixel(x, y, Color(c.r, c.g, c.b, 1.0))
+	var src := img.duplicate() as Image
+	var near_body := PackedByteArray()
+	near_body.resize(w * h)
+	for y in h:
+		for x in w:
+			var c := src.get_pixel(x, y)
+			if c.a < 0.5 or black.call(c):
+				continue
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var q := Vector2i(x + dx, y + dy)
+					if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h:
+						near_body[q.y * w + q.x] = 1
+	# Flood the far black from pixels touching the outside.
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var stack: Array[Vector2i] = []
+	for y in h:
+		for x in w:
+			if black.call(src.get_pixel(x, y)) and near_body[y * w + x] == 0:
+				for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+					var q: Vector2i = Vector2i(x, y) + d
+					if q.x < 0 or q.y < 0 or q.x >= w or q.y >= h or src.get_pixel(q.x, q.y).a < 0.5:
+						stack.append(Vector2i(x, y))
+						break
+	while not stack.is_empty():
+		var p: Vector2i = stack.pop_back()
+		if seen[p.y * w + p.x] == 1:
+			continue
+		seen[p.y * w + p.x] = 1
+		img.set_pixel(p.x, p.y, Color(0, 0, 0, 0))
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var q: Vector2i = p + d
+			if q.x >= 0 and q.y >= 0 and q.x < w and q.y < h and seen[q.y * w + q.x] == 0 \
+					and near_body[q.y * w + q.x] == 0 and black.call(src.get_pixel(q.x, q.y)):
+				stack.append(q)
+	# Peel the 1 px black rim left around the body.
+	src = img.duplicate() as Image
+	for y in h:
+		for x in w:
+			if not black.call(src.get_pixel(x, y)):
+				continue
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x < 0 or q.y < 0 or q.x >= w or q.y >= h or src.get_pixel(q.x, q.y).a < 0.5:
+					img.set_pixel(x, y, Color(0, 0, 0, 0))
+					break
+
+
+## Item icons share one box: content (outline included) between ICON_MIN and
+## ICON_MAX px, centred on a 32x32 canvas. Icons already in range are only
+## centred; the others lose their dark rim, are rescaled (scale2x + Lanczos,
+## hard alpha) and re-inked, so every icon carries the same 1 px ink.
+const ICON_MIN := 22
+const ICON_MAX := 28
+
+
+static func _fit_icon(src: Image) -> Image:
+	var out := Image.create(T, T, false, Image.FORMAT_RGBA8)
+	out.fill(Color(0, 0, 0, 0))
+	var used := src.get_used_rect()
+	if used.size.x == 0:
+		return out
+	var body := src.get_region(used)
+	var side := maxi(used.size.x, used.size.y)
+	if side < ICON_MIN or side > ICON_MAX:
+		_peel_dark_rim(body)
+		var inner := body.get_used_rect()
+		body = body.get_region(inner)
+		var k := float(clampi(side, ICON_MIN + 2, ICON_MAX) - 2) / maxi(inner.size.x, inner.size.y)
+		var big := _scale2x(body)
+		big.resize(maxi(int(round(inner.size.x * k)), 1), maxi(int(round(inner.size.y * k)), 1), Image.INTERPOLATE_LANCZOS)
+		_harden(big)
+		body = Image.create(big.get_width() + 2, big.get_height() + 2, false, Image.FORMAT_RGBA8)
+		body.fill(Color(0, 0, 0, 0))
+		body.blit_rect(big, Rect2i(Vector2i.ZERO, big.get_size()), Vector2i.ONE)
+		_ink(body)
+	var size := body.get_size()
+	out.blit_rect(body, Rect2i(Vector2i.ZERO, size), (Vector2i(T, T) - size) / 2)
+	return out
+
+
+## Clears dark pixels touching the outside (an outline about to be redrawn).
+static func _peel_dark_rim(img: Image) -> void:
+	var src := img.duplicate() as Image
+	var w := img.get_width()
+	var h := img.get_height()
+	for y in h:
+		for x in w:
+			var c := src.get_pixel(x, y)
+			if c.a < 0.5 or c.v > 0.32:
+				continue
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var q: Vector2i = Vector2i(x, y) + d
+				if q.x < 0 or q.y < 0 or q.x >= w or q.y >= h or src.get_pixel(q.x, q.y).a < 0.5:
+					img.set_pixel(x, y, Color(0, 0, 0, 0))
+					break
+
+
+static func _harden(img: Image) -> void:
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(c.r, c.g, c.b, 1.0) if c.a >= 0.5 else Color(0, 0, 0, 0))
 
 
 # ---- primitives

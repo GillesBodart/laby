@@ -9,15 +9,13 @@ extends Control
 const PANEL := Rect2(110, 34, 260, 202)
 const BUTTON := Vector2(112, 20)
 
-const INK := Color8(27, 20, 16)
-const CREAM := Color8(236, 222, 186)
-const BROWN := Color8(96, 72, 48)
-const TEXT_DARK := Color8(58, 42, 30)
-const GOLD := Color8(242, 210, 92)
-const SLATE := Color8(44, 58, 72)
-const SLATE_DARK := Color8(22, 30, 40)
-const TEXT_LIGHT := Color8(238, 226, 196)
-const TEXT_DIM := Color8(170, 182, 190)
+const INK := UiPalette.INK
+const CREAM := UiPalette.CREAM
+const BROWN := UiPalette.BROWN
+const TEXT_DARK := UiPalette.TEXT_DARK
+const GOLD := UiPalette.GOLD
+const TEXT_LIGHT := UiPalette.TEXT_LIGHT
+const TEXT_DIM := UiPalette.TEXT_DIM
 const BUTTONS := ["Walk back in", "Title screen"]
 const FALLEN_BUTTONS := ["Title screen"]
 
@@ -125,31 +123,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _box(r: Rect2, fill: Color, border: Color) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	draw_style_box(sb, r)
+	UiFrame.plate(self, r, fill, border)
 
 
+## Centred line, text-size scaled and shrunk to fit inside the panel.
 func _center(y: float, s: String, px: int, col: Color) -> void:
-	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
-	draw_string(_font, Vector2(roundf(PANEL.get_center().x - w / 2.0), y), s, HORIZONTAL_ALIGNMENT_LEFT, -1, px, col)
+	var sz := UiFrame.fs(px)
+	while sz > 8 and _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > PANEL.size.x - 16:
+		sz -= 1
+	var w := _font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+	draw_string(_font, Vector2(roundf(PANEL.get_center().x - w / 2.0), y), s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, col)
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.05, 0.72))
-	_box(PANEL, SLATE_DARK, INK)
-	draw_rect(PANEL.grow(-3), SLATE, false)
-	var title := Rect2(PANEL.get_center().x - 70, PANEL.position.y + 8, 140, 22)
-	_box(title, CREAM, BROWN)
-	var t := "YOU DID NOT SURVIVE" if fallen else "OUT OF THE MAZE"
-	var tw := _font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	if tw + 16 > title.size.x:
-		title = title.grow_individual((tw + 16 - title.size.x) / 2.0, 0, (tw + 16 - title.size.x) / 2.0, 0)
-		_box(title, CREAM, BROWN)
-	draw_string(_font, Vector2(title.get_center().x - tw / 2.0, title.end.y - 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
+	draw_rect(Rect2(Vector2.ZERO, size), UiPalette.SHADE)
+	UiFrame.box(self, PANEL)
+	var title := UiFrame.title_plate(self, PANEL.get_center().x, PANEL.position.y + 8, "YOU DID NOT SURVIVE" if fallen else "OUT OF THE MAZE", 140)
 	var y := title.end.y + 16.0
 	if fallen:
 		_center(y, "One life, and the maze has taken it.", 10, TEXT_LIGHT)
@@ -160,14 +149,17 @@ func _draw() -> void:
 		_center(y + 22.0, together_line(GameState.survivors.size()), 10, TEXT_DIM)
 		y += 8.0
 	y += 30.0
+	var rs := UiFrame.fs(12, 1.15)
 	for row in stats():
-		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)
-		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[1], HORIZONTAL_ALIGNMENT_RIGHT, PANEL.size.x - 56, 12, GOLD)
+		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, rs, TEXT_LIGHT)
+		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[1], HORIZONTAL_ALIGNMENT_RIGHT, PANEL.size.x - 56, rs, GOLD)
 		y += 15.0
 	var buttons := _buttons()
+	var bs := UiFrame.fs(12, 1.15)
 	for i in buttons.size():
 		var r := _button_rect(i)
 		_box(r, CREAM, GOLD if i == _hover else BROWN)
 		var label: String = "%d  %s" % [i + 1, buttons[i]]
-		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string(_font, Vector2(roundf(r.get_center().x - w / 2.0), r.end.y - 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_DARK)
+		var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, bs).x
+		draw_string(_font, Vector2(roundf(r.get_center().x - w / 2.0), r.end.y - 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, bs, TEXT_DARK)
+	UiFrame.footer(self, "[{click}] / [1-%d] choose" % buttons.size())

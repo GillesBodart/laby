@@ -8,6 +8,8 @@ extends RefCounted
 const CHUNK := 8
 ## Soft mask threshold: dirt where the smoothed cell mask is above it.
 const EDGE := 0.5
+## Width (in mask units, about one pixel) of the anti-aliased border.
+const AA := 0.045
 const RIM := Color(0.24, 0.17, 0.09, 0.55)
 const SHADE := Color(0.12, 0.22, 0.06, 0.28)
 const TUFT := [Color8(74, 140, 44), Color8(98, 168, 58), Color8(56, 112, 36)]
@@ -89,7 +91,11 @@ static func _paint_chunk(layout: ClearingLayout, rect: Rect2i, tile: int, noise:
 				var v := _sample(m, (px + 0.5) / float(tile), (py + 0.5) / float(tile))
 				v += noise.get_noise_2d(gx, gy) * 0.22
 				var col := Color(0, 0, 0, 0)
-				if v >= EDGE:
+				# Coverage of the soil and shade bands over AA (one pixel of v) for
+				# smooth, unstepped borders.
+				var cover := clampf((v - EDGE) / AA + 0.5, 0.0, 1.0)
+				var shade := Color(SHADE, SHADE.a * clampf((v - EDGE + 0.08) / AA + 0.5, 0.0, 1.0))
+				if cover > 0.0:
 					var h := _hash(gx, gy)
 					col = _soil(soil, gx, gy, h)
 					if v < EDGE + 0.07:
@@ -99,8 +105,10 @@ static func _paint_chunk(layout: ClearingLayout, rect: Rect2i, tile: int, noise:
 					# Stray blades of grass near the border.
 					if v < EDGE + 0.1 and h > 0.9:
 						col = TUFT[int(h * 1000) % 3]
-				elif v >= EDGE - 0.08:
-					col = SHADE
+					if cover < 1.0:
+						col = shade.lerp(col, cover)
+				elif shade.a > 0.0:
+					col = shade
 				img.set_pixel(base.x + px, base.y + py, col)
 	return img
 

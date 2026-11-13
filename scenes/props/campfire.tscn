@@ -22,7 +22,7 @@ position = Vector2(0, -12)
 color = Color(1, 0.72, 0.42, 1)
 energy = 1.1
 texture = ExtResource("3_light")
-texture_scale = 3.5
+texture_scale = 1.75
 
 [node name="Collision" type="CollisionShape2D" parent="."]
 position = Vector2(0, -8)

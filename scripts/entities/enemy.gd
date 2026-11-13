@@ -483,7 +483,7 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 		blocked = true
 	amount = maxi(amount - _def.armor, 1)
 	hp -= amount
-	DamageNumber.pop(get_parent(), global_position + Vector2(0, -28), amount, Color8(180, 186, 196) if blocked else Color8(255, 244, 214))
+	DamageNumber.pop(get_parent(), global_position + Vector2(0, _sprite_y * 2.0 - 12.0), amount, Color8(180, 186, 196) if blocked else Color8(255, 244, 214))
 	_flash = 0.12
 	_bar = 4.0
 	if blocked:
@@ -625,7 +625,7 @@ func _draw() -> void:
 		draw_arc(Vector2(0, -8), _def.radius + 5.0, a - 0.7, a + 0.7, 6, Color(0.85, 0.88, 0.95, 0.55), 2.0)
 	if (_bar > 0.0 or _def.elite or _def.boss) and _state != S.HIDDEN and hp < max_hp:
 		var w := 20.0 if not (_def.elite or _def.boss) else (48.0 if _def.boss else 28.0)
-		var r := Rect2(-w / 2.0, _sprite_y * 2.0 - 6.0, w, 3.0)
+		var r := Rect2(-w / 2.0, _sprite_y * 2.0 - 7.0, w, 4.0)
 		draw_rect(r, Color8(27, 20, 16))
-		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(float(hp) / max_hp, 0.0, 1.0), 1.0)),
-			Color8(206, 62, 62) if not (_def.elite or _def.boss) else (Color8(190, 90, 230) if _def.boss else Color8(232, 170, 60)))
+		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(float(hp) / max_hp, 0.0, 1.0), 2.0)),
+			Accessibility.color("bad") if not (_def.elite or _def.boss) else (Color8(190, 90, 230) if _def.boss else Color8(232, 170, 60)))

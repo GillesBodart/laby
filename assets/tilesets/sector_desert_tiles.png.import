@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://dtqk8j1u5nc57"
+path="res://.godot/imported/sector_desert_tiles.png-046c74ab2461e20acedaf4e8be0c8688.res"
+
+[deps]
+
+source_file="res://assets/tilesets/sector_desert_tiles.png"
+dest_files=["res://.godot/imported/sector_desert_tiles.png-046c74ab2461e20acedaf4e8be0c8688.res"]
+
+[params]
+
+hd_scale=2

@@ -129,7 +129,8 @@ func _generate(seed_value: int) -> ClearingLayout:
 	# below stay the same whatever the walls did.
 	var deco := RandomNumberGenerator.new()
 	deco.seed = _rng.seed + 1
-	WallResolver.resolve(_layout, _solid, deco)
+	var art: Dictionary = Sectors.info(_sector).art
+	WallResolver.resolve(_layout, _solid, deco, art.vines, art.top_alt)
 
 	var back := Sectors.prev_of(_sector)
 	_layout.portal_rect = Rect2i(o.x, size.y - 5, OPEN, 2)

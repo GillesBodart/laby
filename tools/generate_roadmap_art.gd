@@ -10,6 +10,8 @@ extends SceneTree
 
 const OUTLINE := Color8(24, 22, 32)
 const DCSS_EXTRA := "res://tools/third_party/dcss/extra"
+## Shared finishing helpers (_strip_dcss, _scale2x, _harden, _fit_icon).
+const Base := preload("res://tools/generate_placeholder_art.gd")
 const LEATHER := [Color8(66, 40, 26), Color8(98, 62, 38), Color8(132, 88, 54), Color8(170, 120, 74), Color8(204, 160, 104)]
 const BONE := [Color8(150, 140, 116), Color8(196, 186, 160), Color8(226, 218, 196), Color8(246, 242, 226)]
 const STONE := [Color8(44, 51, 52), Color8(70, 80, 78), Color8(98, 110, 104), Color8(132, 144, 134), Color8(170, 182, 168)]
@@ -514,6 +516,7 @@ func _save(img: Image, path: String) -> void:
 
 
 func _icon(img: Image, id: String) -> void:
+	img = Base._fit_icon(img)
 	_save(img, "res://assets/ui/icons/items/%s.png" % id)
 	var small := img.duplicate() as Image
 	small.resize(16, 16, Image.INTERPOLATE_LANCZOS)
@@ -622,19 +625,25 @@ func _outline(img: Image, color := OUTLINE) -> Image:
 	return img
 
 
-## A vendored DCSS tile, outlined and optionally scaled to `size` px.
+## A vendored DCSS tile without its baked shadow and black outline, scaled to
+## `size` px (scale2x + Lanczos, hard alpha) and finished with our outline.
 func _dcss(rel: String, size := 32) -> Image:
 	var img := Image.load_from_file(ProjectSettings.globalize_path("%s/%s.png" % [DCSS_EXTRA, rel]))
 	if img == null:
 		push_error("Missing DCSS tile " + rel)
 		return _img(32, 32)
 	img.convert(Image.FORMAT_RGBA8)
+	Base._strip_dcss(img)
 	var used := img.get_used_rect()
 	if used.size.x > 0:
 		img = img.get_region(used)
 	var scale := float(size) / maxf(img.get_width(), img.get_height())
 	if absf(scale - 1.0) > 0.01:
-		img.resize(maxi(int(round(img.get_width() * scale)), 1), maxi(int(round(img.get_height() * scale)), 1), Image.INTERPOLATE_NEAREST)
+		var w := maxi(int(round(img.get_width() * scale)), 1)
+		var h := maxi(int(round(img.get_height() * scale)), 1)
+		img = Base._scale2x(img)
+		img.resize(w, h, Image.INTERPOLATE_LANCZOS)
+		Base._harden(img)
 	var out := _img(img.get_width() + 2, img.get_height() + 2)
 	out.blit_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i(1, 1))
 	return _outline(out)
