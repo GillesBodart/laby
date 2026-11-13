@@ -1,6 +1,6 @@
 # LABY
 
-2D top-down survival / building RPG set in a shifting labyrinth (Godot 4.7, GDScript).
+2D top-down survival / building RPG in smooth HD art, set in a shifting labyrinth (Godot 4.7, GDScript).
 Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/instructions/design.instructions.md`](.github/instructions/design.instructions.md)
 
 ## Status
@@ -22,7 +22,7 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M10 Biomes: 48 creatures (23 forest, 25 labyrinth) with distinct attacks (melee, charge, ranged projectiles, shields, poison/slow, packs), 40 gatherable resources (20 per biome), ~200 items and 161 recipes incl. loom + alchemy table, bows & arrows, shields (offhand slot, block), potions (**H** drink); item art partly from Dungeon Crawl Stone Soup (CC0, see [CREDITS](CREDITS.md)) | ✅ |
 | M10b Categorised items: tools, weapons, ammo, armor, accessories, medicine, food, stations, building, materials, creature parts, resources. Recipe books grouped by category with filter chips; backpack **SORT** button merges stacks and orders by category | ✅ |
 | M10c Ground polish: smooth seamless 256px grass textures, organic dirt paths with soft noisy borders (procedural soil, no tile grid), ponds (solid water, mud banks, lily pads) with reeds growing only on their banks, flat clay/sand patches drawn under walkers, creatures scaled to believable sizes (hare 14px to treant 48px), fixed downward tool swing | ✅ |
-| M10d Discovery + crops: recipes appear once you have found any of their ingredients ("N undiscovered" counter, saved per player), E on an empty farm plot opens a seed picker with 13 crops (berries, blueberries, wheat, carrot, potato, herb, cotton, flower, reed, mushroom, glowcap, apple tree, shadow orchid), each with its own growth time, yield and art; tighter interaction reach; fixed the shadow drifting after a swing | ✅ |
+| M10d Discovery + crops: recipes appear as you discover their ingredients (refined in M31; "N undiscovered" counter, saved per player), E on an empty farm plot opens a seed picker with 13 crops (berries, blueberries, wheat, carrot, potato, herb, cotton, flower, reed, mushroom, glowcap, apple tree, shadow orchid), each with its own growth time, yield and art; tighter interaction reach; fixed the shadow drifting after a swing | ✅ |
 | M11 Death rules: dying drops your non-insured backpack into a remains pile at the spot (saved; walk back and press **E** to recover it). Strength (10 + level + Brawn) insures 1 slot per 10 points (green padlocked slots, kept by SORT); bound items (keys, relics) are never lost | ✅ |
 | M12 Sectors: six labyrinth sectors north of the Clearing (Stone Labyrinth, Overgrowth, Sunken Dunes, Rime Halls, Cinder Forge, the Pit), each with 20+ creatures, 20+ resources, its own palette and a guardian boss in an arena; the boss drops a Key that unseals the north gate (the Pit gate needs all six, beyond it: the way out). Sector gear tiers (mithril, ember, hellsteel), staffs, ~285 items and ~210 recipes; waystones in every vestibule (and craftable) travel to any reached area | ✅ |
 | M13 Thirst & temperature: thirst wakes once you reach the desert (WT bar; drink at ponds/wells with **E**, fill waterskins); climates (desert/forge hot, ice cold) push body temperature (TP gauge) and hurt at the extreme unless you wear warm/cool gear, stand by a fire/torch or drink tonics | ✅ |
@@ -40,8 +40,10 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M25 Graphics overhaul: a wider view (camera zoom 0.75) and a crisp native-resolution HUD (9-slice frames, pixel-icon survival bars, a notice box sized to its text); sprites get a selective ink outline with a lit rim; walls gain depth (overhang shadow, ambient occlusion, moss) and contact shadows; closed rooms get a shingled roof that fades while you are inside or building; maze walls have seamless ivy-covered cap slabs, inked rims and cast shadows; smoother night light falloff | ✅ |
 | M26 Hi-detail sprites: characters redrawn on 48×48 frames (a ~42 px chibi with strand-shaded hair, big eyes, folded tunic, belt, straps and a bedroll backpack; survivors share the body and keep their beards, ears, horns, beak, helmet and aprons); creatures are drawn 1.4× larger at their native art resolution (scale2x for the big ones) with the same ink outline | ✅ |
 | M27 Full graphical refactor: trees and shrubs get clustered leaf-tuft crowns (per-tuft and whole-crown lighting, scalloped rims), grooved bark with root flare; faceted boulder ores with veins and nuggets; curved grass blades, gilled mushrooms, ringed stumps; tepee campfire with layered flames; 3/4-view chest, workbench (vice and tools), masonry furnace, tartan bed, caged torch, carved waystone and flagstone floor; every generated sprite (both generators) now uses the shared ink finish | ✅ |
-| M28 Design audit: a GOAL chain in the HUD (wood, tools, workbench, bed, closed room, maze, glyphs, survivors, guardians, escape) with hints, saved progress; dusk countdown on the clock and a dusk warning in the maze; an escape epilogue with run stats; maze chambers, entrance loops and rare caches in dead ends; Clearing woods along the walls, open meadow, a grove by the camp, wild plants in habitat patches; restrained hit feedback (damage numbers, camera jolt when hurt, blinking bars with a "!" badge for low health, starving, thirst) | ✅ |
+| M28 Design audit: a GOAL chain in the HUD (wood, tools, workbench, house, bed, maze, glyphs, survivors, guardians, escape) with hints, saved progress; dusk countdown on the clock and a dusk warning in the maze; an escape epilogue with run stats; maze chambers, entrance loops and rare caches in dead ends; Clearing woods along the walls, open meadow, a grove by the camp, wild plants in habitat patches; restrained hit feedback (damage numbers, camera jolt when hurt, blinking bars with a "!" badge for low health, starving, thirst) | ✅ |
+| M29 Durability & hardcore: tools and weapons wear per blow, shot or gathering hit (bars on slots, warning at 10%, then they break); New game opens a rules page — your death recoverable or permanent, companions recover or permanent (a permanent death erases the run's saves and shows the run summary) | ✅ |
 | M30 Smooth art, no more pixel art: every PNG is upscaled 2× with xBR (`tools/smooth_art`) and imported through the `laby_hd_texture` plugin as an `HdTexture` that keeps the logical size, drawn with linear filtering; Nunito UI font; smooth title backdrop. Real walk cycles: the hero and survivors step through contact/passing poses (legs lift, arms swing, body rises and falls) and every character and creature rides a `Gait` rig (sway, footfall squash, breathing at rest, hovering for phasing ones) | ✅ |
+| M31 Knowledge & comfort: recipes show once every special ingredient is discovered (staples such as wood, sticks, stone, fiber reveal nothing); four treasure chests per sector at the end of far dead ends (never moved by the shift) hold valuables and a **blueprint** — a rare recipe the whole camp then knows; crafting in a room with a chest also uses the Stash; **E** opens/closes doors; sleep is allowed while hostiles prowl outside a sealed room; the goal chain asks for a house before the bed. Accessibility settings: text size (HUD and damage numbers) and a colour-blind palette | ✅ |
 
 ## Run
 
@@ -61,14 +63,14 @@ Debug args (after `--`; any of them skips the title screen except `--title`, whi
 ## Architecture
 
 ```
-autoload/                 EventBus (signals) · GameState · TimeSystem · SaveSystem · KeyBindings · Gamepad · Sound · DebugTools
-scripts/data/             static tables: ItemCatalog · EnemyCatalog · BuildCatalog · ResourceCatalog · TileCatalog · Sectors
+autoload/                 EventBus (signals) · GameState · TimeSystem · SaveSystem · KeyBindings · Sound · Accessibility · Gamepad · DebugTools
+scripts/data/             static tables: ItemCatalog · EnemyCatalog · BuildCatalog · ResourceCatalog · TileCatalog · Sectors · Blueprints
 scripts/systems/          pure game rules (RefCounted, testable): DayClock · Survival · Inventory · Equipment · Crafting · Farming
                           Taming · Settlement · Rooms · SkillGraph · Glyphs · FogMap
 scripts/generation/       seed -> data: ClearingGenerator · LabyrinthGenerator -> ClearingLayout · WallResolver
 scripts/world/            scene roots: world.gd · labyrinth.gd · ClearingWorld (renders a layout) · ClearingGates · GameCamera
 scripts/world/visuals/    Gait (walk rig) · TileSetFactory · DirtOverlay · Pond · WallEdges · Roof · HitChips · LightingCurve · day/night modulate
-scripts/world/objects/    placed things: Structure · Gatherable · Landmark · Remains · SectorGate · campfire
+scripts/world/objects/    placed things: Structure · Gatherable · Landmark · TreasureChest · Remains · SectorGate · campfire
 scripts/entities/         Player (state machine) · PlayerInput (intent) · Builder · Companion · Survivor · Enemy · Projectile
 scripts/ui/               hud/ (HUD, bars, notices) · panels/ (crafting, map, journal, stash...) · menus/ (title, settings) · common/ (UiFrame)
 scripts/audio/, util/     Synth (runtime sound) · SpriteFramesBuilder · HdTexture
@@ -80,7 +82,8 @@ assets/sprites/           characters/ (player, survivors/) · enemies/ · struct
 assets/ui/                frame.png · icons/ (time_icons, items/ 32 px, items/small/ 16 px)
 assets/fonts/             Nunito (OFL; resources/ui/ui_font.tres)
 tests/                    unit + integration suites (TestCase base, test_runner.tscn)
-tools/                    placeholder art generators (+ third_party/dcss source art)
+tools/                    art generators (+ third_party/dcss source art) · smooth_art/ (xBR HD upscaler, Node)
+addons/laby_hd_texture/    editor import plugin: HD PNGs -> HdTexture at logical size
 ```
 
 Key decisions:
