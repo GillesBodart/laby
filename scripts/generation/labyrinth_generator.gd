@@ -7,7 +7,7 @@ extends RefCounted
 ##
 ## The walls move: at each night start (shift = night index) a few seeded
 ## regions of the maze are re-carved. Each region gets a fresh spanning tree,
-## so the maze stays connected. Landmarks never move and nothing spawns on
+## so the maze stays connected. Landmarks and treasure chests never move and nothing spawns on
 ## them. Enemies, resources and landmarks do not depend on the shift.
 
 const COLS := 20
@@ -63,6 +63,8 @@ var _sector := "labyrinth"
 var _shift := 0
 var _seed := 0
 var _landmark_cells := {}
+## Chest maze cells per "seed:sector" (they come from the unshifted maze).
+static var _chest_cells_cache := {}
 
 
 static func map_size() -> Vector2i:
@@ -425,7 +427,7 @@ static func shift_regions(seed_value: int, sector: String, shift: int) -> Array:
 	if shift <= 0:
 		return []
 	var rng := _sector_rng(seed_value + shift * 7907, sector, 99991)
-	var fixed := landmarks(seed_value, sector).map(func(m): return m.mc)
+	var fixed := landmarks(seed_value, sector).map(func(m): return m.mc) + chest_cells(seed_value, sector)
 	var out := []
 	var tries := 0
 	while out.size() < SHIFT_REGIONS and tries < 100:
@@ -435,6 +437,16 @@ static func shift_regions(seed_value: int, sector: String, shift: int) -> Array:
 			continue
 		out.append(r)
 	return out
+
+
+## Maze cells of the sector's treasure chests. They are picked in the
+## unshifted maze, so they never move and the shifting regions avoid them.
+static func chest_cells(seed_value: int, sector: String) -> Array:
+	var key := "%d:%s" % [seed_value, sector]
+	if not _chest_cells_cache.has(key):
+		_chest_cells_cache[key] = generate(seed_value, sector, 0).chests.map(
+			func(c): return (c.cell - Vector2i(BORDER + 1, BORDER + 1)) / PITCH)
+	return _chest_cells_cache[key]
 
 
 ## Tiles covered by a region of maze cells (cells plus the walls between them).
