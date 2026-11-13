@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://c4vxee08jbv8s"
+path="res://.godot/imported/npc_dwarf_walk.png-70d5af67eb89acbc0ce65ea11bf26fde.res"
+
+[deps]
+
+source_file="res://assets/sprites/characters/survivors/npc_dwarf_walk.png"
+dest_files=["res://.godot/imported/npc_dwarf_walk.png-70d5af67eb89acbc0ce65ea11bf26fde.res"]
+
+[params]
+
+hd_scale=2

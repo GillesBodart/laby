@@ -36,11 +36,15 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 window/stretch/scale_mode="fractional"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/laby_hd_texture/plugin.cfg")
+
 [gui]
 
 theme/custom="res://resources/ui/theme.tres"
 theme/default_font_antialiasing=1
-theme/default_font_hinting=1
+theme/default_font_hinting=0
 theme/default_font_subpixel_positioning=1
 
 [input]
@@ -145,7 +149,7 @@ stash={
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
+textures/canvas_textures/default_texture_filter=1
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 2d/snap/snap_2d_transforms_to_pixel=true

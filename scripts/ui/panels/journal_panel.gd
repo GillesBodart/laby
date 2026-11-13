@@ -29,7 +29,6 @@ func _ready() -> void:
 	add_to_group("ui_panels")
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	position = Vector2.ZERO
 	size = SIZE
 	_font = ThemeDB.get_project_theme().default_font

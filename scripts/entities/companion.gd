@@ -21,6 +21,7 @@ var _foe: Enemy
 var _post := Vector2.ZERO
 var _regen_acc := 0.0
 var _sprite: Sprite2D
+var _gait: Gait
 var _flash := 0.0
 
 
@@ -39,7 +40,6 @@ func _ready() -> void:
 	collision_layer = 0
 	collision_mask = 1
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var shadow := Sprite2D.new()
 	shadow.texture = load("res://assets/sprites/effects/shadow.png")
 	shadow.position = Vector2(0, -2)
@@ -50,6 +50,8 @@ func _ready() -> void:
 	_sprite.position.y = 2.0 - tex_size.y / 2.0
 	shadow.scale = Vector2.ONE * clampf(tex_size.x / 26.0, 0.5, 1.8)
 	add_child(_sprite)
+	_gait = Gait.attach(self, [_sprite])
+	_gait.fit(tex_size, bool(_def.get("phasing", false)))
 	var shape := CollisionShape2D.new()
 	shape.shape = CircleShape2D.new()
 	shape.shape.radius = minf(float(_def.radius), 7.0)
@@ -121,6 +123,7 @@ func _physics_process(delta: float) -> void:
 			_regen_acc = 0.0
 	velocity = desired
 	move_and_slide()
+	_gait.advance(delta, velocity.length())
 	if absf(velocity.x) > 4.0 and int(_def.face) != 0:
 		_sprite.flip_h = (velocity.x > 0.0) == (int(_def.face) < 0)
 	_sprite.modulate = Color(1.6, 0.6, 0.6) if _flash > 0.0 else Color.WHITE

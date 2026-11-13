@@ -8,11 +8,11 @@ func test_input_actions_exist() -> void:
 			check(not InputMap.action_get_events(action).is_empty(), "action %s has a binding" % action)
 
 
-func test_pixel_perfect_settings() -> void:
+func test_display_settings() -> void:
 	check_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 960, "viewport width")
 	check_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 540, "viewport height")
 	check_eq(ProjectSettings.get_setting("display/window/stretch/scale_mode"), "fractional", "fractional scaling")
-	check_eq(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter"), 0, "nearest filter")
+	check_eq(ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter"), 1, "linear filter for the smooth HD art")
 
 
 func test_tileset_collision_matches_catalog() -> void:

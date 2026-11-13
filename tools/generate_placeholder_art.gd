@@ -1,11 +1,12 @@
 extends SceneTree
-## Generates the game's pixel art procedurally (32px tiles, detailed shading).
+## Generates the game's base art procedurally (32px tiles, detailed shading).
 ## Every PNG follows the final layout (sizes, atlas coords, frame grids),
 ## so hand-painted art can replace them later without touching gameplay code.
 ##
-## Run from the project root, then refresh the import cache:
+## Run from the project root, upscale the result to HD, then reimport:
 ##   godot --headless --path . --script res://tools/generate_placeholder_art.gd
-##   godot --headless --path . --editor --quit
+##   node tools/smooth_art/smooth_art.mjs
+##   godot --headless --path . --editor --quit-after 600
 
 const Catalog := preload("res://scripts/data/tile_catalog.gd")
 const T := 32
@@ -1465,11 +1466,16 @@ const BONE4 := [Color8(120, 104, 84), Color8(164, 148, 120), Color8(206, 192, 16
 const STEEL4 := [Color8(58, 62, 74), Color8(96, 102, 116), Color8(142, 148, 162), Color8(200, 206, 216)]
 
 
-## dir: 0 down, 1 up, 2 side (right). step: 0 idle, 1/2 walking.
+## Walk cycle poses (columns after the idle one): contact, passing, contact,
+## passing. [stride, body drop, left/far foot lift, right/near foot lift].
+const GAIT := [[0, 0, 0, 0], [4, 1, 1, 0], [1, -1, 3, 0], [-4, 1, 0, 1], [-1, -1, 0, 3]]
+
+
+## dir: 0 down, 1 up, 2 side (right). step: 0 idle, 1-4 the walk cycle.
 func _make_player() -> Image:
-	var img := _new_image(CF * 3, CF * 3)
+	var img := _new_image(CF * GAIT.size(), CF * 3)
 	for row in 3:
-		for col in 3:
+		for col in GAIT.size():
 			var frame := _new_image(CF, CF)
 			_draw_hero(frame, row, col, {})
 			_ink(frame)
@@ -1536,8 +1542,9 @@ func _shade_hair(f: Image, m: Dictionary, c: Vector2, r: float, crown: Vector2, 
 
 
 func _draw_hero(f: Image, dir: int, step: int, d: Dictionary) -> void:
-	var bob := 1 if step != 0 else 0
-	var sw := 0 if step == 0 else (3 if step == 1 else -3)
+	var g: Array = GAIT[step]
+	var sw: int = g[0]
+	var bob: int = g[1]
 	var cx := 24.0
 	var hy := 15.0 + bob
 	var ty := 24 + bob
@@ -1572,11 +1579,11 @@ func _draw_hero(f: Image, dir: int, step: int, d: Dictionary) -> void:
 	if side:
 		var far := [PA[0], PA[0], PA[1], PA[2]]
 		var far_b := [BO[0], BO[0], BO[1], BO[2]]
-		_hero_leg(f, int(cx) - 3 - sw, leg_top, 0, far, far_b, true)
-		_hero_leg(f, int(cx) - 3 + sw, leg_top, 0, PA, BO, true)
+		_hero_leg(f, int(cx) - 3 - sw, leg_top, g[2], far, far_b, true)
+		_hero_leg(f, int(cx) - 3 + sw, leg_top, g[3], PA, BO, true)
 	else:
-		_hero_leg(f, int(cx) - 6, leg_top, 2 if sw > 0 else 0, PA, BO, false)
-		_hero_leg(f, int(cx) + 1, leg_top, 2 if sw < 0 else 0, PA, BO, false)
+		_hero_leg(f, int(cx) - 6, leg_top, g[2], PA, BO, false)
+		_hero_leg(f, int(cx) + 1, leg_top, g[3], PA, BO, false)
 
 	# Torso: tunic flaring into a short skirt over the hips.
 	var tw := 5.5 if side else 8.0
@@ -1622,9 +1629,9 @@ func _draw_hero(f: Image, dir: int, step: int, d: Dictionary) -> void:
 
 	# Arms: sleeve and hand, swinging against the stride.
 	if side:
-		_hero_arm(f, Vector2(cx + 0.5, ty + 2.5), Vector2(cx + 0.5 + sw * 1.2, ty + 11.0), TU, SK)
+		_hero_arm(f, Vector2(cx + 0.5, ty + 2.5), Vector2(cx + 0.5 - sw * 1.1, ty + 11.0 - absf(sw) * 0.3), TU, SK)
 	else:
-		var lift := sw * 0.5
+		var lift := sw * 0.8
 		_hero_arm(f, Vector2(cx - 10.0, ty + 2.5), Vector2(cx - 11.0, ty + 11.0 - lift), TU, SK)
 		_hero_arm(f, Vector2(cx + 10.0, ty + 2.5), Vector2(cx + 11.0, ty + 11.0 + lift), TU, SK)
 
@@ -1757,9 +1764,14 @@ func _make_npcs() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/characters/survivors"))
 	for id in NPCS:
 		_save(_make_npc(NPCS[id]), "res://assets/sprites/characters/survivors/%s.png" % id)
+		# Walk strip: the idle pose then the four walk-cycle poses.
+		var strip := _new_image(CF * GAIT.size(), CF)
+		for s in GAIT.size():
+			strip.blit_rect(_make_npc(NPCS[id], s), Rect2i(0, 0, CF, CF), Vector2i(s * CF, 0))
+		_save(strip, "res://assets/sprites/characters/survivors/%s_walk.png" % id)
 
 
-func _make_npc(d: Dictionary) -> Image:
+func _make_npc(d: Dictionary, step := 0) -> Image:
 	P = C.duplicate()
 	if d.has("skin"):
 		P.skin = d.skin[0]
@@ -1781,9 +1793,9 @@ func _make_npc(d: Dictionary) -> Image:
 		P.boot_dark = d.hooves[1]
 	var f := _new_image(CF, CF)
 	var cx := 24.0
-	var hy := 15.0
+	var hy := 15.0 + int(GAIT[step][1])
 	var HA := [P.hair_dark.darkened(0.25), P.hair_dark, P.hair, P.hair_light]
-	_draw_hero(f, 0, 0, d)
+	_draw_hero(f, 0, step, d)
 	var head := _cm_ellipse(Vector2(cx, hy), 10.0, 9.4)
 	match d.get("beard", ""):
 		"short":

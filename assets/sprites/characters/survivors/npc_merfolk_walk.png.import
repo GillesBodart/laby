@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://c1sm8875tklk3"
+path="res://.godot/imported/npc_merfolk_walk.png-f722ca19ba0f9b302226fb6daf660ef7.res"
+
+[deps]
+
+source_file="res://assets/sprites/characters/survivors/npc_merfolk_walk.png"
+dest_files=["res://.godot/imported/npc_merfolk_walk.png-f722ca19ba0f9b302226fb6daf660ef7.res"]
+
+[params]
+
+hd_scale=2

@@ -1,6 +1,6 @@
 # LABY
 
-2D top-down pixel-art survival / building RPG set in a shifting labyrinth (Godot 4.7, GDScript).
+2D top-down survival / building RPG set in a shifting labyrinth (Godot 4.7, GDScript).
 Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/instructions/design.instructions.md`](.github/instructions/design.instructions.md)
 
 ## Status
@@ -41,6 +41,7 @@ Design: [`docs/GAME_SPEC.md`](docs/GAME_SPEC.md) · Art & tone rules: [`.github/
 | M26 Hi-detail sprites: characters redrawn on 48×48 frames (a ~42 px chibi with strand-shaded hair, big eyes, folded tunic, belt, straps and a bedroll backpack; survivors share the body and keep their beards, ears, horns, beak, helmet and aprons); creatures are drawn 1.4× larger at their native art resolution (scale2x for the big ones) with the same ink outline | ✅ |
 | M27 Full graphical refactor: trees and shrubs get clustered leaf-tuft crowns (per-tuft and whole-crown lighting, scalloped rims), grooved bark with root flare; faceted boulder ores with veins and nuggets; curved grass blades, gilled mushrooms, ringed stumps; tepee campfire with layered flames; 3/4-view chest, workbench (vice and tools), masonry furnace, tartan bed, caged torch, carved waystone and flagstone floor; every generated sprite (both generators) now uses the shared ink finish | ✅ |
 | M28 Design audit: a GOAL chain in the HUD (wood, tools, workbench, bed, closed room, maze, glyphs, survivors, guardians, escape) with hints, saved progress; dusk countdown on the clock and a dusk warning in the maze; an escape epilogue with run stats; maze chambers, entrance loops and rare caches in dead ends; Clearing woods along the walls, open meadow, a grove by the camp, wild plants in habitat patches; restrained hit feedback (damage numbers, camera jolt when hurt, blinking bars with a "!" badge for low health, starving, thirst) | ✅ |
+| M30 Smooth art, no more pixel art: every PNG is upscaled 2× with xBR (`tools/smooth_art`) and imported through the `laby_hd_texture` plugin as an `HdTexture` that keeps the logical size, drawn with linear filtering; Nunito UI font; smooth title backdrop. Real walk cycles: the hero and survivors step through contact/passing poses (legs lift, arms swing, body rises and falls) and every character and creature rides a `Gait` rig (sway, footfall squash, breathing at rest, hovering for phasing ones) | ✅ |
 
 ## Run
 
@@ -49,6 +50,8 @@ $godot = "C:\Tool\Godot\Godot_v4.7.2-stable_win64_console.exe"
 & $godot --path .                                              # play
 & $godot --headless --path . res://tests/test_runner.tscn      # tests (exit code = failures)
 & $godot --headless --path . --script res://tools/generate_placeholder_art.gd  # regenerate placeholder PNGs (or only a part: `-- --tiles` tileset, `--walls` wall-run joins, `--structures`, `--roof`, `--chars` player + survivors, `--npcs`, `--creatures` enemy/pet sprites, `--ui` HUD frame)
+node tools\smooth_art\smooth_art.mjs                         # then upscale new/changed PNGs to HD (npm ci in tools/smooth_art once)
+& $godot --headless -e --path . --quit-after 600              # then let the editor (re)import them as HdTexture
 ```
 
 Controls: **WASD / arrows** move (physical keys, so ZQSD on AZERTY) · **Shift** run · **E** (hold) chop trees / mine rocks; tap **E** on a crafting station to open its recipe book, on an empty farm plot to pick a seed (click or 1-9), on a ripe one to harvest · **Space** attack (bows shoot toward the mouse cursor once it has moved, otherwise straight ahead) · **R** eat berries · **M** map · **K** skills · **V** companions follow/stay · **J** journal · **I** backpack & hand crafting (Tab switches tab; click backpack gear to equip, click the doll to take off, click a recipe to craft, wheel scrolls, category chips filter the book, SORT tidies the backpack) · **H** drink / use a potion · **B** build mode (**Q** next item, **F** place / toggle door / repair, **X** remove + refund) · **E** / **G** on a chest opens the Stash window (click a stack to move it across, right-click moves one, 1 stores materials, 2 takes all) · **F5/F9** quick save/load · **F3** fast time (x30) · **Esc** closes the open panel, otherwise opens the pause menu (save, load, controls rebinding, sound volumes, quit). Keys listed are defaults. A gamepad works too (see M21).
@@ -64,18 +67,18 @@ scripts/systems/          pure game rules (RefCounted, testable): DayClock · Su
                           Taming · Settlement · Rooms · SkillGraph · Glyphs · FogMap
 scripts/generation/       seed -> data: ClearingGenerator · LabyrinthGenerator -> ClearingLayout · WallResolver
 scripts/world/            scene roots: world.gd · labyrinth.gd · ClearingWorld (renders a layout) · ClearingGates · GameCamera
-scripts/world/visuals/    TileSetFactory · DirtOverlay · Pond · WallEdges · Roof · HitChips · LightingCurve · day/night modulate
+scripts/world/visuals/    Gait (walk rig) · TileSetFactory · DirtOverlay · Pond · WallEdges · Roof · HitChips · LightingCurve · day/night modulate
 scripts/world/objects/    placed things: Structure · Gatherable · Landmark · Remains · SectorGate · campfire
 scripts/entities/         Player (state machine) · PlayerInput (intent) · Builder · Companion · Survivor · Enemy · Projectile
 scripts/ui/               hud/ (HUD, bars, notices) · panels/ (crafting, map, journal, stash...) · menus/ (title, settings) · common/ (UiFrame)
-scripts/audio/, util/     Synth (runtime sound) · SpriteFramesBuilder
+scripts/audio/, util/     Synth (runtime sound) · SpriteFramesBuilder · HdTexture
 scenes/                   world/ · entities/ (player, enemy) · props/ (tree, rock, bush, campfire, resource node) · ui/
 resources/                Godot resources: ui/ (theme, HUD frame) · lights/ (light gradient)
 assets/tilesets/          clearing_tiles.png (atlas laid out by TileCatalog)
 assets/sprites/           characters/ (player, survivors/) · enemies/ · structures/ · effects/ (shadow)
                           environment/ (trees/, rocks/, gatherables/, crops/, landmarks/, bush, campfire, remains)
 assets/ui/                frame.png · icons/ (time_icons, items/ 32 px, items/small/ 16 px)
-assets/fonts/             VT323 (OFL)
+assets/fonts/             Nunito (OFL; resources/ui/ui_font.tres)
 tests/                    unit + integration suites (TestCase base, test_runner.tscn)
 tools/                    placeholder art generators (+ third_party/dcss source art)
 ```
@@ -84,5 +87,6 @@ Key decisions:
 - **Logic vs rendering:** generators/clocks are pure `RefCounted` classes producing data; nodes only render it. This keeps them testable and deterministic from the seed (needed for maze shifting and co-op).
 - **Multiplayer-ready:** players are registered by peer id, input is an intent component (`PlayerInput`), and only the authority advances time.
 - **Data-driven tiles:** `TileCatalog` is the single table for atlas coordinates and collision; the art generator, TileSet and generator all use it. Replace `assets/` PNGs keeping the same grid to swap art.
+- **HD art at logical size:** PNGs are stored at 2× and imported as `HdTexture`, which reports the logical size, so gameplay code, regions and sprite sheets keep their 1× coordinates. Hand-edited art must be re-run through `tools/smooth_art` (its manifest skips files already upscaled).
 - **Saves:** nodes in the `persist` group implement `get_save_key/get_save_data/load_save_data`; world is rebuilt from the seed, then node data applied.
 - **Day:** a day starts at dawn (05:00); gates close at night (20:00) and reopen at dawn, never closing on a player.
