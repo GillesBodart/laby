@@ -22,6 +22,7 @@ const FOG := Color8(10, 12, 16)
 const UNSURE := Color8(150, 110, 60)
 const LANDMARK := Color8(242, 210, 92)
 const GLYPH := Color8(120, 230, 190)
+const HOARD := Color8(236, 178, 64)
 ## Danger / resource markers come from Accessibility (see marker_color).
 const MARKER_COLORS := {"door": Color8(240, 200, 80), "note": Color8(235, 235, 235)}
 ## Pixels per cell in the blown-up map image.
@@ -194,7 +195,7 @@ func _draw() -> void:
 		draw_rect(portal, Accessibility.color("good"), false, 1.0)
 	var hints := _glyph_hints()
 	_draw_hints(world, hints, origin, scale)
-	if not world.layout.boss.is_empty() and world.fog != null and (world.fog.is_explored(world.layout.boss.cell) or hints.has("key")):
+	if not world.layout.boss.is_empty() and world.fog != null and world.fog.is_explored(world.layout.boss.cell):
 		var bp := origin + (Vector2(world.layout.boss.cell) + Vector2(0.5, 0.5)) * scale
 		var dead := GameState.bosses_defeated.has(world.layout.boss.type)
 		draw_rect(Rect2(bp - Vector2(3, 3), Vector2(6, 6)), Color8(120, 120, 120) if dead else Color8(190, 90, 230))
@@ -263,9 +264,15 @@ func _draw_hints(world: World, hints: Dictionary, origin: Vector2, scale: float)
 			_route = route(world.layout, world.layout.return_cell, world.layout.boss.get("cell", world.layout.return_cell))
 		for i in range(0, _route.size(), 2):
 			draw_rect(Rect2(origin + (Vector2(_route[i]) + Vector2(0.3, 0.3)) * scale, Vector2(1.5, 1.5)), GLYPH)
-	if hints.has("key") and world.layout.arena_rect.size != Vector2i.ZERO:
-		var a: Rect2i = world.layout.arena_rect
-		draw_rect(Rect2(origin + Vector2(a.position) * scale, Vector2(a.size) * scale), Color8(190, 90, 230), false, 1.0)
+	if hints.has("hoard"):
+		# This sector's treasure chests (gold, grey once opened) and rare deposits.
+		for c in world.layout.caches:
+			draw_circle(origin + (Vector2(c) + Vector2(0.5, 0.5)) * scale, 1.6, HOARD.darkened(0.25))
+		for c in world.layout.chests:
+			var cp := origin + (Vector2(c.cell) + Vector2(0.5, 0.5)) * scale
+			var opened := GameState.opened_chests.has(c.id)
+			draw_rect(Rect2(cp - Vector2(3, 2.5), Vector2(6, 5)), Color8(120, 120, 120) if opened else HOARD)
+			draw_rect(Rect2(cp - Vector2(3, 2.5), Vector2(6, 5)), INK, false, 1.0)
 
 
 ## Shortest walkable path between two cells (BFS over the layout walls).

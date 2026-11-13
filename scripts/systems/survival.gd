@@ -36,6 +36,9 @@ const TEMP_DAMAGE := 2.5
 ## Food and water a night's sleep costs.
 const SLEEP_HUNGER := 15.0
 const SLEEP_THIRST := 15.0
+## A cold night shut out in the lean-to: hungrier, thirstier, not rested.
+const ROUGH_NIGHT_HUNGER := 25.0
+const ROUGH_NIGHT_THIRST := 25.0
 
 ## Skills live in SkillGraph (radial passive tree); `skills` holds node ranks.
 ## Respec at a Skill Altar costs RESPEC_ITEM (a Bound resource).
@@ -99,6 +102,14 @@ func sleep() -> void:
 		thirst = maxf(thirst - SLEEP_THIRST, 0.0)
 	temperature = 0.0
 	_exhausted = false
+	changed.emit()
+
+
+## A night huddled in the lean-to: no healing, no rest, just the cost.
+func rough_night() -> void:
+	hunger = maxf(hunger - ROUGH_NIGHT_HUNGER, 0.0)
+	if thirst_enabled:
+		thirst = maxf(thirst - ROUGH_NIGHT_THIRST, 0.0)
 	changed.emit()
 
 

@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bfequctycfb78"
+path="res://.godot/imported/landmark_rime_angel.png-b7cee5f54be91fadcb33eb5c4934d9ce.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_rime_angel.png"
+dest_files=["res://.godot/imported/landmark_rime_angel.png-b7cee5f54be91fadcb33eb5c4934d9ce.res"]
+
+[params]
+
+hd_scale=2

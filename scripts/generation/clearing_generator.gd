@@ -1,7 +1,7 @@
 class_name ClearingGenerator
 extends RefCounted
 ## Deterministically builds the starting area from a seed: a grassy meadow
-## enclosed by massive walls with four gates, surrounded by a ring
+## enclosed by massive walls with a single north gate, surrounded by a ring
 ## corridor and corridor stubs hinting at the labyrinth beyond.
 
 const MAP_SIZE := Vector2i(128, 98)
@@ -44,6 +44,14 @@ const CREATURE_TARGET := 46
 ## Minimum distance (tiles) from the campfire per temperament: the camp stays safe.
 const CREATURE_MIN_DIST := {"passive": 8.0, "neutral": 12.0, "nocturnal": 18.0, "hostile": 24.0}
 const ELITE_MIN_DIST := 30.0
+## Open ground kept free of props south of the fire for the first buildings
+## (offset from the campfire, size in tiles).
+const BUILD_PLOT_OFFSET := Vector2i(-8, 4)
+const BUILD_PLOT_SIZE := Vector2i(17, 9)
+## The lean-to in the ring, from the gate's centre column and the ring's top row.
+const LEAN_TO_OFFSET := Vector2i(3, 1)
+## Braziers stand this many tiles either side of the gate's centre column.
+const BRAZIER_SPREAD := 2
 
 const Id := TileCatalog.Id
 
@@ -57,6 +65,29 @@ var _rng := RandomNumberGenerator.new()
 var _noise := FastNoiseLite.new()
 var _layout: ClearingLayout
 var _solid: Dictionary = {} # cell -> true for wall cells during carving
+var _plot: Rect2i
+
+
+## Tiles kept clear for building, south of the campfire at `center`.
+static func build_plot(center: Vector2i) -> Rect2i:
+	return Rect2i(center + BUILD_PLOT_OFFSET, BUILD_PLOT_SIZE)
+
+
+## The outer edge of the ring corridor round the Clearing's walls.
+static func ring_bounds() -> Rect2i:
+	return CLEARING_RECT.grow(WALL_THICKNESS + RING_WIDTH)
+
+
+## Ring corridor cells (between the Clearing's walls and the maze).
+static func is_ring_cell(cell: Vector2i) -> bool:
+	return ring_bounds().has_point(cell) and not CLEARING_RECT.grow(WALL_THICKNESS).has_point(cell)
+
+
+## Patrol loop along the middle of the ring corridor (cells, clockwise from
+## the north-west corner).
+static func ring_loop() -> Array[Vector2i]:
+	var r := ring_bounds().grow(-(RING_WIDTH / 2))
+	return [r.position, Vector2i(r.end.x - 1, r.position.y), r.end - Vector2i.ONE, Vector2i(r.position.x, r.end.y - 1)]
 
 
 func _generate(seed_value: int) -> ClearingLayout:
@@ -66,6 +97,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_layout = ClearingLayout.new(MAP_SIZE)
 	_layout.clearing_rect = CLEARING_RECT
 	var center := CLEARING_RECT.get_center()
+	_plot = build_plot(center)
 	_layout.campfire_cell = center
 	_layout.spawn_cell = center + Vector2i(0, 2)
 
@@ -85,9 +117,10 @@ func _generate(seed_value: int) -> ClearingLayout:
 	_carve_stubs(outer_ring)
 	_paint_ground()
 	_carve_paths(center)
-	_resolve_walls()
+	_resolve_walls(seed_value)
 	_setup_portal(center)
 	_place_props(center)
+	_place_fixtures(center, outer_ring)
 	return _layout
 
 
@@ -184,8 +217,21 @@ func _carve_paths(center: Vector2i) -> void:
 					_layout.set_ground(c, Id.DIRT)
 
 
-func _resolve_walls() -> void:
-	WallResolver.resolve(_layout, _solid, _rng)
+## Wall decoration (vines, cracks) draws from its own stream so props stay
+## put whatever the wall resolver consumes.
+func _resolve_walls(seed_value: int) -> void:
+	var wall_rng := RandomNumberGenerator.new()
+	wall_rng.seed = hash([seed_value, "clearing_walls"])
+	WallResolver.resolve(_layout, _solid, wall_rng)
+
+
+## Fixed props round the north gate: a brazier against each side post inside
+## and a lean-to in the ring for nights shut out.
+func _place_fixtures(center: Vector2i, outer_ring: Rect2i) -> void:
+	var gate_x: int = _layout.gates[0].cells[GATE_WIDTH / 2].x
+	for side in [-1, 1]:
+		_layout.props.append({"type": "brazier", "cell": Vector2i(gate_x + side * BRAZIER_SPREAD, CLEARING_RECT.position.y)})
+	_layout.props.append({"type": "lean_to", "cell": Vector2i(center.x, outer_ring.position.y) + LEAN_TO_OFFSET})
 
 
 func _setup_portal(center: Vector2i) -> void:
@@ -322,7 +368,7 @@ func _place_ponds(center: Vector2i, gates: Array[Vector2i], occupied: Dictionary
 			blobs.append({"c": c + off, "r": Vector2(_rng.randf_range(1.4, 2.6), _rng.randf_range(1.1, 2.0))})
 		var box := Pond.bounds(blobs)
 		var cells := Rect2i(Vector2i(box.position.floor()), Vector2i(box.size.ceil()) + Vector2i.ONE)
-		if not area.encloses(cells) or Vector2(center).distance_to(c) < 14.0:
+		if not area.encloses(cells) or Vector2(center).distance_to(c) < 14.0 or cells.intersects(_plot):
 			continue
 		var ok := true
 		for g in gates:
@@ -386,7 +432,7 @@ func _place_creatures(center: Vector2i, inner: Rect2i, occupied: Dictionary) -> 
 
 func _is_free_for_prop(cell: Vector2i, center: Vector2i, gates: Array[Vector2i],
 		occupied: Dictionary, spacing: float) -> bool:
-	if Vector2(cell - center).length() < 6.0:
+	if Vector2(cell - center).length() < 6.0 or _plot.has_point(cell):
 		return false
 	for g in gates:
 		if Vector2(cell - g).length() < 5.0:

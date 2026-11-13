@@ -171,7 +171,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func companions() -> Array:
-	return get_tree().get_nodes_in_group("companions").filter(func(c): return c.owner_player == self)
+	return get_tree().get_nodes_in_group("companions").filter(func(c): return is_instance_valid(c) and not c.is_queued_for_deletion() and c.owner_player == self)
 
 
 ## V: every companion switches between following and guarding its spot.
@@ -399,13 +399,28 @@ func try_sleep(bed_cell: Vector2i) -> bool:
 		EventBus.notify.emit(why)
 		return false
 	var room := Rooms.find(GameState.structures, bed_cell)
-	var minutes := fposmod(DayClock.DAY_START - TimeSystem.minute_of_day(), DayClock.MINUTES_PER_DAY)
-	TimeSystem.advance(minutes)
+	pass_night(DayClock.DAY_START)
 	survival.add_room_buffs(Rooms.stats_of(room), SLEEP_BUFF_SECONDS)
 	survival.sleep()
-	EventBus.slept.emit()
 	EventBus.notify.emit("You sleep soundly until morning. %s" % Rooms.describe(room))
 	return true
+
+
+## Skips the clock to `until` (minute of the day) and wakes up from black.
+func pass_night(until: int) -> void:
+	TimeSystem.advance(fposmod(until - TimeSystem.minute_of_day(), DayClock.MINUTES_PER_DAY))
+	EventBus.slept.emit()
+
+
+## True when a hostile creature prowls within SLEEP_SAFE_RANGE (raiders
+## storming the camp hunt the settlement, not a sleeper outside its walls).
+func hostiles_near() -> bool:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.is_in_group("raiders") or not (e.has_method("_hostile") and e._hostile()):
+			continue
+		if global_position.distance_to(e.global_position) < SLEEP_SAFE_RANGE:
+			return true
+	return false
 
 
 ## True when the tile just in front of the player is pond water.

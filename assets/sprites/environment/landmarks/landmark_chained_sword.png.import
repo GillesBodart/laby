@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://0qq3c0f7s6ki"
+path="res://.godot/imported/landmark_chained_sword.png-80a9e63c7e5bf4c15bb4cfff04eaee0f.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_chained_sword.png"
+dest_files=["res://.godot/imported/landmark_chained_sword.png-80a9e63c7e5bf4c15bb4cfff04eaee0f.res"]
+
+[params]
+
+hd_scale=2

@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bykwidx1vfjhj"
+path="res://.godot/imported/landmark_anvil_idol.png-437d856966176de381257caff574ee5b.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_anvil_idol.png"
+dest_files=["res://.godot/imported/landmark_anvil_idol.png-437d856966176de381257caff574ee5b.res"]
+
+[params]
+
+hd_scale=2

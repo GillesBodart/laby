@@ -8,9 +8,14 @@ const PLAYER_SCENE := preload("res://scenes/entities/player.tscn")
 @onready var clearing: ClearingWorld = $Clearing
 @onready var camera: GameCamera = $Camera
 
-const REVEAL_RADIUS := 5
+const REVEAL_RADIUS := 8
 ## Real seconds a companion downed in the Clearing rests before rejoining.
 const COMPANION_REST_SECONDS := 30.0
+## Night creatures prowling the ring outside the Clearing's shut gate.
+const RING_PROWLERS := 2
+const RING_PROWLER_DEPTH := 0.3
+## Prowlers never appear this close (tiles) to the lean-to, nor in its sight.
+const PROWLER_MIN_DIST := 12.0
 
 var layout: ClearingLayout
 var fog: FogMap
@@ -18,6 +23,7 @@ var _last_cell := {}
 
 
 func _ready() -> void:
+	FlowField.clear_shared()
 	layout = make_layout()
 	clearing.build(layout)
 	camera.set_bounds(clearing.pixel_size())
@@ -39,9 +45,12 @@ func _ready() -> void:
 	spawn_survivors()
 	EventBus.settlement_changed.connect(spawn_survivors)
 	EventBus.night_started.connect(start_raid)
+	EventBus.night_started.connect(spawn_ring_prowlers)
 	EventBus.day_started.connect(end_raid)
 	EventBus.companion_downed.connect(_on_companion_downed)
 	EventBus.slept.connect(_on_slept)
+	if TimeSystem.phase() == DayClock.Phase.NIGHT:
+		spawn_ring_prowlers()
 	camera.follow(player)
 
 
@@ -213,11 +222,72 @@ func _raid_spawns(n: int) -> Array:
 
 ## Dawn: surviving raiders slink back into the maze.
 func end_raid(_day := 0) -> void:
+	for e in get_tree().get_nodes_in_group("ring_prowlers"):
+		e.queue_free()
 	var left := get_tree().get_nodes_in_group("raiders")
 	for e in left:
 		e.queue_free()
 	if not left.is_empty():
 		EventBus.notify.emit("At first light the raiders slink back into the maze.")
+
+
+## Nightfall: a few maze creatures prowl the ring corridor outside the shut
+## gate, so being locked out is never a safe wait. They patrol the ring loop
+## and never start in sight of the lean-to. Returns how many spawned.
+func spawn_ring_prowlers(_night := 0) -> int:
+	if GameState.area != "clearing" or not layout.buildable:
+		return 0
+	for e in get_tree().get_nodes_in_group("ring_prowlers"):
+		e.remove_from_group("ring_prowlers")
+		e.queue_free()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([GameState.world_seed, "ring_prowlers", TimeSystem.clock.night_index()])
+	var loop := ClearingGenerator.ring_loop()
+	var patrol: Array[Vector2] = []
+	for c in loop:
+		patrol.append(ClearingWorld.cell_center(c))
+	var n := 0
+	for cell in ring_prowler_cells(rng):
+		var id := EnemyCatalog.pick("labyrinth", RING_PROWLER_DEPTH, rng.randf(),
+			func(d): return d.temper in ["hostile", "nocturnal"] and not d.elite)
+		if id == "":
+			continue
+		var e: Enemy = ClearingWorld.ENEMY_SCENE.instantiate()
+		e.setup(id)
+		e.position = ClearingWorld.cell_center(cell)
+		# Start the loop at the nearest corner: ring legs are straight runs.
+		var start := 0
+		for i in patrol.size():
+			if patrol[i].distance_to(e.position) < patrol[start].distance_to(e.position):
+				start = i
+		var route: Array[Vector2] = []
+		for i in patrol.size():
+			route.append(patrol[(start + i) % patrol.size()])
+		e.patrol = route
+		e.add_to_group("ring_prowlers")
+		clearing.entities.add_child(e)
+		n += 1
+	return n
+
+
+## Walkable ring cells far from, and out of sight of, the lean-to.
+func ring_prowler_cells(rng: RandomNumberGenerator) -> Array[Vector2i]:
+	var lean := Vector2i(-1000, -1000)
+	for p in layout.props:
+		if p.type == "lean_to":
+			lean = p.cell
+	var ring := ClearingGenerator.ring_bounds()
+	var out: Array[Vector2i] = []
+	for i in 400:
+		if out.size() >= RING_PROWLERS:
+			break
+		var c := Vector2i(rng.randi_range(ring.position.x, ring.end.x - 1), rng.randi_range(ring.position.y, ring.end.y - 1))
+		if not ClearingGenerator.is_ring_cell(c) or not layout.is_walkable(c) or out.has(c):
+			continue
+		if Vector2(c).distance_to(lean) < PROWLER_MIN_DIST or FlowField.sees(layout, c, lean):
+			continue
+		out.append(c)
+	return out
 
 func spawn_player(peer_id: int, at: Vector2) -> Player:
 	var player: Player = PLAYER_SCENE.instantiate()

@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://ca1fe6dgjnj4u"
+path="res://.godot/imported/landmark_mossy_giant.png-39175566d2e07ebff423e365135e6365.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_mossy_giant.png"
+dest_files=["res://.godot/imported/landmark_mossy_giant.png-39175566d2e07ebff423e365135e6365.res"]
+
+[params]
+
+hd_scale=2

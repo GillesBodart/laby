@@ -2,7 +2,7 @@ extends Node
 ## JSON save/load. Nodes in the "persist" group provide
 ## get_save_key() / get_save_data() / load_save_data(data).
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const SAVE_DIR := "user://saves"
 ## Slot 0 is the quick save (F5/F9); the settings menu offers all of them.
 const SLOTS := 3

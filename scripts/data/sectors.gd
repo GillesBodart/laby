@@ -9,6 +9,14 @@ extends RefCounted
 ##   tint     subtle mood modulate of Ground/Walls (the palette lives in art)
 ##   moss     share of floor tiles drawn with the accent variant (MAZE_FLOOR_MOSS)
 ##   resources [node type, weight, minimum depth] (see LabyrinthGenerator)
+##   maze     maze shape (see LabyrinthGenerator): cols x rows cells, loops and
+##            entry_loops chances, chambers (big_chambers allows 3x3), enemy_chance
+##            (share of eligible cells holding a creature), shift_regions per
+##            night, optional straight (carver keeps its heading), elite_dens
+##   signature the sector's own rule: thorn_curtains [min, max] (axe-cut
+##            passages), oases [min, max] (open sinks with water), braziers n
+##            (warming fires at junctions), vents [min, max] (burning floor)
+##   landmarks the sector's two unique landmark types (plus the shared ones)
 ##   art      look of the sector's tile atlas (see ART and
 ##            tools/generate_placeholder_art.gd, which paints it):
 ##     tiles    atlas texture, same layout as TileCatalog.TEXTURE_PATH
@@ -31,6 +39,9 @@ const DATA := {
 			"glow": [Color8(22, 42, 32), Color8(36, 66, 42), Color8(54, 94, 50), Color8(80, 124, 58), Color8(118, 158, 74)],
 			"void": Color8(14, 16, 22)},
 		"boss": "stone_colossus", "key": "key_stone",
+		"maze": {"cols": 20, "rows": 14, "loops": 0.08, "entry_loops": 0.3, "chambers": 3, "enemy_chance": 0.12, "shift_regions": 2},
+		"signature": {},
+		"landmarks": ["statue_angel", "statue_twins"],
 		"greet": "The Stone Labyrinth. The walls swallow the light.",
 		"resources": [
 			["rubble", 6.0, 0.0], ["ore_coal", 7.0, 0.0], ["ore_copper", 6.0, 0.0], ["ore_tin", 4.0, 0.1],
@@ -49,6 +60,9 @@ const DATA := {
 			"glow": [Color8(12, 36, 18), Color8(26, 72, 30), Color8(44, 112, 40), Color8(78, 154, 52), Color8(136, 200, 78)],
 			"void": Color8(8, 16, 10)},
 		"boss": "briar_hydra", "key": "key_overgrowth",
+		"maze": {"cols": 22, "rows": 16, "loops": 0.05, "entry_loops": 0.25, "chambers": 5, "enemy_chance": 0.15, "shift_regions": 3},
+		"signature": {"thorn_curtains": [6, 10]},
+		"landmarks": ["statue_dragon", "mossy_giant"],
 		"greet": "The Overgrowth. Roots split the walls. Something hums.",
 		"resources": [
 			["thornbush", 4.0, 0.0], ["giant_fern", 5.0, 0.0], ["hive_comb", 1.5, 0.3], ["spore_pod", 3.0, 0.1],
@@ -66,6 +80,9 @@ const DATA := {
 			"glow": [Color8(170, 120, 66), Color8(204, 156, 92), Color8(226, 186, 120), Color8(240, 208, 148), Color8(250, 228, 182)],
 			"void": Color8(40, 24, 14)},
 		"boss": "sun_wyrm", "key": "key_desert",
+		"maze": {"cols": 24, "rows": 16, "loops": 0.12, "entry_loops": 0.2, "chambers": 4, "big_chambers": true, "enemy_chance": 0.13, "shift_regions": 3},
+		"signature": {"oases": [2, 3]},
+		"landmarks": ["statue_sword", "sand_obelisk"],
 		"greet": "The Sunken Dunes. The air burns your throat. Find water.",
 		"resources": [
 			["cactus", 5.0, 0.0], ["sandstone", 5.0, 0.0], ["dry_bush", 4.0, 0.0], ["salt_flat", 3.0, 0.1],
@@ -83,6 +100,9 @@ const DATA := {
 			"glow": [Color8(138, 190, 220), Color8(174, 218, 238), Color8(206, 238, 250), Color8(232, 248, 255), Color8(255, 255, 255)],
 			"void": Color8(10, 16, 30)},
 		"boss": "hoarfrost_dragon", "key": "key_ice",
+		"maze": {"cols": 24, "rows": 18, "loops": 0.06, "entry_loops": 0.2, "chambers": 3, "enemy_chance": 0.15, "shift_regions": 4, "straight": 0.65},
+		"signature": {"braziers": 3},
+		"landmarks": ["statue_hero", "rime_angel"],
 		"greet": "The Rime Halls. Frost creeps up the walls. Stay warm.",
 		"resources": [
 			["ice_block", 5.0, 0.0], ["frost_lichen", 4.0, 0.0], ["snow_drift", 4.0, 0.0], ["ore_mithril", 1.5, 0.4],
@@ -100,6 +120,9 @@ const DATA := {
 			"glow": [Color8(110, 18, 10), Color8(186, 38, 14), Color8(236, 92, 24), Color8(255, 162, 52), Color8(255, 228, 140)],
 			"void": Color8(30, 6, 4)},
 		"boss": "forgeheart_giant", "key": "key_volcano",
+		"maze": {"cols": 26, "rows": 18, "loops": 0.05, "entry_loops": 0.15, "chambers": 4, "enemy_chance": 0.17, "shift_regions": 4},
+		"signature": {"vents": [10, 14]},
+		"landmarks": ["anvil_idol", "forge_drake"],
 		"greet": "The Cinder Forge. The stones glow. The heat kills the unprepared.",
 		"resources": [
 			["basalt", 5.0, 0.0], ["magma_vent", 2.0, 0.2], ["ash_pile", 4.0, 0.0], ["ore_ember", 2.0, 0.3],
@@ -117,6 +140,9 @@ const DATA := {
 			"glow": [Color8(64, 6, 22), Color8(118, 14, 40), Color8(176, 28, 56), Color8(222, 62, 82), Color8(250, 132, 150)],
 			"void": Color8(20, 4, 12)},
 		"boss": "pit_lord", "key": "key_hell",
+		"maze": {"cols": 28, "rows": 20, "loops": 0.03, "entry_loops": 0.1, "chambers": 3, "enemy_chance": 0.19, "shift_regions": 5, "elite_dens": 3},
+		"signature": {},
+		"landmarks": ["weeping_twins", "chained_sword"],
 		"greet": "The Pit. The heart of the maze. Something watches.",
 		"resources": [
 			["bone_spire", 4.0, 0.0], ["soul_crystal", 1.5, 0.3], ["blood_moss", 4.0, 0.0], ["ore_hellsteel", 2.0, 0.3],
@@ -158,6 +184,11 @@ static func climate_of(area: String) -> int:
 
 static func display_name(area: String) -> String:
 	return DATA[area].name if DATA.has(area) else area.capitalize()
+
+
+## Maze parameters of a sector (see the "maze" entry).
+static func maze(sector: String) -> Dictionary:
+	return DATA[sector].maze
 
 
 ## Resource node types appearing in a sector.

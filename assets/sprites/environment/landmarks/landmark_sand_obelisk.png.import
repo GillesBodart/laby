@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://dicn6501ri7r4"
+path="res://.godot/imported/landmark_sand_obelisk.png-d6ce3527e34159cb8647dadd4b38e612.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_sand_obelisk.png"
+dest_files=["res://.godot/imported/landmark_sand_obelisk.png-d6ce3527e34159cb8647dadd4b38e612.res"]
+
+[params]
+
+hd_scale=2

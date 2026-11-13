@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://hny58mehmd2a"
+path="res://.godot/imported/landmark_forge_drake.png-666cd33ebd0befa734a9a697a979e0b7.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_forge_drake.png"
+dest_files=["res://.godot/imported/landmark_forge_drake.png-666cd33ebd0befa734a9a697a979e0b7.res"]
+
+[params]
+
+hd_scale=2

@@ -46,6 +46,9 @@ const NODES := {
 	"cobweb": {"item": "silk", "amount": 2, "hits": 1, "tool": "hands", "tier": 0, "xp": 2, "walkable": true},
 	# --- overgrowth
 	"thornbush": {"item": "thorn", "amount": 3, "hits": 2, "tool": "axe", "tier": 1, "xp": 4},
+	# Overgrowth thorn curtains: they close a maze passage until cut down.
+	"thorn_curtain": {"item": "thorn", "amount": 4, "hits": 4, "tool": "axe", "tier": 1, "xp": 6},
+	"thorn_curtain_v": {"item": "thorn", "amount": 4, "hits": 4, "tool": "axe", "tier": 1, "xp": 6},
 	"giant_fern": {"item": "fiber", "amount": 4, "hits": 1, "tool": "hands", "tier": 0, "xp": 2, "walkable": true},
 	"hive_comb": {"item": "royal_jelly", "amount": 1, "hits": 3, "tool": "hands", "tier": 0, "xp": 14},
 	"spore_pod": {"item": "spores", "amount": 3, "hits": 1, "tool": "hands", "tier": 0, "xp": 3, "walkable": true},

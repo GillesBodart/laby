@@ -10,6 +10,11 @@ const PROP_SCENES := {
 }
 
 const RESOURCE_SCENE := preload("res://scenes/props/resource_node.tscn")
+## Fixed Clearing props built in code (see ClearingGenerator._place_fixtures).
+const FIXTURES := {
+	"lean_to": preload("res://scripts/world/objects/lean_to.gd"),
+	"brazier": preload("res://scripts/world/objects/brazier.gd"),
+}
 const ENEMY_SCENE := preload("res://scenes/entities/enemy.tscn")
 const VARIANT_COUNT := 10
 ## type -> Array[Texture2D], filled in _ready from assets/sprites/<type>s/.
@@ -159,6 +164,8 @@ func _build_ponds() -> void:
 
 
 func _make_prop(type: String) -> Node2D:
+	if FIXTURES.has(type):
+		return FIXTURES[type].new()
 	if not ResourceCatalog.has(type):
 		return PROP_SCENES[type].instantiate()
 	var node: Gatherable = RESOURCE_SCENE.instantiate()

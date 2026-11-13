@@ -200,3 +200,126 @@ func test_bow_shoots_toward_the_aim() -> void:
 	check(shot != null and shot.velocity.normalized().is_equal_approx(Vector2(3, 1).normalized()), "flies toward the mouse")
 	check_eq(player.facing, Vector2.RIGHT, "player turns toward the shot")
 	world.free()
+
+
+func _free_night_creatures() -> void:
+	for group in ["ring_prowlers", "raiders"]:
+		for e in _tree().get_nodes_in_group(group):
+			e.free()
+
+
+func test_guard_opens_the_shut_gate_at_night() -> void:
+	var world: Node = await _start_world(21 * 60 + 30)
+	_free_night_creatures()
+	var clearing: ClearingWorld = world.get_node("Clearing")
+	var player := _local_player()
+	var gate: Vector2i = clearing.layout.gates[0].cells[1]
+	player.global_position = ClearingWorld.cell_center(gate + Vector2i.UP)
+	player.facing = Vector2.UP
+	await _frames(2)
+	check(not clearing.gates.is_open, "shut at night")
+	var latch := player.find_interactable()
+	check(latch is GateLatch, "the shut gate can be knocked on from outside")
+	GameState.survivors = [{"cast": 0, "role": "gatherer"}]
+	latch.interact(player)
+	await _frames(2)
+	check(not clearing.gates.is_open, "nobody on guard: stays shut")
+
+	GameState.survivors = [{"cast": 0, "role": "gatherer"}, {"cast": 5, "role": "guard"}]
+	latch.interact(player)
+	await _frames(2)
+	check(clearing.gates.is_open, "the guard opens it")
+	check(clearing.walls.get_cell_source_id(gate) == -1, "door tile lifted")
+	check(player.find_interactable() == null, "nothing to knock on while open")
+	clearing.gates._physics_process(ClearingGates.GUARD_OPEN_SECONDS)
+	await _frames(2)
+	check(not clearing.gates.is_open, "shuts again after a few seconds")
+	world.free()
+
+
+func test_lean_to_waits_for_dawn_at_a_price() -> void:
+	var world: Node = await _start_world(21 * 60 + 30)
+	_free_night_creatures()
+	var player := _local_player()
+	var lean: LeanTo = _tree().get_first_node_in_group("lean_to")
+	check(lean != null, "a lean-to stands in the ring")
+	player.global_position = lean.global_position + Vector2(0, 14)
+	player.facing = Vector2.UP
+	await _frames(1)
+	check(player.find_interactable() == lean, "lean-to in reach")
+	player.survival.thirst_enabled = true
+	var hunger := player.survival.hunger
+	var thirst := player.survival.thirst
+	var health := player.survival.health
+	lean.interact(player)
+	check_eq(int(TimeSystem.minute_of_day()), DayClock.DAWN_START, "woke at 05:00")
+	check_eq(player.survival.hunger, hunger - Survival.ROUGH_NIGHT_HUNGER, "hungry")
+	check_eq(player.survival.thirst, thirst - Survival.ROUGH_NIGHT_THIRST, "thirsty")
+	check(player.survival.health <= health, "no rest heal")
+	await _frames(2)
+	check(world.get_node("Clearing").gates.is_open, "the gates are open at dawn")
+	check(not LeanTo.rest(player), "no waiting by day")
+	world.free()
+
+
+func test_ring_prowlers_stay_out_of_sight_of_the_lean_to() -> void:
+	var world: Node = await _start_world(21 * 60 + 30)
+	var prowlers := _tree().get_nodes_in_group("ring_prowlers")
+	check_eq(prowlers.size(), World.RING_PROWLERS, "creatures prowl the ring at night")
+	var lean: LeanTo = _tree().get_first_node_in_group("lean_to")
+	var lean_cell := Vector2i((lean.global_position / TileCatalog.TILE_SIZE).floor())
+	for e in prowlers:
+		var c := Vector2i((e.global_position / TileCatalog.TILE_SIZE).floor())
+		check(ClearingGenerator.is_ring_cell(c), "%s in the ring" % c)
+		check(not FlowField.sees(world.layout, c, lean_cell), "%s hidden from the lean-to" % c)
+		check(not e.patrol.is_empty(), "patrols the ring")
+	TimeSystem.set_time_of_day(DayClock.DAWN_START - 1)
+	TimeSystem.advance(2.0)
+	await _frames(1)
+	check(_tree().get_nodes_in_group("ring_prowlers").all(func(e): return e.is_queued_for_deletion()), "gone at dawn")
+	world.free()
+
+
+func _spawn_enemy(world: Node, type: String, cell: Vector2i) -> Enemy:
+	var enemy: Enemy = load("res://scenes/entities/enemy.tscn").instantiate()
+	enemy.setup(type)
+	enemy.position = ClearingWorld.cell_center(cell)
+	world.get_node("Clearing").entities.add_child(enemy)
+	return enemy
+
+
+func test_walls_hide_the_player_from_creatures() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	var r := ClearingGenerator.CLEARING_RECT
+	var spot := Vector2i(r.position.x + 16, r.position.y)
+	player.global_position = ClearingWorld.cell_center(spot)
+	var behind := _spawn_enemy(world, "stalker", spot + Vector2i(0, -ClearingGenerator.WALL_THICKNESS - 1))
+	await _frames(20)
+	check(behind._target == null, "a creature behind the wall does not start chasing")
+	behind.free()
+	var seen := _spawn_enemy(world, "stalker", spot + Vector2i(4, 0))
+	await _frames(20)
+	check(seen._target == player, "a creature in sight gives chase")
+	world.free()
+
+
+func test_creature_keeps_its_home() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	var r := ClearingGenerator.CLEARING_RECT
+	var home_cell := Vector2i(r.position.x + 16, r.position.y + 1)
+	var enemy := _spawn_enemy(world, "stalker", home_cell)
+	var home := enemy.global_position
+	player.global_position = ClearingWorld.cell_center(home_cell + Vector2i(3, 0))
+	await _frames(20)
+	check(enemy._target == player, "chasing")
+	# Out of the leash but near enough that the creature stays awake.
+	player.global_position = ClearingWorld.cell_center(home_cell + Vector2i(8, 12))
+	enemy.global_position = home + Vector2(8 * TileCatalog.TILE_SIZE, 0)
+	await _frames(60)
+	check(enemy._target == null, "lost the prey")
+	var far := 8.0 * TileCatalog.TILE_SIZE
+	await _frames(150)
+	check(enemy.global_position.distance_to(home) < far - 48.0, "walks back to where it lived (%.0f -> %.0f)" % [far, enemy.global_position.distance_to(home)])
+	world.free()

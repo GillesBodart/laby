@@ -29,7 +29,7 @@ const ROLE_TEXT := {
 	"farmer": "Grows wheat and carrots (more with farm plots).",
 	"builder": "Saws planks, cuts stone, mends damaged structures.",
 	"cook": "Cooks raw meat in the Stash; needs no ration of their own.",
-	"guard": "Defends the Clearing when the maze sends raiders.",
+	"guard": "Defends the Clearing from raiders and opens the gate at night when you knock.",
 	"cartographer": "Charts a patch of a sector you have visited.",
 	"healer": "Brews potions from herbs and vials in the Stash, or picks herbs.",
 }
@@ -139,6 +139,20 @@ static func needs(survivors: Array, structures: Dictionary, stash: Inventory) ->
 static func defence(survivors: Array, structures: Dictionary) -> int:
 	var guards := survivors.filter(func(s): return s.role == "guard").size()
 	return guards * 6 + floori(count(structures, "wall") / 5.0) + count(structures, "standing_torch")
+
+
+## The first survivor on guard duty ({} if none): they open the Clearing
+## gate at night for whoever knocks.
+static func guard(survivors: Array) -> Dictionary:
+	for s in survivors:
+		if s.get("role", "") == "guard":
+			return s
+	return {}
+
+
+## Display name of a survivor record ({"cast": int, "role": String}).
+static func name_of(record: Dictionary) -> String:
+	return CAST[int(record.get("cast", 0)) % CAST.size()].name
 
 
 ## Items a survivor brings in at dawn (before stash conversions).

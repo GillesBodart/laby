@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://yg4r1gux2jbp"
+path="res://.godot/imported/magma_vent.png-ecfcaf5bb9422c8255fdc0d432160a23.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/hazards/magma_vent.png"
+dest_files=["res://.godot/imported/magma_vent.png-ecfcaf5bb9422c8255fdc0d432160a23.res"]
+
+[params]
+
+hd_scale=2

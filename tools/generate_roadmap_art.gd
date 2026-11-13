@@ -24,6 +24,16 @@ const GLOW := [Color8(40, 110, 110), Color8(70, 170, 160), Color8(120, 230, 210)
 func _init() -> void:
 	for dir in ["res://assets/sprites/structures", "res://assets/ui/icons/items/small", "res://assets/sprites/environment/landmarks", "res://assets/sprites/characters/survivors", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
+	if "--clearing-props" in OS.get_cmdline_user_args():
+		_clearing_props()
+		print("Clearing props generated.")
+		quit()
+		return
+	if "--maze" in OS.get_cmdline_user_args():
+		_maze_art()
+		print("Maze props generated.")
+		quit()
+		return
 	_save(_remains(), "res://assets/sprites/environment/remains.png")
 	_sector_art()
 	print("Roadmap art generated.")
@@ -135,6 +145,269 @@ func _sector_art() -> void:
 	var bed := _bed()
 	_save(bed, "res://assets/sprites/structures/bed.png")
 	_icon(bed, "bed")
+	_clearing_props()
+	_maze_art()
+
+
+## Sector landmarks, thorn curtains and magma vents (`-- --maze` redraws only
+## these). Landmarks are the vendored statues dressed in their sector palette.
+func _maze_art() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/environment/hazards"))
+	var dir := "res://assets/sprites/environment/landmarks/landmark_%s.png"
+	var giant := _tint(_dcss("statue_guardian", 36), 0.3, 0.7, 0.15, 0.85)
+	_moss(giant, 31)
+	_save(giant, dir % "mossy_giant")
+	var obelisk := _tint(_dcss("column", 38), 0.09, 1.0, 0.45, 1.15)
+	_blob(obelisk, obelisk.get_width() / 2.0, obelisk.get_height() - 3.0, obelisk.get_width() / 2.0 - 1.0, 2.5,
+		[Color8(170, 120, 60), Color8(214, 168, 96), Color8(240, 206, 140)], 0.2, 7)
+	_save(_outline(obelisk), dir % "sand_obelisk")
+	var angel := _tint(_dcss("statue_angel", 36), 0.54, 0.5, 0.1, 1.25)
+	_frost(angel, 17)
+	_save(angel, dir % "rime_angel")
+	_save(_anvil_idol(), dir % "anvil_idol")
+	var drake := _tint(_dcss("statue_dragon", 36), 0.0, 0.2, 0.0, 0.55)
+	_embers(drake, 23)
+	_save(drake, dir % "forge_drake")
+	var twins := _tint(_dcss("statue_twins", 36), 0.78, 0.6, 0.15, 0.8)
+	_tears(twins)
+	_save(twins, dir % "weeping_twins")
+	var sword := _tint(_dcss("statue_sword", 36), 0.95, 0.7, 0.2, 0.75)
+	_chains(sword)
+	_save(sword, dir % "chained_sword")
+	_save(_thorn_curtain(false), "res://assets/sprites/environment/gatherables/thorn_curtain.png")
+	_save(_thorn_curtain(true), "res://assets/sprites/environment/gatherables/thorn_curtain_v.png")
+	_save(_magma_vent(), "res://assets/sprites/environment/hazards/magma_vent.png")
+
+
+## In-memory version of _recolor (same fields), outline pixels kept.
+func _tint(img: Image, hue: float, sat_mul: float, sat_add: float, val_mul: float) -> Image:
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a == 0.0 or c.v < 0.16:
+				continue
+			var h := c.h if hue < 0.0 else hue
+			img.set_pixel(x, y, Color.from_hsv(h, clampf(c.s * sat_mul + sat_add, 0.0, 1.0), clampf(c.v * val_mul, 0.0, 1.0), c.a))
+	return img
+
+
+## Paints over opaque, non-outline pixels only.
+func _over(img: Image, x: int, y: int, col: Color) -> void:
+	if x >= 0 and y >= 0 and x < img.get_width() and y < img.get_height():
+		var c := img.get_pixel(x, y)
+		if c.a > 0.5 and c.v >= 0.16:
+			img.set_pixel(x, y, col)
+
+
+## Moss tufts on the upper faces of a statue.
+func _moss(img: Image, seed: int) -> void:
+	var g := [Color8(46, 96, 40), Color8(76, 140, 52), Color8(124, 186, 74)]
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a < 0.5 or c.v < 0.16 or y + 1 >= img.get_height():
+				continue
+			var top := img.get_pixel(x, y - 1).a < 0.5 if y > 0 else true
+			if (top and _hash(x, y, seed) > 0.25) or _hash(x, y, seed + 1) > 0.86:
+				img.set_pixel(x, y, g[int(_hash(x, y, seed + 2) * 2.99)])
+				if top and _hash(x, y, seed + 3) > 0.6:
+					_over(img, x, y + 1, g[0])
+
+
+## Hoarfrost on the upper faces and a few icicles.
+func _frost(img: Image, seed: int) -> void:
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			if c.a < 0.5 or c.v < 0.16:
+				continue
+			var top := img.get_pixel(x, y - 1).a < 0.5 if y > 0 else true
+			if top or _hash(x, y, seed) > 0.9:
+				img.set_pixel(x, y, Color8(236, 250, 255))
+			elif _hash(x, y, seed + 1) > 0.97 and y + 3 < img.get_height():
+				for i in 3:
+					_over(img, x, y + i, Color8(190, 236, 250).darkened(i * 0.08))
+
+
+## Glowing cracks and ember eyes on a cooled stone body.
+func _embers(img: Image, seed: int) -> void:
+	var used := img.get_used_rect()
+	var cx := used.position.x + used.size.x * 0.35
+	var y0 := used.position.y + used.size.y * 0.3
+	for i in 3:
+		var a := Vector2(cx + i * 6 + _hash(i, 0, seed) * 4, y0 + i * 6)
+		var b := a + Vector2(-3 + _hash(i, 1, seed) * 6, 7)
+		var steps := 8
+		for k in steps + 1:
+			var p := a.lerp(b, float(k) / steps)
+			_over(img, int(p.x), int(p.y), FIRE[2] if k % 3 else FIRE[3])
+	_over(img, used.position.x + int(used.size.x * 0.28), used.position.y + 5, FIRE[3])
+	_over(img, used.position.x + int(used.size.x * 0.28) + 1, used.position.y + 5, FIRE[2])
+
+
+## Two crimson tear trails down the faces.
+func _tears(img: Image) -> void:
+	var used := img.get_used_rect()
+	for fx in [0.3, 0.7]:
+		var x := used.position.x + int(used.size.x * fx)
+		for k in int(used.size.y * 0.45):
+			_over(img, x + (1 if k > 6 and k % 5 == 0 else 0), used.position.y + 6 + k, Color8(196, 30, 60) if k % 4 else Color8(250, 90, 110))
+
+
+## Heavy chain links wrapped round the blade.
+func _chains(img: Image) -> void:
+	var used := img.get_used_rect()
+	var iron := [Color8(60, 58, 70), Color8(110, 108, 120), Color8(176, 172, 186)]
+	for row in [0.35, 0.6]:
+		var y := used.position.y + int(used.size.y * row)
+		for x in range(used.position.x - 1, used.end.x + 1):
+			var off := 1 if (x / 3) % 2 == 0 else 0
+			_px(img, x, y + off, iron[2] if x % 3 == 0 else iron[1])
+			_px(img, x, y + off + 1, iron[0])
+	_outline(img)
+
+
+## A squat basalt anvil with a grumpy face and a glowing brow.
+func _anvil_idol() -> Image:
+	var img := _img(34, 38)
+	var basalt := [Color8(30, 26, 30), Color8(52, 46, 50), Color8(80, 72, 74), Color8(116, 104, 100)]
+	_blob(img, 17, 35, 12, 2.6, basalt, 0.15, 3)
+	_box(img, 9, 22, 16, 13, basalt, 4)
+	_box(img, 12, 16, 10, 7, basalt, 5)
+	_box(img, 3, 8, 28, 9, basalt, 6)
+	_rect(img, 0, 10, 4, 4, basalt[2])
+	_rect(img, 0, 10, 4, 1, basalt[3])
+	_rect(img, 31, 9, 2, 3, basalt[1])
+	# Face: ember eyes under a heavy brow, a crooked mouth.
+	_rect(img, 10, 11, 4, 1, basalt[0])
+	_rect(img, 20, 11, 4, 1, basalt[0])
+	_rect(img, 11, 12, 2, 2, FIRE[2]); _px(img, 11, 12, FIRE[3])
+	_rect(img, 21, 12, 2, 2, FIRE[2]); _px(img, 21, 12, FIRE[3])
+	_line(img, Vector2(13, 15), Vector2(21, 14), basalt[0])
+	_line(img, Vector2(13, 28), Vector2(15, 32), FIRE[1])
+	_line(img, Vector2(20, 25), Vector2(19, 31), FIRE[1])
+	_px(img, 14, 30, FIRE[2])
+	return _outline(img)
+
+
+## Brambles strung across a passage: horizontal (96 px, across a north-south
+## gap) or vertical (across an east-west gap). Feet sit on the bottom edge.
+func _thorn_curtain(vertical: bool) -> Image:
+	var w := 32 if vertical else 96
+	var h := 104 if vertical else 48
+	var img := _img(w, h)
+	var stem := [Color8(46, 36, 30), Color8(74, 58, 40), Color8(104, 84, 54)]
+	var leaf := [Color8(34, 70, 36), Color8(56, 108, 50), Color8(92, 150, 70)]
+	var span := h - 10 if vertical else w - 6
+	for strand in 5:
+		var phase := strand * 1.7
+		var prev := Vector2(-1, -1)
+		for i in span:
+			var t := float(i) / span
+			var wave := sin(t * TAU * 2.0 + phase) * (5.0 if vertical else 7.0)
+			var p := Vector2(w / 2.0 + wave + (strand - 2) * 2.0, 4 + i) if vertical \
+				else Vector2(3 + i, h - 22 + wave + (strand - 2) * 2.5)
+			_rect(img, int(p.x), int(p.y), 2, 2, stem[strand % 3])
+			if i % 7 == strand % 7:
+				var spike := Vector2(1, -2) if not vertical else Vector2(2 if strand % 2 else -2, -1)
+				_line(img, p, p + spike * 1.5, BONE[2])
+			if _hash(i, strand, 41) > 0.9:
+				_blob(img, p.x + 1, p.y - 1, 2.2, 1.6, leaf, 0.2, i + strand)
+			prev = p
+	# Anchor knots against the walls.
+	for end in [Vector2(w / 2.0, 6), Vector2(w / 2.0, h - 6)] if vertical else [Vector2(5, h - 22), Vector2(w - 5, h - 22)]:
+		_blob(img, end.x, end.y, 4.5, 3.5, leaf, 0.2, 9)
+	return _outline(img)
+
+
+## A flat glowing crack in the floor (drawn under walkers).
+func _magma_vent() -> Image:
+	var img := _img(32, 32)
+	var crust := [Color8(28, 20, 22), Color8(48, 34, 32), Color8(70, 48, 40)]
+	_blob(img, 16, 16, 14, 12, crust, 0.3, 5)
+	var pts := [Vector2(5, 18), Vector2(11, 14), Vector2(16, 17), Vector2(21, 12), Vector2(27, 15)]
+	for i in pts.size() - 1:
+		_line(img, pts[i], pts[i + 1], FIRE[0], 3)
+	for i in pts.size() - 1:
+		_line(img, pts[i], pts[i + 1], FIRE[2], 1)
+	_line(img, Vector2(16, 17), Vector2(14, 25), FIRE[1], 2)
+	_line(img, Vector2(16, 17), Vector2(14, 25), FIRE[2])
+	for p in [Vector2i(11, 14), Vector2i(21, 12)]:
+		_px(img, p.x, p.y, FIRE[3])
+	return _outline(img)
+
+
+## Fixed props round the Clearing's north gate (`-- --clearing-props` redraws
+## only these).
+func _clearing_props() -> void:
+	_save(_brazier(), "res://assets/sprites/environment/landmarks/brazier.png")
+	_save(_lean_to(), "res://assets/sprites/environment/landmarks/lean_to.png")
+
+
+## Iron fire basket on a squat stone post.
+func _brazier() -> Image:
+	var img := _img(24, 40)
+	_blob(img, 12, 36.5, 7.5, 2.8, STONE, 0.15, 21)
+	_box(img, 7, 20, 10, 16, STONE, 22)
+	_rect(img, 6, 19, 12, 2, STONE[3])
+	_rect(img, 6, 19, 12, 1, STONE[4])
+	# Bowl: dark iron, a bright lip and rivets.
+	_blob(img, 12, 15.5, 8.0, 4.0, [Color8(40, 40, 48), Color8(62, 64, 74), Color8(92, 96, 108), Color8(140, 146, 158)], 0.1, 23)
+	_rect(img, 4, 12, 17, 1, Color8(150, 156, 168))
+	for x in [7, 12, 17]:
+		_px(img, x, 15, Color8(176, 180, 190))
+	# Embers in the bowl, then the flame.
+	for x in range(6, 19):
+		_px(img, x, 12, FIRE[1] if _hash(x, 0, 24) > 0.5 else FIRE[2])
+	var layers := [[FIRE[0], 11, 6.0], [FIRE[1], 10, 4.8], [FIRE[2], 7, 3.2], [FIRE[3], 4, 1.6]]
+	for layer in layers:
+		var hgt: int = layer[1]
+		var wmax: float = layer[2]
+		for y in hgt:
+			var fr := float(y) / hgt
+			var hw := wmax * pow(1.0 - fr, 0.7)
+			var sway := sin(fr * 3.4) * 1.4 * fr
+			for x in range(int(12.5 + sway - hw), int(12.5 + sway + hw) + 1):
+				_px(img, x, 11 - y, layer[0])
+	_outline(img)
+	_px(img, 15, 0, FIRE[2])
+	return img
+
+
+## Hides stretched over a slanted pole frame, a bedroll peeking out.
+func _lean_to() -> Image:
+	var img := _img(48, 36)
+	# Ground cover: trampled straw.
+	_blob(img, 24, 31.5, 20.0, 3.6, [Color8(120, 100, 56), Color8(150, 128, 70), Color8(176, 154, 92)], 0.3, 31)
+	# Back poles leaning on a ridge pole.
+	_line(img, Vector2(4, 31), Vector2(10, 6), WOOD[1], 2)
+	_line(img, Vector2(44, 31), Vector2(38, 6), WOOD[1], 2)
+	_line(img, Vector2(8, 6), Vector2(41, 6), WOOD[2], 2)
+	# Hide roof: slanted patches, darker towards the ground.
+	for y in range(7, 27):
+		var fr := float(y - 7) / 20.0
+		var x0 := int(lerpf(10, 5, fr))
+		var x1 := int(lerpf(38, 43, fr))
+		for x in range(x0, x1 + 1):
+			var patch := int((x - x0) / 9.0) % 2
+			var tone := 3 - int(fr * 2.5) - patch
+			_px(img, x, y, LEATHER[clampi(tone, 0, 4)])
+			if _hash(x, y, 32) > 0.93:
+				_px(img, x, y, LEATHER[clampi(tone - 1, 0, 4)])
+	# Stitched seams between patches and a lashing cord.
+	for x in [19, 28]:
+		for y in range(8, 26, 2):
+			_px(img, x, y, BONE[1])
+	_line(img, Vector2(9, 9), Vector2(39, 9), LEATHER[0])
+	# Dark opening with a rolled bedroll.
+	for y in range(18, 30):
+		var hw := int(lerpf(2, 9, float(y - 18) / 11.0))
+		_rect(img, 24 - hw, y, hw * 2, 1, Color8(30, 24, 22))
+	_blob(img, 24, 27.5, 6.0, 2.4, [Color8(70, 50, 60), Color8(110, 74, 80), Color8(150, 104, 96)], 0.1, 33)
+	# Front pole stubs.
+	_rect(img, 5, 26, 2, 6, WOOD[2])
+	_rect(img, 41, 26, 2, 6, WOOD[2])
+	return _outline(img)
 
 
 ## Pale violet crystal splinter with a bright core (Bound respec resource).

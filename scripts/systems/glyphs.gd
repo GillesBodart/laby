@@ -7,14 +7,14 @@ extends RefCounted
 ## Landmarks are the fixed statues and machines used to find your way.
 
 ## What each stone of a sector reveals, by index.
-const HINTS := ["shift", "route", "key", "lore"]
+const HINTS := ["shift", "route", "hoard", "lore"]
 ## Lore (glyph insight) needed to read each stone.
 const REQUIRED_LORE := [0, 0, 0, 1]
 
 const HINT_TEXT := {
 	"shift": "The walls move when the sun dies. These marks name the passages that will turn tonight (see the map).",
 	"route": "A line of arrows: the old builders' way to the heart of this place. The route appears on your map.",
-	"key": "A keyhole and a beast's eye. The guardian's den and its key are marked on your map.",
+	"hoard": "A greedy little hand clutching coins. This sector's treasure chests and richest deposits are marked on your map.",
 	"lore": "A list of names carved and crossed out. The great markers of this sector are shown on your map.",
 }
 
@@ -37,6 +37,13 @@ const LANDMARKS := {
 	"statue_twins": {"name": "The Twins", "text": "Two figures back to back, one smiling, one not. They never seem to move. Never."},
 	"column": {"name": "Marked Pillar", "text": "A lone pillar covered in chalk arrows from many hands. Most of them point at each other."},
 	"old_engine": {"name": "Old Engine", "text": "Cogs as tall as you, cold and rusted. Sometimes, at night, it ticks."},
+	"mossy_giant": {"name": "Mossy Giant", "text": "A seated colossus wearing a coat of moss. Something nests in its ear and hums when you pass."},
+	"sand_obelisk": {"name": "Sun Needle", "text": "A sandstone needle whose shadow points at nothing. Unless you wait. Then it still points at nothing, but slower."},
+	"rime_angel": {"name": "Frozen Herald", "text": "A winged figure sealed in clear ice, mouth open mid-word. You lean in. It does not finish the sentence."},
+	"anvil_idol": {"name": "Anvil Idol", "text": "A squat idol with an anvil for a head. Its base is littered with bent offerings: nails, hinges, a spoon."},
+	"forge_drake": {"name": "Forge Drake", "text": "A soot-black drake coiled on a cooling slab. Its stone belly is still warm, and faintly snoring."},
+	"weeping_twins": {"name": "Weeping Twins", "text": "Two figures back to back, both weeping now. The stains on their cheeks are fresh. Every time."},
+	"chained_sword": {"name": "Chained Blade", "text": "A great sword bound to the floor in red chains, as if it might leave. The chains look nervous."},
 }
 
 

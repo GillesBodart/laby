@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bnfybicw5vh0k"
+path="res://.godot/imported/landmark_weeping_twins.png-ea1aedfadd6261c9b59a1ace0d6ce2b0.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/landmark_weeping_twins.png"
+dest_files=["res://.godot/imported/landmark_weeping_twins.png-ea1aedfadd6261c9b59a1ace0d6ce2b0.res"]
+
+[params]
+
+hd_scale=2

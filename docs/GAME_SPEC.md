@@ -30,11 +30,26 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 
 ## 3. The labyrinth
 
-- Each sector is a seeded maze (recursive backtracker plus loops), fully connected. It has a vestibule at the south, the guardian's arena at the north, open chambers, extra loops near the entrance, and a reward in most dead ends: rare deposit caches, plus **treasure chests** that hold blueprints and valuables and are opened once.
-- **Shifting**: at every nightfall a few regions re-carve themselves (seeded by `seed + night`). The maze always stays connected. Landmarks, glyph stones and treasure chests never move, and the shifting regions avoid them.
+- Each sector is a seeded maze (recursive backtracker plus loops), fully connected, and **bigger and stranger the deeper you go**. Each sector's size, loops, chambers, creature density and shift regions are data (`Sectors.DATA[s].maze`): from 20×14 cells in the Stone Labyrinth to 28×20 in the Pit. It has:
+  - a vestibule at the south with a campfire haven;
+  - the guardian's 4×3-cell arena at the north. It has a single south door, a rest fire before it, four pillars for cover and a glow in the sector's colour;
+  - open chambers, and extra loops near the entrance;
+  - a reward in most dead ends: rare deposit caches, plus **treasure chests**. A chest holds blueprints and valuables, opens once, and a guard creature watches it.
+- **Landmarks** (two of the sector's own, three shared) stand at decision points: chamber centres and junctions.
+- **Sector signatures**:
+  - **Overgrowth**: thorn curtains close side passages, never the way to the arena or a chest. An axe cuts them.
+  - **Sunken Dunes**: 2-3 oases with water to drink, date palms and cactus.
+  - **Rime Halls**: long straight halls, with warming braziers at junctions.
+  - **Cinder Forge**: magma vents burn one lane of some passages.
+  - **The Pit**: few loops, five shift regions, three elite dens.
+- **Shifting**: at every nightfall a few regions re-carve themselves (seeded by `seed + night`). A shift can close the passages that cross a region's border and lengthen the routes. The maze never strands anything: every cell, chest, glyph stone and the arena stay reachable from the entrance. Landmarks, glyph stones and treasure chests never move, and the shifting regions avoid them.
 - **Map** (M): fog of war, saved. Moved passages show hatched until seen again. The player can place manual markers.
-- **Glyph stones** (four per sector, laid out from the entrance towards the arena; only the story stone needs the Scholar's insight) reveal tonight's moving passages, the route to the arena, the guardian's den and the sector's story.
-- **Distance gating**: depth is the walking distance from the entrance (1.0 at the guardian's door); each sector also hides two elite dens in its farthest dead ends. The deeper you go, the more danger and the better the loot. Dusk warnings and a countdown push the player to get back.
+- **Glyph stones** (four per sector, laid out from the entrance towards the arena; only the story stone needs the Scholar's insight) reveal:
+  - tonight's moving passages;
+  - the route to the arena;
+  - the sector's **hoard** (its treasure chests and rare deposits on the map);
+  - the sector's story.
+- **Distance gating**: depth is the walking distance from the entrance (1.0 at the guardian's door). Creature counts are fixed by density and the seed. Each sector also hides two elite dens in its farthest dead ends (three in the Pit). The deeper you go, the more danger and the better the loot. Dusk warnings and a countdown push the player to get back. A second warning comes when the walk home is longer than the daylight left.
 
 ## 4. Character progression
 
@@ -51,7 +66,7 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 
 - **Needs**: health, hunger and stamina from the start; thirst once the desert is reached; body temperature in hot and cold climates (countered by gear, fire and tonics). Tuning rule: needs limit trip length but never nag; a well-prepared trip must be comfortable.
 - **Gear**: an equipment doll (weapon, offhand, head, body, feet, ring, amulet), material tiers up to the sector metals (Rimesilver, Ember, Deepsteel), bows and arrows, shields, staffs, potions. A held torch gives light and keeps night hunters away. **Tools and weapons wear out** and break.
-- **Combat**: real-time attacks and a dodge-roll that costs stamina. Creatures have distinct attacks (melee, charge, ranged, shields, poison or slow, packs). Avoiding fights is a valid choice; combat is not the main pillar.
+- **Combat**: real-time attacks and a dodge-roll that costs stamina. Creatures have distinct attacks (melee, charge, ranged, shields, poison or slow, packs). They must see you past the walls to start a chase (or be within a couple of steps), then hunt you round the walls along the maze's paths and go back to their den when they lose you. Avoiding fights is a valid choice; combat is not the main pillar.
 - **Death**: chosen at New Game.
   - *Recoverable* (default): the non-insured backpack drops as **remains** at the death spot; you respawn in the Clearing. The Stash and bound items (keys, relics) are never lost.
   - *Permanent*: the run and its saves end, and the run summary is shown.
@@ -64,6 +79,7 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 - **Stations**, each with its own recipe book: campfire, workbench, furnace, anvil, cooking pot, tanning rack, stonecutter, loom, alchemy table. Farm plots grow 13 crops.
 - **Settlement tiers**: Camp → Shelters → Village → Fortified Base → Community. Up to eight quirky survivors with roles (gatherer, farmer, builder, cook, guard, cartographer, healer). At each dawn they eat a ration each from the Stash (simplest food first; medicine and precious food are kept) and work. Cooks cook before breakfast; healers brew potions from herbs and glass vials.
 - **Night raids**: once the camp is a Village, from the second night, raiders attack every other night. They mostly come through the north gate. They scale with the camp's size and are reduced by its defences.
+- **Shut out at night**: the north gate stays shut from 20:00 to 05:00. Knocking on it (E) brings the camp's guard, who opens it for 6 seconds; with no guard it stays shut. Outside, a lean-to in the ring corridor lets you wait until 05:00, at a cost of 25 food and 25 water and with no rest. Two night creatures patrol that ring, so the wait is never safe, but they never start in sight of the lean-to. Two lit braziers flank the gate inside so the way home reads from afar. A build plot south of the fire is kept free of trees and rocks.
 - **Goal chain** in the HUD guides the early game: wood, tools, workbench, house, bed, maze, glyphs, survivors, guardians, escape.
 
 ## 7. Technical frame

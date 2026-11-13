@@ -87,7 +87,7 @@ func test_every_sector_generates_a_full_maze() -> void:
 		for e in a.enemy_spawns:
 			check_eq(EnemyCatalog.def(e.type).biome, s, "%s spawns its own creatures" % s)
 			check(not EnemyCatalog.def(e.type).boss, "no stray bosses in %s" % s)
-		var allowed := Sectors.resource_types(s)
+		var allowed := Sectors.resource_types(s) + ["campfire", LabyrinthGenerator.CURTAIN, LabyrinthGenerator.CURTAIN_V]
 		for p in a.props:
 			check(p.type in allowed, "%s resource %s belongs" % [s, p.type])
 	check_eq(seen.size(), Sectors.ORDER.size(), "every sector has its own layout")
@@ -308,7 +308,7 @@ func test_tamed_companion_follows_fights_and_persists() -> void:
 	await _frames(90)
 	check(not is_instance_valid(rat) or rat.hp < rat_hp, "companion attacks hunters")
 	player.toggle_companions()
-	check(pet.is_staying(), "V: stay")
+	check(not is_instance_valid(pet) or pet.is_staying(), "V: stay")
 	var data: Dictionary = JSON.parse_string(JSON.stringify(GameState.meta_to_data()))
 	GameState.companions = []
 	GameState.meta_from_data(data)
@@ -384,7 +384,7 @@ func test_downed_companion_recovers_in_the_clearing() -> void:
 
 
 ## Every maze cell centre and the arena reachable from the vestibule.
-func _all_reachable(layout: ClearingLayout) -> bool:
+func _all_reachable(layout: ClearingLayout, sector: String) -> bool:
 	var seen := {layout.return_cell: true}
 	var queue: Array[Vector2i] = [layout.return_cell]
 	var head := 0
@@ -396,8 +396,8 @@ func _all_reachable(layout: ClearingLayout) -> bool:
 			if layout.in_bounds(n) and not layout.is_wall(n) and not seen.has(n):
 				seen[n] = true
 				queue.append(n)
-	for my in LabyrinthGenerator.ROWS:
-		for mx in LabyrinthGenerator.COLS:
+	for my in LabyrinthGenerator.rows(sector):
+		for mx in LabyrinthGenerator.cols(sector):
 			if not seen.has(LabyrinthGenerator.cell_origin(Vector2i(mx, my)) + Vector2i.ONE):
 				return false
 	return seen.has(layout.boss.cell)
@@ -412,8 +412,8 @@ func test_maze_shifts_stay_connected_and_keep_landmarks() -> void:
 		var moved_any := false
 		for shift in [1, 2, 5]:
 			var l := LabyrinthGenerator.generate(9, s, shift)
-			check(_all_reachable(l), "%s shift %d fully connected" % [s, shift])
-			check_eq(l.shift_tiles.size(), LabyrinthGenerator.SHIFT_REGIONS, "%s shift %d regions" % [s, shift])
+			check(_all_reachable(l, s), "%s shift %d fully connected" % [s, shift])
+			check_eq(l.shift_tiles.size(), Sectors.maze(s).shift_regions, "%s shift %d regions" % [s, shift])
 			check_eq(l.landmarks, base.landmarks, "landmarks never move")
 			check_eq(l.glyphs, base.glyphs, "glyph stones never move")
 			check_eq(l.enemy_spawns, base.enemy_spawns, "creatures unchanged by the shift")

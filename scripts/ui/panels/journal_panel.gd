@@ -181,7 +181,7 @@ func _total() -> int:
 		"glyphs":
 			return Sectors.ORDER.size() * LabyrinthGenerator.GLYPH_COUNT
 		"places":
-			return Sectors.ORDER.size() + LabyrinthGenerator.LANDMARK_TYPES.size()
+			return Sectors.ORDER.size() + LabyrinthGenerator.all_landmark_types().size()
 	return 0
 
 

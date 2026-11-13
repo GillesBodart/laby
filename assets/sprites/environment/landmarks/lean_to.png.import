@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://m13psx5lwa6u"
+path="res://.godot/imported/lean_to.png-d5e665f6ea045d8fdc41cc94de4dc7f7.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/landmarks/lean_to.png"
+dest_files=["res://.godot/imported/lean_to.png-d5e665f6ea045d8fdc41cc94de4dc7f7.res"]
+
+[params]
+
+hd_scale=2

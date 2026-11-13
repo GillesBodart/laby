@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://dx0xowcpkwfwe"
+path="res://.godot/imported/thorn_curtain.png-492917de6f9ad55098b0373bf1d09341.res"
+
+[deps]
+
+source_file="res://assets/sprites/environment/gatherables/thorn_curtain.png"
+dest_files=["res://.godot/imported/thorn_curtain.png-492917de6f9ad55098b0373bf1d09341.res"]
+
+[params]
+
+hd_scale=2

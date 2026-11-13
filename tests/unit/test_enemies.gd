@@ -64,17 +64,18 @@ func test_labyrinth_spawns() -> void:
 
 
 func test_every_sector_keeps_elites_and_ordered_glyphs() -> void:
-	var entry := Vector2i(LabyrinthGenerator.COLS / 2, LabyrinthGenerator.ROWS - 1)
 	for s in Sectors.ORDER:
+		var entry := LabyrinthGenerator.entry_cell(s)
+		var near := ceili(8.0 * LabyrinthGenerator.rows(s) / 14.0)
 		for seed_value in [1, 7, 42]:
 			var l := LabyrinthGenerator.generate(seed_value, s)
 			var elites := l.enemy_spawns.filter(func(e): return EnemyCatalog.def(e.type).elite)
-			check(elites.size() >= 1, "%s seed %d: an elite lairs somewhere" % [s, seed_value])
+			check(elites.size() >= Sectors.maze(s).get("elite_dens", LabyrinthGenerator.ELITE_DENS), "%s seed %d: every elite den is held" % [s, seed_value])
 			var spots := LabyrinthGenerator.glyph_spots(seed_value, s)
 			check_eq(spots.size(), LabyrinthGenerator.GLYPH_COUNT, "%s: four glyph stones" % s)
 			var rows := spots.map(func(g): return g.mc.y)
 			check(rows[0] > rows[3] and rows[1] > rows[3], "%s: the story stone lies deeper than the first ones" % s)
-			check(absi(spots[1].mc.x - entry.x) + absi(spots[1].mc.y - entry.y) <= 8, "%s: the route stone is near the way in" % s)
+			check(absi(spots[1].mc.x - entry.x) + absi(spots[1].mc.y - entry.y) <= near, "%s: the route stone is near the way in" % s)
 			for shift in [1, 3]:
 				for r in LabyrinthGenerator.shift_regions(seed_value, s, shift):
 					check(not spots.any(func(g): return r.has_point(g.mc)), "%s: glyph stones never shift" % s)
@@ -93,6 +94,55 @@ func test_clearing_wildlife_keeps_camp_safe() -> void:
 		if d.temper == "hostile":
 			check(dist >= 24.0, "%s hunts far from the camp" % s.type)
 	check(kinds.size() >= 8, "varied wildlife")
+
+
+## 9x7 room split by a wall at x=4 with a gap at the bottom (y=5).
+func _walled_room() -> ClearingLayout:
+	var layout := ClearingLayout.new(Vector2i(9, 7))
+	for y in 7:
+		for x in 9:
+			layout.set_ground(Vector2i(x, y), TileCatalog.Id.GRASS)
+			if x == 0 or y == 0 or x == 8 or y == 6 or (x == 4 and y < 5):
+				layout.set_wall(Vector2i(x, y), TileCatalog.Id.WALL_TOP)
+	return layout
+
+
+func test_flow_field_leads_around_a_wall() -> void:
+	FlowField.clear_shared()
+	var layout := _walled_room()
+	var target := Vector2i(6, 1)
+	var field := FlowField.shared(layout, target)
+	check_eq(field.distance(target), 0, "target at distance 0")
+	check_eq(field.distance(Vector2i(4, 2)), FlowField.UNREACHED, "wall cells unreached")
+	var cell := Vector2i(2, 1)
+	check(not FlowField.sees(layout, cell, target), "the wall hides the target")
+	var steps := 0
+	var went_through_gap := false
+	while cell != target and steps < 30:
+		var next := field.next_step(cell)
+		check(next != FlowField.NO_STEP, "a step from %s" % cell)
+		if next == FlowField.NO_STEP:
+			break
+		check(not layout.is_wall(next), "never steps into a wall (%s)" % next)
+		went_through_gap = went_through_gap or next.x == 4
+		cell = next
+		steps += 1
+	check_eq(cell, target, "reaches the target")
+	check(went_through_gap, "goes round through the gap")
+	check(FlowField.sees(layout, Vector2i(5, 1), target), "clear line on the same side")
+	check(FlowField.shared(layout, target) == field, "field shared per layout and target")
+	check(FlowField.shared(layout, target, {Vector2i(4, 5): true}) != field, "extra blocked cells get their own field")
+
+
+func test_flow_field_rebuilds_when_walls_move() -> void:
+	FlowField.clear_shared()
+	var layout := _walled_room()
+	var field := FlowField.shared(layout, Vector2i(6, 1))
+	check(field.distance(Vector2i(2, 1)) > 0, "reachable through the gap")
+	layout.set_wall(Vector2i(4, 5), TileCatalog.Id.WALL_TOP)
+	FlowField._sig_time = -FlowField.WALL_POLL_MS # skip the once-per-second wall poll
+	check(FlowField.shared(layout, Vector2i(6, 1)) == field, "same shared field, rebuilt in place")
+	check_eq(field.distance(Vector2i(2, 1)), FlowField.UNREACHED, "sealed off once the gap closes")
 
 
 func test_resources_per_biome() -> void:

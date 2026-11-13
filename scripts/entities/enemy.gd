@@ -19,6 +19,18 @@ const REVEAL_DIST := 52.0
 const LIGHT_WARD := 110.0
 const ELITE_SHARD_CHANCE := 0.35
 const EFFECT_TIME := 4.0
+## A creature notices prey it cannot see only this close (it hears you).
+const SENSE_DIST := 48.0
+## Line of sight is re-checked this often (seconds).
+const SIGHT_EVERY := 0.25
+## Closer than this and in sight, a chaser runs straight at its prey;
+## otherwise it follows the shared FlowField round the walls.
+const DIRECT_DIST := 96.0
+## Patrol waypoints count as reached this close.
+const PATROL_REACH := 12.0
+## A cached flow-field step is trusted this long while the creature stays on
+## its tile (walls shift, gates open and shut).
+const STEP_REFRESH_MS := 500
 const WINDUP := {"melee": 0.28, "ambush": 0.12, "blink": 0.22, "hit_run": 0.08, "charge": 0.55,
 	"pounce": 0.35, "slam": 0.7, "ranged": 0.4, "summon": 0.6}
 
@@ -53,6 +65,19 @@ var _volley_cd := 3.0
 var raider := false
 var camp := Vector2.ZERO
 var _siege: Structure = null
+## Waypoints walked in a loop instead of loitering round home (ring prowlers).
+var patrol: Array[Vector2] = []
+var _patrol_i := 0
+var _sight_query: PhysicsRayQueryParameters2D
+var _sight_t := 0.0
+var _sight_of: Player = null
+var _sees := false
+var _world: ClearingWorld
+## Last flow-field step, reused while neither tile changes (see _path_dir).
+var _step_from := FlowField.NO_STEP
+var _step_goal := FlowField.NO_STEP
+var _step := FlowField.NO_STEP
+var _step_ms := 0
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var collision: CollisionShape2D = $Collision
@@ -112,6 +137,7 @@ func _physics_process(delta: float) -> void:
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_summon_cd = maxf(_summon_cd - delta, 0.0)
 	_timer -= delta
+	_sight_t -= delta
 	_bar = maxf(_bar - delta, 0.0)
 	if _def.regen > 0.0 and hp < max_hp:
 		_regen_acc += _def.regen * delta
@@ -196,10 +222,16 @@ func _wander() -> Vector2:
 			return Vector2.ZERO
 	elif _hostile():
 		var t := _nearest_player(_def.aggro)
-		if t and not _warded(t):
+		if t and not _warded(t) and (_provoked or can_see(t)):
 			_target = t
 			_enter(S.CHASE, 0.0)
 			return Vector2.ZERO
+	if not patrol.is_empty():
+		return _patrol_step()
+	var from_home := global_position.distance_to(_home)
+	if from_home > WANDER_RADIUS * 1.5:
+		# Lost its prey far away: back home round the walls.
+		return _path_dir(_home) * _def.speed * 0.5
 	if _timer <= 0.0:
 		_timer = randf_range(1.5, 4.0)
 		_wander_to = _home + Vector2(randf_range(-1, 1), randf_range(-1, 1)) * WANDER_RADIUS
@@ -217,8 +249,6 @@ func _chase() -> Vector2:
 		if _target and _warded(_target):
 			_target = null
 		if _target == null:
-			if not raider:
-				_home = global_position
 			_enter(S.WANDER, 0.5)
 			return Vector2.ZERO
 	var to := _target.global_position - global_position
@@ -245,7 +275,7 @@ func _chase() -> Vector2:
 			if _def.attack == "summon" and _summon_cd == 0.0 and _alive_summons() < _def.summon_max and dist < _def.range:
 				_windup("summon")
 				return Vector2.ZERO
-			if _cooldown == 0.0 and dist <= _def.range:
+			if _cooldown == 0.0 and dist <= _def.range and can_see(_target):
 				_windup("ranged")
 				return Vector2.ZERO
 			if dist < _def.keep * 0.7:
@@ -269,12 +299,100 @@ func _chase() -> Vector2:
 				if _cooldown == 0.0:
 					_windup("hit_run" if _def.attack == "hit_run" else "melee")
 				return Vector2.ZERO
-	return dir * speed
+	return _chase_dir(to, dist) * speed
 
 
 func _windup(action: String) -> void:
 	_action = action
 	_enter(S.WINDUP, WINDUP.get(action, 0.3))
+
+
+## Whether the creature can see `p`: a ray against the walls (and built
+## structures; trees and rocks do not hide anyone), or `p` is close enough to
+## hear. Cached for SIGHT_EVERY seconds.
+func can_see(p: Player) -> bool:
+	if global_position.distance_to(p.global_position) < SENSE_DIST:
+		return true
+	if p == _sight_of and _sight_t > 0.0:
+		return _sees
+	_sight_of = p
+	_sight_t = SIGHT_EVERY
+	_sees = _ray_clear(global_position + Vector2(0, -6), p.global_position + Vector2(0, -6))
+	return _sees
+
+
+func _ray_clear(from: Vector2, to: Vector2) -> bool:
+	if not is_inside_tree():
+		return true
+	if _sight_query == null:
+		_sight_query = PhysicsRayQueryParameters2D.new()
+		_sight_query.collision_mask = 1
+	_sight_query.from = from
+	_sight_query.to = to
+	_sight_query.exclude = []
+	var space := get_world_2d().direct_space_state
+	for i in 4:
+		var hit := space.intersect_ray(_sight_query)
+		if hit.is_empty():
+			return true
+		if hit.collider is TileMapLayer or hit.collider is Structure:
+			return false
+		var skip := _sight_query.exclude
+		skip.append(hit.rid)
+		_sight_query.exclude = skip
+	return false
+
+
+## Heading towards the prey: straight when close and in sight (or a phantom
+## drifting through walls), else one step down the shared flow field.
+func _chase_dir(to: Vector2, dist: float) -> Vector2:
+	if dist < 0.01:
+		return Vector2.ZERO
+	if _def.phasing or (dist < DIRECT_DIST and can_see(_target)):
+		return to / dist
+	return _path_dir(_target.global_position)
+
+
+## Direction to walk to reach `goal` round the walls of the current area;
+## straight when there is no layout or the goal is out of the field's reach.
+func _path_dir(goal: Vector2) -> Vector2:
+	var straight := (goal - global_position).normalized()
+	if _def.phasing:
+		return straight
+	var world := _clearing_world()
+	if world == null or world.layout == null:
+		return straight
+	var t := TileCatalog.TILE_SIZE
+	var goal_cell := Vector2i((goal / t).floor())
+	var here := Vector2i((global_position / t).floor())
+	if here == goal_cell:
+		return straight
+	# Same tile, same goal: the step found last time still holds (for a while,
+	# as walls and gates move).
+	var now := Time.get_ticks_msec()
+	if here != _step_from or goal_cell != _step_goal or now - _step_ms > STEP_REFRESH_MS:
+		_step_from = here
+		_step_goal = goal_cell
+		_step_ms = now
+		_step = FlowField.shared(world.layout, goal_cell, world.gates.closed_cells()).next_step(here)
+	if _step == FlowField.NO_STEP:
+		return straight
+	return (ClearingWorld.cell_center(_step) - global_position).normalized()
+
+
+## Walks the patrol loop, one waypoint after the other.
+func _patrol_step() -> Vector2:
+	var goal: Vector2 = patrol[_patrol_i % patrol.size()]
+	if global_position.distance_to(goal) < PATROL_REACH:
+		_patrol_i = (_patrol_i + 1) % patrol.size()
+		goal = patrol[_patrol_i]
+	return _path_dir(goal) * _def.speed * 0.55
+
+
+func _clearing_world() -> ClearingWorld:
+	if not is_instance_valid(_world):
+		_world = get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+	return _world
 
 
 func _perform() -> void:

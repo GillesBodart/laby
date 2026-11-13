@@ -47,7 +47,7 @@ func test_labyrinth_is_connected_and_returns_to_clearing() -> void:
 		var reached := _flood(layout, layout.spawn_cell, {})
 		var o := LabyrinthGenerator.cell_origin(Vector2i.ZERO)
 		check(reached.has(o + Vector2i.ONE), "far corner reachable (seed %d)" % seed_value)
-		var far := LabyrinthGenerator.cell_origin(Vector2i(LabyrinthGenerator.COLS - 1, 0))
+		var far := LabyrinthGenerator.cell_origin(Vector2i(LabyrinthGenerator.cols("labyrinth") - 1, 0))
 		check(reached.has(far + Vector2i.ONE), "opposite corner reachable (seed %d)" % seed_value)
 		check(reached.has(layout.portal_rect.position), "portal reachable (seed %d)" % seed_value)
 
@@ -78,11 +78,40 @@ func test_props_on_open_grass() -> void:
 	var trees := 0
 	for prop in layout.props:
 		check(not layout.is_wall(prop.cell), "prop not in wall")
+		if prop.type in ClearingWorld.FIXTURES:
+			continue
 		check(layout.clearing_rect.has_point(prop.cell), "prop inside glade")
 		if prop.type == "tree":
 			trees += 1
 			check(layout.get_ground(prop.cell) != TileCatalog.Id.DIRT, "tree not on path")
 	check(trees >= 20, "enough trees (%d)" % trees)
+
+
+func test_build_plot_is_clear() -> void:
+	for seed_value in [5, 42, 2024]:
+		var layout := ClearingGenerator.generate(seed_value)
+		var plot := ClearingGenerator.build_plot(layout.campfire_cell)
+		for prop in layout.props:
+			check(not plot.has_point(prop.cell), "no %s in the build plot at %s (seed %d)" % [prop.type, prop.cell, seed_value])
+		for y in range(plot.position.y, plot.end.y):
+			for x in range(plot.position.x, plot.end.x):
+				check(layout.is_walkable(Vector2i(x, y)), "plot cell %d,%d open (seed %d)" % [x, y, seed_value])
+
+
+func test_gate_fixtures() -> void:
+	var layout := ClearingGenerator.generate(9)
+	var gate_x: int = layout.gates[0].cells[1].x
+	var by_type := {}
+	for prop in layout.props:
+		if prop.type in ClearingWorld.FIXTURES:
+			by_type[prop.type] = by_type.get(prop.type, []) + [prop.cell]
+	check_eq(by_type.get("brazier", []).size(), 2, "two braziers")
+	for cell in by_type.get("brazier", []):
+		check(layout.clearing_rect.has_point(cell) and absi(cell.x - gate_x) == ClearingGenerator.BRAZIER_SPREAD, "brazier beside the gate at %s" % cell)
+		check(layout.is_walkable(cell), "brazier on open ground")
+	check_eq(by_type.get("lean_to", []).size(), 1, "one lean-to")
+	var lean: Vector2i = by_type.lean_to[0]
+	check(ClearingGenerator.is_ring_cell(lean) and layout.is_walkable(lean), "lean-to in the open ring at %s" % lean)
 
 
 func test_wall_faces_only_above_open_cells() -> void:
@@ -172,7 +201,7 @@ func test_pond_art_is_never_clipped() -> void:
 func test_labyrinth_chambers_open_and_dead_ends_rewarded() -> void:
 	var layout := LabyrinthGenerator.generate(9)
 	var rooms := LabyrinthGenerator.chambers(9, "labyrinth")
-	check_eq(rooms.size(), LabyrinthGenerator.CHAMBERS, "chamber count")
+	check_eq(rooms.size(), Sectors.maze("labyrinth").chambers, "chamber count")
 	for r: Rect2i in rooms:
 		var tiles := LabyrinthGenerator.region_tiles(r)
 		var open := true
@@ -190,6 +219,116 @@ func test_labyrinth_chambers_open_and_dead_ends_rewarded() -> void:
 			var back: Vector2i = p.cell + (off - Vector2i.ONE)
 			check(layout.is_wall(back), "cache %s backs onto a wall" % p.cell)
 	check(caches >= 5, "dead ends hold caches (%d)" % caches)
+
+
+## Tiles that stop a walker: every prop but thorn curtains (an axe cuts them),
+## plus landmarks, glyph stones and chests. Magma vents are not props.
+func _maze_blockers(layout: ClearingLayout) -> Dictionary:
+	var blocked := {}
+	for p in layout.props:
+		if p.type not in [LabyrinthGenerator.CURTAIN, LabyrinthGenerator.CURTAIN_V]:
+			blocked[p.cell] = true
+	for list in [layout.landmarks, layout.glyphs, layout.chests]:
+		for e in list:
+			blocked[e.cell] = true
+	return blocked
+
+
+func _touches(reached: Dictionary, cell: Vector2i) -> bool:
+	return [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN].any(func(d): return reached.has(cell + d))
+
+
+func _route_tiles(layout: ClearingLayout) -> int:
+	var blocked := _maze_blockers(layout)
+	var dist := {layout.return_cell: 0}
+	var queue: Array[Vector2i] = [layout.return_cell]
+	var head := 0
+	while head < queue.size():
+		var cur := queue[head]
+		head += 1
+		if cur == layout.boss.cell:
+			return dist[cur]
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var n: Vector2i = cur + d
+			if not dist.has(n) and layout.is_walkable(n, blocked):
+				dist[n] = dist[cur] + 1
+				queue.append(n)
+	return -1
+
+
+func test_sector_mazes_stay_fair_through_shifts() -> void:
+	for s in Sectors.ORDER:
+		for seed_value in range(1, 11):
+			for shift in 6:
+				var l := LabyrinthGenerator.generate(seed_value, s, shift)
+				var reached := _flood(l, l.return_cell, _maze_blockers(l))
+				var lost := []
+				for my in LabyrinthGenerator.rows(s):
+					for mx in LabyrinthGenerator.cols(s):
+						var o := LabyrinthGenerator.cell_origin(Vector2i(mx, my))
+						var any := false
+						for t in 9:
+							any = any or reached.has(o + Vector2i(t % 3, t / 3))
+						if not any:
+							lost.append(Vector2i(mx, my))
+				for e in l.chests + l.glyphs:
+					if not _touches(reached, e.cell):
+						lost.append(e.cell)
+				if not reached.has(l.boss.cell):
+					lost.append("arena")
+				check(lost.is_empty(), "%s seed %d shift %d: all reachable %s" % [s, seed_value, shift, lost])
+
+
+func test_sector_maze_sizes_depth_and_glyph_order() -> void:
+	for s in Sectors.ORDER:
+		var m := Sectors.maze(s)
+		for seed_value in [3, 8]:
+			var l := LabyrinthGenerator.generate(seed_value, s)
+			check_eq(l.size, LabyrinthGenerator.map_size(s), "%s map size" % s)
+			check(LabyrinthGenerator.region_tiles(LabyrinthGenerator.arena(s)).has_point(l.boss.cell), "%s boss in its arena" % s)
+			check_eq(LabyrinthGenerator.cols(s), int(m.cols), "%s cols from data" % s)
+			check_eq(LabyrinthGenerator.rows(s), int(m.rows), "%s rows from data" % s)
+			var door := LabyrinthGenerator.door_cell(s)
+			check(is_equal_approx(LabyrinthGenerator.cell_depth(seed_value, s, door), 1.0), "%s: the arena door is the deepest point of the route" % s)
+			var spots := LabyrinthGenerator.glyph_spots(seed_value, s)
+			check(LabyrinthGenerator.cell_depth(seed_value, s, spots[1].mc) < 1.0, "%s: stone 1 is closer than the arena" % s)
+		check(LabyrinthGenerator.map_size(s).x > LabyrinthGenerator.map_size("labyrinth").x or s == "labyrinth", "%s is bigger than the first sector" % s)
+
+
+func test_shifts_lengthen_the_route_on_median() -> void:
+	var changes: Array = []
+	for s in Sectors.ORDER:
+		for seed_value in range(1, 6):
+			var base := _route_tiles(LabyrinthGenerator.generate(seed_value, s, 0))
+			for shift in [1, 2, 3]:
+				changes.append(_route_tiles(LabyrinthGenerator.generate(seed_value, s, shift)) - base)
+	changes.sort()
+	check(changes[changes.size() / 2] >= 0, "median route change after a shift >= 0 (%s)" % [changes])
+
+
+func test_sector_signatures() -> void:
+	var home := LabyrinthGenerator.generate(6, "ice")
+	check_eq(LabyrinthGenerator.cells_home(home, "ice", home.return_cell), 0, "the vestibule is home")
+	var far := LabyrinthGenerator.cells_home(home, "ice", LabyrinthGenerator.cell_origin(LabyrinthGenerator.door_cell("ice")) + Vector2i.ONE)
+	check(far >= LabyrinthGenerator.rows("ice") - 4, "the arena door is a long walk home (%d cells)" % far)
+	check(LabyrinthGenerator.dusk_warning_due(30.0, far) and not LabyrinthGenerator.dusk_warning_due(600.0, far), "warned only when the light runs short")
+	var counts := {}
+	for s in Sectors.ORDER:
+		var l := LabyrinthGenerator.generate(4, s)
+		counts[s] = {
+			"curtains": l.props.filter(func(p): return p.type in [LabyrinthGenerator.CURTAIN, LabyrinthGenerator.CURTAIN_V]).size(),
+			"palms": l.props.filter(func(p): return p.type == "date_palm").size(),
+			"fires": l.props.filter(func(p): return p.type == "campfire").size(),
+			"vents": l.hazards.size(),
+		}
+		for h in l.hazards:
+			check(not l.is_wall(h.rect.position), "%s vent on open ground" % s)
+	check(counts.overgrowth.curtains >= 6 and counts.overgrowth.curtains <= 10, "thorn curtains in the Overgrowth (%d)" % counts.overgrowth.curtains)
+	check(counts.desert.palms >= 2, "oases in the Dunes")
+	check_eq(counts.ice.fires - counts.labyrinth.fires, 3, "warming braziers in the Rime Halls")
+	check(counts.volcano.vents >= 6, "magma vents in the Forge")
+	for s in ["labyrinth", "hell"]:
+		check_eq(counts[s].curtains + counts[s].palms + counts[s].vents, 0, "%s keeps to its walls" % s)
 
 func test_clearing_woods_meadow_and_habitats() -> void:
 	for seed_value in [5, 7]:
