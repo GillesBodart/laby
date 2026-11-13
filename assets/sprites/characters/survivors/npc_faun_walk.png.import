@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bbqt230uv24kx"
+path="res://.godot/imported/npc_faun_walk.png-086b93b1c6f06e1056b299bad0fc06b9.res"
+
+[deps]
+
+source_file="res://assets/sprites/characters/survivors/npc_faun_walk.png"
+dest_files=["res://.godot/imported/npc_faun_walk.png-086b93b1c6f06e1056b299bad0fc06b9.res"]
+
+[params]
+
+hd_scale=2

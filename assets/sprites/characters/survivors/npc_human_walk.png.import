@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://u8bf168s44me"
+path="res://.godot/imported/npc_human_walk.png-347b847eed31c4131219f40470d6c9bd.res"
+
+[deps]
+
+source_file="res://assets/sprites/characters/survivors/npc_human_walk.png"
+dest_files=["res://.godot/imported/npc_human_walk.png-347b847eed31c4131219f40470d6c9bd.res"]
+
+[params]
+
+hd_scale=2

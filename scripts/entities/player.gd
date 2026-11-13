@@ -13,11 +13,11 @@ const SHEET := preload("res://assets/sprites/characters/player.png")
 const FRAME_SIZE := Vector2i(48, 48)
 const ANIMATIONS := {
 	"idle_down": {"row": 0, "frames": [0], "fps": 1.0},
-	"walk_down": {"row": 0, "frames": [1, 0, 2, 0], "fps": 8.0},
+	"walk_down": {"row": 0, "frames": [1, 2, 3, 4], "fps": 9.0},
 	"idle_up": {"row": 1, "frames": [0], "fps": 1.0},
-	"walk_up": {"row": 1, "frames": [1, 0, 2, 0], "fps": 8.0},
+	"walk_up": {"row": 1, "frames": [1, 2, 3, 4], "fps": 9.0},
 	"idle_side": {"row": 2, "frames": [0], "fps": 1.0},
-	"walk_side": {"row": 2, "frames": [1, 0, 2, 0], "fps": 8.0},
+	"walk_side": {"row": 2, "frames": [1, 2, 3, 4], "fps": 9.0},
 }
 
 ## Body sprite rest position (feet on the node origin).
@@ -67,6 +67,7 @@ var _dodge_time := 0.0
 var _dodge_cd := 0.0
 var _dodge_dir := Vector2.DOWN
 var _torch_hand: Node2D
+var _gait: Gait
 var _room_check := 0.0
 ## First cell of the room the player stands in (to announce entering it).
 var _room_key = null
@@ -99,6 +100,11 @@ func _ready() -> void:
 	_torch_hand = Node2D.new()
 	_torch_hand.draw.connect(_draw_torch)
 	add_child(_torch_hand)
+	# The sheet's own bob does the stepping; the rig adds sway, squash and breath.
+	_gait = Gait.attach(self, [sprite, _torch_hand])
+	_gait.hop = 0.8
+	_gait.sway_deg = 2.5
+	_gait.squash = 0.035
 	if input.is_local():
 		add_child(Builder.new())
 
@@ -828,6 +834,9 @@ func _update_visuals() -> void:
 	if sprite.animation != anim:
 		sprite.play(anim)
 	sprite.speed_scale = 1.5 if input.run and survival.can_run() else 1.0
+	var walking := anim.begins_with("walk_")
+	var phase := fposmod((sprite.frame + sprite.frame_progress - 0.5) * 0.5, 2.0) if walking else -1.0
+	_gait.advance(get_physics_process_delta_time(), velocity.length() if walking else 0.0, phase)
 	var dark := LightingCurve.darkness_at(TimeSystem.minute_of_day())
 	if holds_light():
 		light.energy = 1.15 * dark * randf_range(0.92, 1.0)
@@ -892,7 +901,6 @@ func _build_tool_sprite() -> void:
 	# Item icons hold their grip near the bottom-left corner.
 	_tool_sprite.offset = Vector2(-7, -25)
 	_tool_sprite.scale = Vector2(0.8, 0.8)
-	_tool_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_tool_arm.add_child(_tool_sprite)
 	_tool_pivot.visible = false
 

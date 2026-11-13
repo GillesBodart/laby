@@ -43,6 +43,7 @@ var _action := ""
 var _guard := Vector2.DOWN
 var _bar := 0.0
 var _sprite_y := -14.0
+var _gait: Gait
 var _flee_from := Vector2.ZERO
 var _summons: Array = []
 var _regen_acc := 0.0
@@ -75,6 +76,8 @@ func _ready() -> void:
 	var tex_size := sprite.texture.get_size()
 	_sprite_y = 2.0 - tex_size.y / 2.0
 	sprite.position.y = _sprite_y
+	_gait = Gait.attach(self, [sprite])
+	_gait.fit(tex_size, bool(_def.phasing))
 	var shadow := get_node_or_null("Shadow") as Sprite2D
 	if shadow:
 		shadow.scale = Vector2.ONE * clampf(tex_size.x / 26.0, 0.5, 1.8)
@@ -612,10 +615,8 @@ func _update_look(desired: Vector2) -> void:
 	elif _def.phasing:
 		mod.a = 0.75
 	sprite.modulate = mod
-	var bob := 0.0
-	if velocity.length() > 5.0 and _state != S.ACTION:
-		bob = -absf(sin(Time.get_ticks_msec() * 0.012)) * 1.5
-	sprite.position.y = _sprite_y + round(bob)
+	var dt := get_physics_process_delta_time()
+	_gait.advance(dt, 0.0 if _state == S.ACTION or _state == S.HIDDEN else velocity.length())
 
 
 func _draw() -> void:

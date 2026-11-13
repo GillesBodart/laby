@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bqnowhgrla25c"
+path="res://.godot/imported/npc_tengu_walk.png-8daf77da2ab2cdb7b98f9c0cb59ef84f.res"
+
+[deps]
+
+source_file="res://assets/sprites/characters/survivors/npc_tengu_walk.png"
+dest_files=["res://.godot/imported/npc_tengu_walk.png-8daf77da2ab2cdb7b98f9c0cb59ef84f.res"]
+
+[params]
+
+hd_scale=2

@@ -688,10 +688,12 @@ func _recipe_text(rec: Dictionary, player: Player) -> String:
 
 func _draw_card(id: String, extra: String) -> void:
 	_box(CARD, CREAM, BROWN, 2)
-	var ly := CARD.position.y + 44
+	# Ruled lines sit just under each text baseline of the body.
+	var line_h := _font.get_height(10)
+	var ly := CARD.position.y + 36 + _font.get_ascent(10) + 2
 	while ly < CARD.end.y - 6:
 		draw_rect(Rect2(CARD.position.x + 6, ly, CARD.size.x - 12, 1), TAN)
-		ly += 12
+		ly += line_h
 	if id == "":
 		draw_multiline_string(_font, CARD.position + Vector2(8, 22), "Hover an item\nfor details.", HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, FADED)
 		return
@@ -705,4 +707,13 @@ func _draw_card(id: String, extra: String) -> void:
 	var body := ItemCatalog.description(id)
 	if extra != "":
 		body += "\n" + extra
-	draw_multiline_string(_font, CARD.position + Vector2(8, 44), body, HORIZONTAL_ALIGNMENT_LEFT, CARD.size.x - 16, 10, -1, TEXT_DARK)
+	var para := TextParagraph.new()
+	para.add_string(body, _font, 10)
+	para.width = CARD.size.x - 16
+	para.break_flags = TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND
+	var top := CARD.position.y + 36
+	for i in para.get_line_count():
+		var y := top + i * line_h
+		if y + line_h > CARD.end.y - 4:
+			break
+		para.draw_line(get_canvas_item(), Vector2(CARD.position.x + 8, y), i, TEXT_DARK)

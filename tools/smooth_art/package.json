@@ -1,0 +1,13 @@
+{
+  "name": "laby-smooth-art",
+  "private": true,
+  "type": "module",
+  "description": "Turns the generated low-resolution art into smooth 2x HD art (xBR 4x, then 2x2 downsample).",
+  "scripts": {
+    "smooth": "node smooth_art.mjs"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0",
+    "xbr-js": "^2.0.1"
+  }
+}

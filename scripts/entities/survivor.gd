@@ -16,7 +16,7 @@ var home := Vector2.ZERO
 var _target := Vector2.ZERO
 var _wait := 0.0
 var _sprite := Sprite2D.new()
-var _bob := 0.0
+var _gait: Gait
 var _foe: Node2D = null
 var _strike := 0.0
 
@@ -48,14 +48,23 @@ func _ready() -> void:
 	col.shape = shape
 	col.position = Vector2(0, -4)
 	add_child(col)
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var shadow := Sprite2D.new()
 	shadow.texture = load("res://assets/sprites/effects/shadow.png")
 	shadow.position = Vector2(0, -2)
 	add_child(shadow)
-	_sprite.texture = load("res://assets/sprites/characters/survivors/%s.png" % cast().sprite)
+	# Walk strip: idle pose then contact/passing/contact/passing.
+	var walk := "res://assets/sprites/characters/survivors/%s_walk.png" % cast().sprite
+	if ResourceLoader.exists(walk):
+		_sprite.texture = load(walk)
+		_sprite.hframes = 5
+	else:
+		_sprite.texture = load("res://assets/sprites/characters/survivors/%s.png" % cast().sprite)
 	_sprite.offset = Vector2(0, -_sprite.texture.get_height() / 2.0 + 2)
 	add_child(_sprite)
+	_gait = Gait.attach(self, [_sprite])
+	_gait.hop = 0.8
+	_gait.sway_deg = 2.5
+	_gait.squash = 0.035
 	position = home + Vector2(randf_range(-20, 20), randf_range(-12, 12))
 	_target = position
 
@@ -74,8 +83,14 @@ func _physics_process(delta: float) -> void:
 		velocity = to.normalized() * SPEED
 		_sprite.flip_h = to.x < 0
 	move_and_slide()
-	_bob += delta * (8.0 if velocity.length() > 1.0 else 0.0)
-	_sprite.position.y = -absf(sin(_bob)) * 1.5
+	_animate(delta)
+
+
+func _animate(delta: float) -> void:
+	_gait.advance(delta, velocity.length())
+	if _sprite.hframes > 1:
+		var moving := velocity.length() > 4.0
+		_sprite.frame = 1 + int(fposmod(_gait.steps * 2.0 + 0.5, 4.0)) if moving else 0
 
 
 ## Guard duty: chase the nearest raider near the camp and strike it.
@@ -101,8 +116,7 @@ func _defend(delta: float) -> bool:
 			_strike = GUARD_RATE
 			_foe.take_damage(GUARD_DAMAGE, self)
 	move_and_slide()
-	_bob += delta * 10.0
-	_sprite.position.y = -absf(sin(_bob)) * 1.5
+	_animate(delta)
 	return true
 
 

@@ -40,7 +40,6 @@ func _ready() -> void:
 	add_to_group("ui_panels")
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	position = Vector2.ZERO
 	size = SIZE
 	_font = ThemeDB.get_project_theme().default_font
@@ -132,10 +131,14 @@ func _rebuild() -> void:
 				_image.set_pixel(x, y, c.lerp(FOG, 0.45))
 			else:
 				_image.set_pixel(x, y, _cell_color(world, cell, props))
-	if _texture == null or _texture.get_size() != Vector2(layout.size):
-		_texture = ImageTexture.create_from_image(_image)
+	# Blown up with hard cell edges, so the panel's smooth filtering only
+	# softens the outline of each cell instead of blurring the whole maze.
+	var shown := _image.duplicate() as Image
+	shown.resize(layout.size.x * 4, layout.size.y * 4, Image.INTERPOLATE_NEAREST)
+	if _texture == null or _texture.get_size() != Vector2(shown.get_size()):
+		_texture = ImageTexture.create_from_image(shown)
 	else:
-		_texture.update(_image)
+		_texture.update(shown)
 
 
 func _cell_color(world: World, cell: Vector2i, props: Dictionary) -> Color:

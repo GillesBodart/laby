@@ -6,3 +6,6 @@
 # IDE
 .idea/
 __pycache__/
+
+# Node tooling
+node_modules/

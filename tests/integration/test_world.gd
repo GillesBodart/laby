@@ -33,8 +33,16 @@ func test_player_walks_and_is_blocked_by_walls() -> void:
 	check(player != null, "player spawned")
 	var start := player.global_position
 	Input.action_press("move_up")
-	await _frames(30)
+	var poses := {}
+	var heights := {}
+	for i in 30:
+		await _tree().physics_frame
+		poses[player.sprite.frame] = true
+		heights[snappedf(player.sprite.get_parent().position.y, 0.1)] = true
 	check(player.global_position.y < start.y - 10.0, "moved up")
+	check_eq(player.sprite.animation, &"walk_up", "walk animation")
+	check(poses.size() >= 3, "steps through the walk-cycle poses")
+	check(heights.size() >= 3, "the body rises and falls with each step")
 
 	var clearing := ClearingGenerator.CLEARING_RECT
 	player.global_position = ClearingWorld.cell_center(Vector2i(clearing.position.x + 3, clearing.position.y + 1))

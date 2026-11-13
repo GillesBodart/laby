@@ -37,10 +37,14 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 window/stretch/scale_mode="fractional"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/laby_hd_texture/plugin.cfg")
+
 [gui]
 
 theme/custom="res://resources/ui/theme.tres"
-theme/default_font_antialiasing=2
+theme/default_font_antialiasing=1
 theme/default_font_hinting=0
 theme/default_font_subpixel_positioning=1
 
