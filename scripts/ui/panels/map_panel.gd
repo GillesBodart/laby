@@ -158,6 +158,13 @@ func _cell_color(world: World, cell: Vector2i, props: Dictionary) -> Color:
 	return GRASS
 
 
+## Marker colour, with the colour-blind palette for danger / resource.
+static func marker_color(kind: String) -> Color:
+	if kind in ["danger", "resource"]:
+		return Accessibility.color(kind)
+	return MARKER_COLORS.get(kind, Color.WHITE)
+
+
 func _draw() -> void:
 	var world := _world()
 	if world == null or _texture == null:
@@ -194,7 +201,7 @@ func _draw() -> void:
 	for mk in GameState.markers.get(GameState.area, []):
 		var mp := origin + (Vector2(mk.cell[0], mk.cell[1]) + Vector2(0.5, 0.5)) * scale
 		draw_circle(mp, 3.5, INK)
-		draw_circle(mp, 2.5, MARKER_COLORS.get(mk.kind, Color.WHITE))
+		draw_circle(mp, 2.5, marker_color(mk.kind))
 	var blink := int(Time.get_ticks_msec() / 400) % 2 == 0
 	for player in GameState.players.values():
 		var c := world.clearing.walls.local_to_map(world.clearing.walls.to_local(player.global_position))
@@ -205,7 +212,7 @@ func _draw() -> void:
 	if world.fog != null:
 		footer = "Explored %d%%   1-4: %s   click: mark / erase   M: close" % [int(world.fog.explored_fraction() * 100.0), marker_kind]
 		draw_circle(Vector2(456, 260), 4.0, INK)
-		draw_circle(Vector2(456, 260), 3.0, MARKER_COLORS[marker_kind])
+		draw_circle(Vector2(456, 260), 3.0, marker_color(marker_kind))
 	draw_string(_font, Vector2(24, 266), footer, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_LIGHT)
 
 

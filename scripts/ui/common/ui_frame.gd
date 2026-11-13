@@ -46,9 +46,9 @@ static func wear_bar(ci: CanvasItem, pos: Vector2, width: float, id: String, wea
 
 ## Bar colour for a share of durability left.
 static func wear_color(frac: float) -> Color:
-	var good := Color8(96, 200, 88)
-	var mid := Color8(232, 196, 72)
-	var bad := Color8(214, 72, 56)
+	var good := Accessibility.color("good")
+	var mid := Accessibility.color("warn")
+	var bad := Accessibility.color("bad")
 	return mid.lerp(good, (frac - 0.5) * 2.0) if frac >= 0.5 else bad.lerp(mid, frac * 2.0)
 
 

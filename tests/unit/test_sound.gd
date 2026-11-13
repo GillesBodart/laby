@@ -51,3 +51,32 @@ func test_volume_persists_and_mutes() -> void:
 	Sound.settings_path = saved_path
 	for ch in saved:
 		Sound.set_volume(ch, saved[ch])
+
+func test_accessibility_persists_and_keeps_audio() -> void:
+	var saved_path := Accessibility.settings_path
+	var sound_path := Sound.settings_path
+	var saved := [Accessibility.text_size, Accessibility.colorblind]
+	Accessibility.settings_path = TEST_PATH
+	Sound.settings_path = TEST_PATH
+	Sound.save_volumes()
+	Accessibility.set_text_size(2)
+	Accessibility.set_colorblind(true)
+	check_eq(Accessibility.text_scale(), 1.5, "huge text")
+	check(Accessibility.color("danger") != Accessibility.PALETTE.danger[0], "colour-blind danger hue")
+	check(Accessibility.color("resource").b > Accessibility.color("resource").g * 0.9, "resources turn blue")
+	Accessibility.set_text_size(3)
+	check_eq(Accessibility.text_size, 0, "text size cycles back to normal")
+	Accessibility.set_text_size(1)
+	Accessibility.text_size = 0
+	Accessibility.colorblind = false
+	Accessibility.load_settings()
+	check_eq(Accessibility.text_size, 1, "text size reloaded")
+	check(Accessibility.colorblind, "palette reloaded")
+	var cfg := ConfigFile.new()
+	cfg.load(TEST_PATH)
+	check(cfg.has_section("audio"), "the audio section survives")
+	DirAccess.remove_absolute(TEST_PATH)
+	Sound.settings_path = sound_path
+	Accessibility.settings_path = saved_path
+	Accessibility.text_size = saved[0]
+	Accessibility.colorblind = saved[1]

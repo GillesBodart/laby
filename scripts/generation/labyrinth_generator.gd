@@ -48,6 +48,11 @@ const CACHE_CHANCE := 0.6
 const CACHE_MIN_DIST := 4
 const CACHE_RARE_DEPTH := 0.2
 const CACHE_SALT := 60013
+## Treasure chests (one blueprint each, see Blueprints): at the back of far
+## dead ends, never moving, opened once.
+const CHEST_COUNT := 4
+const CHEST_MIN_DIST := 7
+const CHEST_SALT := 77017
 
 const Id := TileCatalog.Id
 
@@ -144,6 +149,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 	for g in glyph_spots(seed_value, _sector):
 		_layout.glyphs.append({"glyph": g.glyph, "cell": cell_origin(g.mc) + Vector2i(1, 1)})
 		_landmark_cells[g.mc] = true
+	_place_chests(entry, dead_ends)
 	_place_enemies(entry)
 	_place_resources(entry)
 	_place_caches(entry, dead_ends)
@@ -205,6 +211,23 @@ func _is_linked(c: Vector2i, d: Vector2i) -> bool:
 	var gap := o + Vector2i(OPEN, 0) if d == Vector2i.RIGHT else o + Vector2i(-1, 0) if d == Vector2i.LEFT \
 		else o + Vector2i(0, OPEN) if d == Vector2i.DOWN else o + Vector2i(0, -1)
 	return not _solid.has(gap)
+
+
+## Treasure chests in the middle of far dead ends (unshifted maze, so they never
+## move), spread apart. Their cells hold no creature nor ordinary deposit.
+func _place_chests(entry: Vector2i, dead_ends: Array) -> void:
+	var rng := _sector_rng(_seed, _sector, CHEST_SALT)
+	var spots: Array = dead_ends.filter(func(de): return not _landmark_cells.has(de.mc) \
+		and absi(de.mc.x - entry.x) + absi(de.mc.y - entry.y) >= CHEST_MIN_DIST)
+	var picked: Array[Vector2i] = []
+	while picked.size() < CHEST_COUNT and not spots.is_empty():
+		var mc: Vector2i = spots.pop_at(rng.randi_range(0, spots.size() - 1)).mc
+		if picked.any(func(p): return absi(p.x - mc.x) + absi(p.y - mc.y) < 4):
+			continue
+		picked.append(mc)
+	for i in picked.size():
+		_landmark_cells[picked[i]] = true
+		_layout.chests.append({"id": "%s_chest_%d" % [_sector, i], "cell": cell_origin(picked[i]) + Vector2i(1, 1)})
 
 
 ## A rare deposit at the back wall of most dead ends (the middle tile opposite

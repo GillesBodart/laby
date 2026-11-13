@@ -4,7 +4,8 @@ extends PanelContainer
 ## recipe book (click a recipe to craft, wheel to scroll). Backpack items can be
 ## dragged to reorder (or onto DROP), right-clicked to drop one, Del to drop the stack.
 ## Opened with I the book
-## holds hand recipes; E on a station (workbench, anvil...) opens that station's book.
+## holds hand recipes; E on a station (workbench, anvil...) opens that station's book,
+## with a third side tab for the handcraft book.
 
 const SIZE := Vector2(480, 270)
 const COLS := 5
@@ -58,6 +59,10 @@ var _drag_start := Vector2.ZERO
 var _dragging := false
 ## Station whose recipe book is shown ("" = handcraft).
 var station := ""
+## Station the panel was opened at ("" = opened with I). While set, the side bar
+## holds both its book and the handcraft book, so planks and sticks can be made
+## without leaving the station.
+var opened_at := ""
 
 
 func _ready() -> void:
@@ -102,6 +107,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		visible = not visible
 		if visible:
 			station = ""
+			opened_at = ""
 			_scroll = 0
 			_cat = ""
 		get_viewport().set_input_as_handled()
@@ -111,7 +117,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode == KEY_ESCAPE:
 			visible = false
 		elif event.physical_keycode == KEY_TAB:
-			tab = (tab + 1) % TABS.size()
+			select_tab((_active_tab() + 1) % _books().size())
 		elif event.physical_keycode == KEY_DOWN and tab == 1:
 			_scroll_by(1)
 		elif event.physical_keycode == KEY_UP and tab == 1:
@@ -130,9 +136,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_scroll_by(1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var m := get_local_mouse_position()
-		for i in TABS.size():
+		for i in _books().size():
 			if _tab_rect(i).has_point(m):
-				tab = i
+				select_tab(i)
 				return
 		if tab == 1 and _hover_chip > -2:
 			_cat = "" if _hover_chip < 0 else _categories()[_hover_chip]
@@ -192,10 +198,34 @@ func _on_station_used(group: String) -> void:
 		if p != self:
 			p.visible = false
 	station = group
+	opened_at = group
 	tab = 1
 	_scroll = 0
 	_cat = ""
 	visible = true
+
+
+## Side tabs: null for the backpack, then the recipe books on offer (station ids,
+## "" = handcraft): the station's book and the handcraft one when opened at a station.
+func _books() -> Array:
+	return [null, opened_at, ""] if opened_at != "" else [null, ""]
+
+
+func _active_tab() -> int:
+	return 0 if tab == 0 else maxi(_books().find(station), 1)
+
+
+## Shows side tab i: the backpack or one of the recipe books.
+func select_tab(i: int) -> void:
+	var book = _books()[i]
+	if book == null:
+		tab = 0
+		return
+	tab = 1
+	if book != station:
+		station = book
+		_scroll = 0
+		_cat = ""
 
 
 ## Grid cells of the book for the current station and filter: recipe indices, with
@@ -205,7 +235,7 @@ func _book() -> Array:
 	var last := ""
 	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
-		if not ItemCatalog.recipe_known(i, known):
+		if not ItemCatalog.recipe_known(i, known, GameState.blueprints):
 			continue
 		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
 		if _cat != "" and cat != _cat:
@@ -223,7 +253,7 @@ func _categories() -> Array:
 	var out := []
 	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
-		if not ItemCatalog.recipe_known(i, known):
+		if not ItemCatalog.recipe_known(i, known, GameState.blueprints):
 			continue
 		var cat := ItemCatalog.category_of(ItemCatalog.RECIPES[i].id)
 		if cat not in out:
@@ -235,7 +265,7 @@ func _categories() -> Array:
 func _category_icon(cat: String) -> String:
 	var known := _known()
 	for i in ItemCatalog.recipes_at(station):
-		if ItemCatalog.recipe_known(i, known) and ItemCatalog.category_of(ItemCatalog.RECIPES[i].id) == cat:
+		if ItemCatalog.recipe_known(i, known, GameState.blueprints) and ItemCatalog.category_of(ItemCatalog.RECIPES[i].id) == cat:
 			return ItemCatalog.RECIPES[i].id
 	return ""
 
@@ -263,7 +293,7 @@ func craft(index: int) -> bool:
 	if player == null:
 		return false
 	var recipe: Dictionary = ItemCatalog.RECIPES[index]
-	var ok := Crafting.craft(player.inventory, recipe, player.nearby_stations())
+	var ok := Crafting.craft(player.inventory, recipe, player.nearby_stations(), player.crafting_store())
 	var item := ItemCatalog.item_name(recipe.id)
 	EventBus.notify.emit(("Crafted %s" % item) if ok else ("Cannot craft %s" % item))
 	if ok:
@@ -436,16 +466,19 @@ func _draw() -> void:
 	_text_center(title.get_center().x, 26, TABS[tab] if tab == 0 else String(ItemCatalog.STATIONS[station]).to_upper(), TEXT_DARK)
 
 	# Side tabs.
-	for i in TABS.size():
+	var books := _books()
+	for i in books.size():
 		var r := _tab_rect(i)
-		_box(r, CREAM if tab == i else TAN, GOLD if tab == i else BROWN, 3)
+		var on := i == _active_tab()
+		_box(r, CREAM if on else TAN, GOLD if on else BROWN, 3)
+		var c := r.get_center()
 		if i == 0:
-			var c := r.get_center()
 			draw_rect(Rect2(c + Vector2(-6, -3), Vector2(12, 9)), BROWN)
 			draw_rect(Rect2(c + Vector2(-3, -6), Vector2(6, 3)), BROWN)
 			draw_rect(Rect2(c + Vector2(-6, 0), Vector2(12, 1)), CREAM)
+		elif books[i] != "" and ItemCatalog.ITEMS.has(books[i]):
+			_icon(c, books[i], 8)
 		else:
-			var c := r.get_center()
 			draw_line(c + Vector2(-5, 5), c + Vector2(4, -4), BROWN, 2.0)
 			draw_rect(Rect2(c + Vector2(0, -7), Vector2(7, 4)), BROWN)
 
@@ -575,13 +608,14 @@ func _draw_doll(player: Player) -> String:
 func _draw_crafting(player: Player) -> String:
 	var inv := player.inventory
 	var stations := player.nearby_stations()
+	var store := player.crafting_store()
 	var book := _book()
 	for pos in _visible_recipes():
 		var i: int = book[pos]
 		if i < 0:
 			continue
 		var rec: Dictionary = ItemCatalog.RECIPES[i]
-		var ok := Crafting.can_craft(inv, rec, stations)
+		var ok := Crafting.can_craft(inv, rec, stations, store)
 		var r := _recipe_rect(pos)
 		_box(r, CREAM if ok else TAN, GOLD if i == _hover else BROWN, 3)
 		_icon(r.get_center() + Vector2(0, -1), rec.id, 7)
@@ -595,7 +629,7 @@ func _draw_crafting(player: Player) -> String:
 	_draw_chips()
 	var locked := 0
 	for i in ItemCatalog.recipes_at(station):
-		if not ItemCatalog.recipe_known(i, player.inventory.known):
+		if not ItemCatalog.recipe_known(i, player.inventory.known, GameState.blueprints):
 			locked += 1
 	if book.is_empty():
 		var msg := "No recipes yet: gather new materials to discover some."
@@ -641,9 +675,14 @@ func _draw_chips() -> void:
 ## Ingredient lines (have/need) plus the required station.
 func _recipe_text(rec: Dictionary, player: Player) -> String:
 	var lines := PackedStringArray()
+	var store := player.crafting_store()
 	for k in rec["in"]:
-		lines.append("%s %d/%d" % [ItemCatalog.item_name(k), player.inventory.count(k), rec["in"][k]])
+		lines.append("%s %d/%d" % [ItemCatalog.item_name(k), Crafting.available(player.inventory, k, store), rec["in"][k]])
 	lines.append("At %s" % ItemCatalog.STATIONS[rec.station] if rec.station != "" else "By hand")
+	if store != null:
+		lines.append("Room chest counts")
+	if Blueprints.gates(rec.id):
+		lines.append("Blueprint from a maze chest")
 	return "\n".join(lines)
 
 

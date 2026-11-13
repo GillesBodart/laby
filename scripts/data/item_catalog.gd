@@ -309,7 +309,7 @@ const ITEMS := {
 	"alchemy_table": {"name": "Alchemy Table", "stack": 5, "color": Color8(120, 90, 140), "desc": "Place with B, E to use. Potions, gunpowder, glue and dye."},	"chest": {"name": "Chest", "stack": 5, "color": Color8(150, 104, 60), "desc": "Place with B, E (or G) to open. The Stash is shared and kept on death."},
 	"wooden_wall": {"name": "Wooden Wall", "stack": 40, "color": Color8(150, 106, 64), "desc": "Place with B. Blocks the way."},
 	"wooden_floor": {"name": "Wooden Floor", "stack": 40, "color": Color8(190, 146, 92), "desc": "Place with B. Walkable."},
-	"wooden_door": {"name": "Wooden Door", "stack": 10, "color": Color8(130, 92, 58), "desc": "Place with B. F opens/closes."},
+	"wooden_door": {"name": "Wooden Door", "stack": 10, "color": Color8(130, 92, 58), "desc": "Place with B. E opens/closes."},
 	"stone_wall": {"name": "Stone Wall", "stack": 40, "color": Color8(130, 138, 132), "desc": "Place with B. Sturdy defense."},
 	"stone_floor": {"name": "Stone Floor", "stack": 40, "color": Color8(150, 154, 148), "desc": "Place with B. Walkable."},
 	"brick_wall": {"name": "Brick Wall", "stack": 40, "color": Color8(184, 82, 60), "desc": "Place with B. Warm red masonry."},
@@ -691,25 +691,41 @@ static func recipes_at(station: String) -> Array:
 	return out
 
 
-## A recipe shows up in its book once any of its ingredients has been discovered.
-static func recipe_known(index: int, known: Dictionary) -> bool:
-	for id in RECIPES[index]["in"]:
-		if known.has(id):
-			return true
-	return false
+## Staple ingredients: so common they reveal nothing on their own (a stick must
+## not unveil every tool in the game).
+const STAPLES := ["wood", "stick", "plank", "stone", "fiber", "rope", "leather", "coal", "glass_vial"]
 
 
-## Recipes that the discovery of `id` reveals (none of their other ingredients known yet).
-static func recipes_revealed_by(id: String, known: Dictionary) -> Array:
+## A recipe shows up in its book once every special (non-staple) ingredient has
+## been discovered; a recipe of staples only needs all of them. Blueprint
+## recipes (see Blueprints) also need their blueprint in `blueprints`.
+static func recipe_known(index: int, known: Dictionary, blueprints: Dictionary = {}) -> bool:
+	var rec: Dictionary = RECIPES[index]
+	if Blueprints.gates(rec.id) and not blueprints.has(rec.id):
+		return false
+	var special := false
+	for id in rec["in"]:
+		if id not in STAPLES:
+			special = true
+			if not known.has(id):
+				return false
+	if special:
+		return true
+	for id in rec["in"]:
+		if not known.has(id):
+			return false
+	return true
+
+
+## Recipes that the discovery of `id` reveals (hidden without it, shown with it).
+static func recipes_revealed_by(id: String, known: Dictionary, blueprints: Dictionary = {}) -> Array:
+	var without := known.duplicate()
+	without.erase(id)
+	var now := known.duplicate()
+	now[id] = true
 	var out := []
 	for i in RECIPES.size():
-		if not RECIPES[i]["in"].has(id):
-			continue
-		var before := false
-		for other in RECIPES[i]["in"]:
-			if other != id and known.has(other):
-				before = true
-		if not before:
+		if RECIPES[i]["in"].has(id) and recipe_known(i, now, blueprints) and not recipe_known(i, without, blueprints):
 			out.append(i)
 	return out
 

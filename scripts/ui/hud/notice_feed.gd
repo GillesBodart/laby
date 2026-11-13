@@ -53,6 +53,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	Accessibility.scale_about(self, SIZE)
 	var y := BOTTOM
 	for i in range(_rows.size() - 1, -1, -1):
 		var r: Dictionary = _rows[i]

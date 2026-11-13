@@ -60,6 +60,7 @@ func _draw() -> void:
 	var inner := WIDTH - PAD * 2.0
 	var hint_h := _font.get_multiline_string_size(goal.hint, HORIZONTAL_ALIGNMENT_LEFT, inner, FONT).y
 	var r := Rect2(RIGHT - WIDTH, TOP, WIDTH, PAD * 2.0 + LINE * 2.0 + hint_h + 2.0)
+	Accessibility.scale_about(self, Vector2(960, 0))
 	UiFrame.panel(self, r)
 	var x := r.position.x + PAD
 	var y := r.position.y + PAD + 12.0

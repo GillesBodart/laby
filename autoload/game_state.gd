@@ -68,6 +68,10 @@ var survivors: Array = []
 var settlement_tier := 0
 ## Goals of the HUD chain already met (Objectives id -> true).
 var goals: Dictionary = {}
+## Blueprints the camp has found (recipe output id -> true), see Blueprints.
+var blueprints: Dictionary = {}
+## Labyrinth treasure chests already opened (chest id -> true).
+var opened_chests: Dictionary = {}
 ## Run rules picked at New game. Permadeath: a fallen player ends the run and
 ## its saves are erased; companion_permadeath: a downed companion is gone.
 var permadeath := false
@@ -119,6 +123,8 @@ func new_game(seed_value: int = 0, rules: Dictionary = {}) -> void:
 	survivors = [{"cast": 0, "role": Settlement.CAST[0].role}]
 	settlement_tier = 0
 	goals = {}
+	blueprints = {}
+	opened_chests = {}
 
 
 ## Progress data that lives outside the scene tree (saved by SaveSystem).
@@ -127,6 +133,7 @@ func meta_to_data() -> Dictionary:
 		"bosses": bosses_defeated.keys(), "escaped": escaped, "companions": companions.duplicate(true),
 		"journal": journal.duplicate(true), "markers": markers.duplicate(true),
 		"survivors": survivors.duplicate(true), "settlement_tier": settlement_tier, "goals": goals.keys(),
+		"blueprints": blueprints.keys(), "opened_chests": opened_chests.keys(),
 		"permadeath": permadeath, "companion_permadeath": companion_permadeath, "run_id": run_id}
 
 
@@ -158,6 +165,8 @@ func meta_from_data(data: Dictionary) -> void:
 			survivors.append({"cast": ci, "role": String(s.role)})
 	settlement_tier = int(data.get("settlement_tier", 0))
 	goals = _set_of(data.get("goals", []))
+	blueprints = _set_of(data.get("blueprints", []))
+	opened_chests = _set_of(data.get("opened_chests", []))
 	permadeath = bool(data.get("permadeath", false))
 	companion_permadeath = bool(data.get("companion_permadeath", false))
 	run_id = int(data.get("run_id", 0))

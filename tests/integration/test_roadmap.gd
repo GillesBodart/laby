@@ -477,6 +477,35 @@ func test_live_shift_moves_walls_and_glyphs_need_insight() -> void:
 	var statue: Landmark = _tree().get_nodes_in_group("landmarks").filter(func(l): return l.kind == "landmark")[0]
 	statue.interact(player)
 	check(GameState.in_journal("places", statue.id), "landmark logged")
+	var chests := _tree().get_nodes_in_group("treasure_chests")
+	check_eq(chests.size(), LabyrinthGenerator.CHEST_COUNT, "treasure chests hide in dead ends")
+	check_eq(world.layout.chests, expected.chests, "chests do not move with the walls")
+	for c in world.layout.chests:
+		check(not world.layout.is_wall(c.cell), "chest stands in a passage")
+		check(not world.layout.shift_tiles.any(func(r): return r.has_point(c.cell)), "chest outside moving regions")
+	var chest: TreasureChest = chests[0]
+	var valuables := func() -> int:
+		var n := 0
+		for e in Blueprints.LOOT.labyrinth:
+			n += player.inventory.count(e[0])
+		return n
+	var had: int = valuables.call()
+	chest.interact(player)
+	check(chest.is_open(), "chest opened")
+	check(valuables.call() > had, "valuables added to the backpack")
+	check_eq(GameState.blueprints.size(), 1, "a blueprint learned")
+	var bp: String = GameState.blueprints.keys()[0]
+	check_eq(Blueprints.sector_of(bp), "labyrinth", "from this sector")
+	var i := ItemCatalog.RECIPES.find_custom(func(r): return r.id == bp)
+	check(ItemCatalog.recipe_known(i, ItemCatalog.ITEMS, GameState.blueprints), "its recipe now shows")
+	check(not ItemCatalog.recipe_known(i, ItemCatalog.ITEMS, {}), "hidden without it")
+	chest.interact(player)
+	check_eq(GameState.blueprints.size(), 1, "an opened chest stays empty")
+	var meta = JSON.parse_string(JSON.stringify(GameState.meta_to_data()))
+	GameState.blueprints = {}
+	GameState.opened_chests = {}
+	GameState.meta_from_data(meta)
+	check(GameState.blueprints.has(bp) and chest.is_open(), "blueprints and opened chests are saved")
 	var path := preload("res://scripts/ui/panels/map_panel.gd").route(world.layout, world.layout.return_cell, world.layout.boss.cell)
 	check(path.size() > 20, "a route to the arena exists after the shift")
 	world.free()
@@ -680,6 +709,15 @@ func test_gamepad_start_pauses_and_b_backs_out() -> void:
 	await _pad(JOY_BUTTON_B)
 	check(not crafting.visible, "B closes an open panel")
 	check(not menu.visible, "without opening the pause menu")
+	EventBus.station_used.emit("workbench")
+	check(crafting.visible and crafting.station == "workbench", "E on a workbench opens its book")
+	crafting.select_tab(2)
+	check_eq(crafting.station, "", "third tab: handcraft book, without leaving the bench")
+	crafting.select_tab(1)
+	check_eq(crafting.station, "workbench", "back to the workbench book")
+	crafting.select_tab(0)
+	check_eq(crafting.tab, 0, "first tab: backpack")
+	crafting.visible = false
 	_tree().paused = false
 	Gamepad.using_pad = false
 	world.free()
@@ -757,9 +795,13 @@ func test_title_menu_starts_loads_and_opens_settings() -> void:
 	menu.activate(2)
 	check(settings.visible and settings.title_mode, "Settings opens the settings menu")
 	check(not _tree().paused, "without pausing the tree")
-	check_eq(settings._rows(), settings.TITLE_MAIN, "only controls and sound")
+	check_eq(settings._rows(), settings.TITLE_MAIN, "only controls, sound and accessibility")
 	settings.activate(1)
 	check_eq(settings.page, "sound", "sound page")
+	settings.back()
+	settings.activate(2)
+	check_eq(settings.page, "access", "accessibility page")
+	check(settings._rows()[0].begins_with("Text size") and settings._rows()[1].begins_with("Colour-blind"), "text size and palette rows")
 	settings.back()
 	settings.back()
 	check(not settings.visible, "Back returns to the title")

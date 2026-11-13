@@ -344,17 +344,33 @@ func current_room() -> Dictionary:
 	return Rooms.find(GameState.structures, cell())
 
 
+## The Stash when a chest stands in the player's room (its items then count
+## for crafting), else null.
+func crafting_store() -> Inventory:
+	return GameState.stash if current_room().get("contents", {}).has("chest") else null
+
+
 ## Why the player cannot sleep in the bed at `bed_cell` ("" if they can).
 func sleep_blocker(bed_cell: Vector2i) -> String:
 	if TimeSystem.phase() != DayClock.Phase.NIGHT:
 		return "You are not tired yet: beds are for the night"
-	if Rooms.find(GameState.structures, bed_cell).is_empty():
+	var room := Rooms.find(GameState.structures, bed_cell)
+	if room.is_empty():
 		return "Too exposed to sleep: close the bed in a room of walls and a door"
 	if not get_tree().get_nodes_in_group("raiders").is_empty():
 		return "Raiders prowl the camp: you cannot sleep now"
+	# Shut in behind closed doors, creatures outside the walls cannot reach you.
+	var inside := {}
+	for c in room.cells:
+		inside[c] = true
+	var safe_inside := inside.has(cell()) and Rooms.sealed(GameState.structures, room)
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if e.has_method("_hostile") and e._hostile() and global_position.distance_to(e.global_position) < SLEEP_SAFE_RANGE:
-			return "You cannot sleep with enemies nearby"
+		if not (e.has_method("_hostile") and e._hostile()) or global_position.distance_to(e.global_position) >= SLEEP_SAFE_RANGE:
+			continue
+		var e_cell := Vector2i(floori(e.global_position.x / TileCatalog.TILE_SIZE), floori(e.global_position.y / TileCatalog.TILE_SIZE))
+		if safe_inside and not inside.has(e_cell):
+			continue
+		return "You cannot sleep with enemies nearby" + ("" if safe_inside else ": shut yourself in behind a closed door")
 	return ""
 
 
@@ -825,7 +841,7 @@ func _update_visuals() -> void:
 
 
 func _on_discovered(id: String) -> void:
-	var revealed := ItemCatalog.recipes_revealed_by(id, inventory.known)
+	var revealed := ItemCatalog.recipes_revealed_by(id, inventory.known, GameState.blueprints)
 	GameState.knowns[peer_id] = inventory.known_to_data()
 	if input.is_local() and not revealed.is_empty():
 		EventBus.notify.emit("%s discovered: %d new recipe%s" % [ItemCatalog.item_name(id), revealed.size(), "" if revealed.size() == 1 else "s"])
@@ -914,6 +930,12 @@ func swing(item_id: String, on_impact := Callable()) -> void:
 		_tool_pivot.position = Vector2(6, -18)
 		_tool_pivot.z_index = -1
 	_tool_arm.rotation_degrees = raise - 15.0
+	# Axe icons carry the blade on the counter-clockwise side of the handle:
+	# mirror them along the handle on clockwise swings so the edge leads.
+	if ItemCatalog.ITEMS.has(item_id) and ItemCatalog.tool_of(item_id) == "axe" and strike > raise:
+		_tool_sprite.transform = Transform2D(Vector2(0, -0.8), Vector2(-0.8, 0), Vector2.ZERO)
+	else:
+		_tool_sprite.transform = Transform2D(0.0, Vector2(0.8, 0.8), 0.0, Vector2.ZERO)
 	_tool_pivot.visible = true
 	sprite.position = SPRITE_OFFSET
 	sprite.scale = Vector2.ONE

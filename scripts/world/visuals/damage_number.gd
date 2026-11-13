@@ -23,6 +23,7 @@ static func pop(parent: Node, at: Vector2, amount: int, color: Color) -> void:
 	fx._color = color
 	fx._drift = randf_range(-8.0, 8.0)
 	fx.z_index = 20
+	fx.scale = Vector2.ONE * Accessibility.text_scale()
 	fx.position = at
 	parent.add_child(fx)
 

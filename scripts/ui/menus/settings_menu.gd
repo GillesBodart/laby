@@ -1,9 +1,10 @@
 extends Control
 ## Pause / settings menu (Esc). Pauses the game and offers Resume, Save and
 ## Load (one of SaveSystem.SLOTS slots, slot 1 = quick save), Controls (click a
-## shortcut, then press the new key) and Quit. Drawn in 480x270 UI space.
-## With title_mode (title screen) it is a plain SETTINGS menu: Controls, Sound
-## and Back, without pausing nor opening on Esc.
+## shortcut, then press the new key), Sound, Accessibility (text size,
+## colour-blind palette) and Quit. Drawn in 480x270 UI space.
+## With title_mode (title screen) it is a plain SETTINGS menu: Controls, Sound,
+## Accessibility and Back, without pausing nor opening on Esc.
 
 const SIZE := Vector2(480, 270)
 const PANEL := Rect2(90, 40, 300, 196)
@@ -22,11 +23,15 @@ const TEXT_LIGHT := Color8(238, 226, 196)
 const FADED := Color8(150, 126, 98)
 const GOLD := Color8(242, 210, 92)
 
-const MAIN := ["Resume", "Save game", "Load game", "Controls", "Sound", "Quit game"]
-const TITLE_MAIN := ["Controls", "Sound", "Back"]
+const MAIN := ["Resume", "Save game", "Load game", "Controls", "Sound", "Accessibility", "Quit game"]
+const TITLE_MAIN := ["Controls", "Sound", "Accessibility", "Back"]
+const ACCESS_HINTS := [
+	"Bigger HUD text: bars, clock, goal, prompts, notices, damage.",
+	"Orange / blue / yellow instead of red / green on the map,\ncompanion markers and durability bars.",
+]
 const VOLUME_LABELS := {"master": "Master volume", "sfx": "Effects", "ambience": "Ambience"}
 
-## "main" | "save" | "load" | "controls" | "sound"
+## "main" | "save" | "load" | "controls" | "sound" | "access"
 var page := "main"
 ## Action waiting for a key press ("" = none).
 var waiting := ""
@@ -139,7 +144,8 @@ func activate(i: int) -> void:
 			match i:
 				0: _goto("controls")
 				1: _goto("sound")
-				2: close()
+				2: _goto("access")
+				3: close()
 		"main":
 			match i:
 				0: close()
@@ -147,7 +153,13 @@ func activate(i: int) -> void:
 				2: _goto("load")
 				3: _goto("controls")
 				4: _goto("sound")
-				5: get_tree().quit()
+				5: _goto("access")
+				6: get_tree().quit()
+		"access":
+			match i:
+				0: Accessibility.set_text_size(Accessibility.text_size + 1)
+				1: Accessibility.set_colorblind(not Accessibility.colorblind)
+				_: back()
 		"sound":
 			if i < Sound.CHANNELS.size():
 				# Click steps up and wraps; right-click / Left arrow steps down.
@@ -215,6 +227,9 @@ func _rows() -> Array:
 				out.append(VOLUME_LABELS[ch])
 			out.append("Back")
 			return out
+		"access":
+			return ["Text size: %s" % Accessibility.text_size_name(),
+				"Colour-blind palette: %s" % ("On" if Accessibility.colorblind else "Off"), "Back"]
 		"save", "load":
 			var out := []
 			for s in SaveSystem.SLOTS:
@@ -233,7 +248,13 @@ func _rows() -> Array:
 func _row_rect(i: int) -> Rect2:
 	match page:
 		"main":
-			return Rect2(PANEL.position.x + 70, PANEL.position.y + 24 + i * 27, PANEL.size.x - 140, 22)
+			# Seven rows in the pause menu: tighter steps so they fit the frame.
+			var step := 24.0 if _rows().size() > 6 else 27.0
+			return Rect2(PANEL.position.x + 70, PANEL.position.y + 20 + i * step, PANEL.size.x - 140, 20 if step < 27.0 else 22)
+		"access":
+			if i == 2:
+				return Rect2(PANEL.get_center().x - 40, PANEL.position.y + 34 + i * 40, 80, 22)
+			return Rect2(PANEL.position.x + 30, PANEL.position.y + 26 + i * 40, PANEL.size.x - 60, 26)
 		"sound":
 			if i == Sound.CHANNELS.size():
 				return Rect2(PANEL.get_center().x - 40, PANEL.position.y + 34 + i * 40, 80, 22)
@@ -316,8 +337,8 @@ func _button(r: Rect2, caption: String, hot: bool, size_px := 12) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, SIZE), Color(0.03, 0.05, 0.08, 0.78))
 	var frame := WIDE if page == "controls" else PANEL
-	var titles := {"main": "SETTINGS" if title_mode else "PAUSED", "save": "SAVE GAME", "load": "LOAD GAME", "controls": "CONTROLS", "sound": "SOUND"}
-	var title := Rect2(frame.get_center().x - 70, 10, 140, 24)
+	var titles := {"main": "SETTINGS" if title_mode else "PAUSED", "save": "SAVE GAME", "load": "LOAD GAME", "controls": "CONTROLS", "sound": "SOUND", "access": "ACCESSIBILITY"}
+	var title := Rect2(frame.get_center().x - 80, 10, 160, 24)
 	_box(title, CREAM, BROWN, 3)
 	_text_center(title.get_center().x, 28, titles[page], 16, TEXT_DARK)
 	_frame(frame)
@@ -326,6 +347,20 @@ func _draw() -> void:
 		"main":
 			for i in rows.size():
 				_button(_row_rect(i), rows[i], i == _hover, 14)
+		"access":
+			for i in rows.size():
+				_button(_row_rect(i), rows[i], i == _hover, 12)
+			# Live preview of both settings.
+			var y := PANEL.position.y + 150.0
+			if _hover >= 0 and _hover < ACCESS_HINTS.size():
+				var lines: PackedStringArray = String(ACCESS_HINTS[_hover]).split("\n")
+				for k in lines.size():
+					_text_center(PANEL.get_center().x, y + k * 11, lines[k], 9, TEXT_LIGHT)
+			var px := PANEL.get_center().x - 60
+			for k in 3:
+				var key: String = ["danger", "resource", "ally"][k]
+				draw_circle(Vector2(px + k * 60, PANEL.end.y - 18), 4.0, Accessibility.color(key))
+				_text(Vector2(px + k * 60 + 7, PANEL.end.y - 14), ["Danger", "Resource", "Ally"][k], 9, TEXT_LIGHT)
 		"sound":
 			for i in rows.size():
 				var r := _row_rect(i)

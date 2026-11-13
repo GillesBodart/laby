@@ -88,8 +88,9 @@ func primary() -> bool:
 	if existing and existing.is_damaged():
 		return repair(existing)
 	if existing and not BuildCatalog.can_stand_on(existing.type, item):
-		world.toggle_structure(cell)
-		Sound.play("door" if BuildCatalog.TYPES[existing.type].get("door", false) else "ui", existing.global_position)
+		if BuildCatalog.TYPES[existing.type].get("door", false):
+			return existing.use_door()
+		Sound.play("ui", existing.global_position)
 		return true
 	if item == "":
 		return false

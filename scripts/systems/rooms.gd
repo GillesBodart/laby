@@ -12,7 +12,7 @@ const BUFFS := [
 	{"id": "rested", "name": "Rested", "needs": ["bed"], "stats": {"regen": 50}, "desc": "+50% health regen"},
 	{"id": "nourished", "name": "Nourished", "needs": ["cooking_pot"], "stats": {"hunger": 25}, "desc": "hunger drains 25% slower"},
 	{"id": "handy", "name": "Handy", "needs": ["workbench", "furnace", "anvil", "tanning_rack", "stonecutter", "loom", "alchemy_table"], "stats": {"dmg": 2}, "desc": "+2 damage"},
-	{"id": "organised", "name": "Organised", "needs": ["chest"], "stats": {"strength": 5}, "desc": "+5 strength"},
+	{"id": "organised", "name": "Organised", "needs": ["chest"], "stats": {"strength": 5}, "desc": "+5 strength, craft from the Stash"},
 	{"id": "cosy", "name": "Cosy", "needs": ["standing_torch"], "stats": {"hp": 15}, "desc": "+15 max health"},
 	{"id": "comfortable", "name": "Comfortable", "needs": [], "floored": true, "stats": {"run_cost": 15}, "desc": "running costs 15% less stamina"},
 ]
@@ -57,6 +57,18 @@ static func find(structures: Dictionary, cell: Vector2i) -> Dictionary:
 			contents[t] = int(contents.get(t, 0)) + 1
 		floored = floored and _floored(structures, c)
 	return {"cells": todo, "contents": contents, "floored": floored}
+
+
+## True when every door around `room` is shut (nothing outside can walk in).
+static func sealed(structures: Dictionary, room: Dictionary) -> bool:
+	if room.is_empty():
+		return false
+	for c in room.cells:
+		for n in [c + Vector2i.LEFT, c + Vector2i.RIGHT, c + Vector2i.UP, c + Vector2i.DOWN]:
+			var d: Dictionary = structures.get(n, {})
+			if BuildCatalog.TYPES.get(String(d.get("type", "")), {}).get("door", false) and d.get("open", false):
+				return false
+	return true
 
 
 ## Same value for a room whichever of its tiles it was found from.

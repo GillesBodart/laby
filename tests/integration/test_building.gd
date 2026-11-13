@@ -4,6 +4,12 @@ extends TestCase
 const WORLD_SCENE := "res://scenes/world/world.tscn"
 
 
+## A creature that is always hostile, for the sleep checks.
+class HostileStub extends Node2D:
+	func _hostile() -> bool:
+		return true
+
+
 func _tree() -> SceneTree:
 	return Engine.get_main_loop() as SceneTree
 
@@ -47,6 +53,19 @@ func test_place_door_remove_and_refund() -> void:
 	check(clearing.place_structure(cell, "wooden_door"), "door placed")
 	clearing.toggle_structure(cell)
 	check(GameState.structures[cell].open, "door opened")
+	var door := clearing.structure_at(cell)
+	var player: Player = GameState.players.values()[0]
+	player.global_position = ClearingWorld.cell_center(cell + Vector2i.DOWN)
+	player.facing = Vector2.UP
+	check(player.find_interactable() == door, "E reaches the door outside build mode")
+	check_eq(door.interact_hint(), "Close door", "door hint")
+	player.global_position = ClearingWorld.cell_center(cell)
+	check(not door.use_door() and door.is_open, "won't shut on someone in the doorway")
+	player.global_position = ClearingWorld.cell_center(cell + Vector2i.DOWN)
+	door.interact(player)
+	check(not GameState.structures[cell].open and not door.is_open, "E closes the door")
+	door.interact(player)
+	check(GameState.structures[cell].open, "E opens it again")
 	world.free()
 
 
@@ -218,6 +237,18 @@ func test_sleep_in_a_closed_room_at_night() -> void:
 	TimeSystem.set_time_of_day(12 * 60)
 	check(player.sleep_blocker(bed).begins_with("You are not tired"), "no sleeping by day")
 	TimeSystem.set_time_of_day(22 * 60)
+	player.global_position = ClearingWorld.cell_center(bed)
+	var foe := HostileStub.new()
+	foe.add_to_group("enemies")
+	clearing.add_child(foe)
+	foe.global_position = ClearingWorld.cell_center(bed + Vector2i(3, 0))
+	clearing.toggle_structure(bed + Vector2i.DOWN)
+	check(player.sleep_blocker(bed).begins_with("You cannot sleep with enemies"), "an open door lets the prowler in")
+	clearing.toggle_structure(bed + Vector2i.DOWN)
+	check_eq(player.sleep_blocker(bed), "", "shut in, the prowler outside does not matter")
+	foe.global_position = ClearingWorld.cell_center(bed)
+	check(player.sleep_blocker(bed) != "", "but one inside the room does")
+	foe.free()
 	player.survival.health = 20.0
 	check(player.try_sleep(bed), "sleeps")
 	check_eq(int(TimeSystem.minute_of_day()), DayClock.DAY_START, "wakes at 07:00")

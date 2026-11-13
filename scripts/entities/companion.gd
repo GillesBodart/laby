@@ -199,7 +199,7 @@ func _draw() -> void:
 	# Green collar pip marks a friend; a small bar shows wounds.
 	var top := _sprite.position.y - _sprite.texture.get_size().y / 2.0 - 3.0
 	draw_rect(Rect2(-2, top - 1, 4, 3), Color8(30, 40, 20))
-	draw_rect(Rect2(-1, top, 2, 1), Color8(120, 220, 90) if not is_staying() else Color8(240, 200, 80))
+	draw_rect(Rect2(-1, top, 2, 1), Accessibility.color("ally_stay" if is_staying() else "ally"))
 	if hp() < max_hp():
 		var w := 14.0
 		draw_rect(Rect2(-w / 2.0, top - 5, w, 2), Color8(30, 20, 20))

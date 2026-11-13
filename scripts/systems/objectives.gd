@@ -10,12 +10,13 @@ extends RefCounted
 ## even if its items are spent later.
 ##
 ## ctx keys: items {id: n} (backpack, worn gear and Stash), structures
-## {type: n}, rooms_with_bed int, reached {area: true}, bosses {type: true},
+## {type: n}, rooms int, rooms_with_bed int, reached {area: true}, bosses {type: true},
 ## glyphs int, companions int, survivors int, escaped bool.
 
 ## Each goal: id, text, hint (how), and what it needs:
 ##   "item": [ids, n]  - n of any of these items
 ##   "build": [types, n] - n placed structures of any of these types
+##   "house": n        - closed rooms (walls and doors all round)
 ##   "room": n         - closed rooms holding a bed
 ##   "reach": area     - set foot in that area
 ##   "boss": type      - that guardian slain
@@ -27,8 +28,8 @@ const GOALS := [
 	{"id": "stone", "text": "Gather 6 Stone", "hint": "Hold E next to a rock.", "item": [["stone"], 6]},
 	{"id": "tool", "text": "Craft a Stone Axe or Pickaxe", "hint": "I opens the backpack; sticks come from wood.", "item": [["stone_axe", "stone_pickaxe"], 1]},
 	{"id": "workbench", "text": "Build a Workbench", "hint": "Craft it at the campfire (E), place it with B.", "build": [["workbench"], 1]},
-	{"id": "bed", "text": "Build a Straw Bed", "hint": "Workbench recipe. Grass gives fiber.", "build": [["bed"], 1]},
-	{"id": "room", "text": "Close a room around your bed", "hint": "Walls and a door all round: sleep there at night.", "room": 1},
+	{"id": "house", "text": "Build a house", "hint": "Craft walls and a door at the workbench; close a small room with B.", "house": 1},
+	{"id": "bed", "text": "Put a Straw Bed in your house", "hint": "Workbench recipe, grass gives fiber. Sleep there at night.", "room": 1},
 	{"id": "maze", "text": "Enter the Labyrinth", "hint": "North gate. Go by day: it shuts at 20:00.", "reach": "labyrinth"},
 	{"id": "glyph", "text": "Read a glyph stone", "hint": "Carved stones in quiet maze corners. Press E.", "glyphs": 1},
 	{"id": "village", "text": "Grow the camp to 3 survivors", "hint": "2 beds, a workbench and food in the Stash (Tab: Camp).", "survivors": 3},
@@ -65,6 +66,8 @@ static func progress(goal: Dictionary, ctx: Dictionary) -> Array:
 		for t in goal.build[0]:
 			n += int(ctx.get("structures", {}).get(t, 0))
 		return [mini(n, goal.build[1]), goal.build[1]]
+	if goal.has("house"):
+		return [mini(int(ctx.get("rooms", 0)), goal.house), goal.house]
 	if goal.has("room"):
 		return [mini(int(ctx.get("rooms_with_bed", 0)), goal.room), goal.room]
 	if goal.has("reach"):
@@ -120,17 +123,37 @@ static func context(player: Node) -> Dictionary:
 				items[id] = int(items.get(id, 0)) + 1
 	var structures := {}
 	var beds: Array[Vector2i] = []
+	var enclosing: Array[Vector2i] = []
 	for cell in GameState.structures:
 		var t := String(GameState.structures[cell].get("type", ""))
 		structures[t] = int(structures.get(t, 0)) + 1
 		if t == "bed":
 			beds.append(cell)
+		elif Rooms.encloses(t):
+			enclosing.append(cell)
 	var rooms := {}
 	for cell in beds:
 		var room := Rooms.find(GameState.structures, cell)
 		if not room.is_empty():
 			rooms[Rooms.key(room)] = true
-	return {"items": items, "structures": structures, "rooms_with_bed": rooms.size(),
+	return {"items": items, "structures": structures, "rooms": _count_rooms(enclosing), "rooms_with_bed": rooms.size(),
 		"reached": GameState.reached, "bosses": GameState.bosses_defeated,
 		"glyphs": GameState.journal.get("glyphs", {}).size(), "companions": GameState.companions.size(),
 		"survivors": GameState.survivors.size(), "escaped": GameState.escaped}
+
+## Distinct closed rooms touching any of the given wall/door cells.
+static func _count_rooms(enclosing: Array[Vector2i]) -> int:
+	var seen := {}
+	var rooms := 0
+	for cell in enclosing:
+		for n in [cell + Vector2i.LEFT, cell + Vector2i.RIGHT, cell + Vector2i.UP, cell + Vector2i.DOWN]:
+			if seen.has(n) or Rooms.encloses(String(GameState.structures.get(n, {}).get("type", ""))):
+				continue
+			var room := Rooms.find(GameState.structures, n)
+			seen[n] = true
+			if room.is_empty():
+				continue
+			rooms += 1
+			for c in room.cells:
+				seen[c] = true
+	return rooms

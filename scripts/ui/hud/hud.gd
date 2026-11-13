@@ -90,6 +90,17 @@ func _ready() -> void:
 	menu.set_script(preload("res://scripts/ui/menus/settings_menu.gd"))
 	add_child(menu)
 	_on_minute_changed(TimeSystem.clock.day(), int(TimeSystem.minute_of_day()))
+	Accessibility.changed.connect(_apply_text_size)
+	_apply_text_size()
+
+
+## The clock grows from the top-left corner; the notice from its bottom centre.
+func _apply_text_size() -> void:
+	var s := Accessibility.text_scale()
+	_clock_panel.scale = Vector2(s, s)
+	_clock_panel.position = Vector2(8, 8) * s
+	notice.scale = Vector2(s, s)
+	notice.pivot_offset = Vector2(notice.size.x / 2.0, notice.size.y)
 
 
 func _on_minute_changed(day: int, minute_of_day: int) -> void:
@@ -112,7 +123,8 @@ func show_notice(text: String) -> void:
 	# the box upwards and a short notice shrinks it back.
 	var font := notice.get_theme_font("font")
 	var fs := notice.get_theme_font_size("font_size")
-	var w := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0, NOTICE_MAX_W)
+	# Capped so a larger text size still leaves the item feed's corner free.
+	var w := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 16.0, NOTICE_MAX_W / Accessibility.text_scale())
 	notice.size.x = ceilf(w)
 	notice.position.x = roundf(NATIVE_SIZE.x / 2.0 - notice.size.x / 2.0)
 	# Measured from the font: the label's own minimum size lags behind a width change.
@@ -120,6 +132,7 @@ func show_notice(text: String) -> void:
 	var h := font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, notice.size.x - pad.x, fs).y + pad.y
 	notice.offset_bottom = NOTICE_BOTTOM
 	notice.offset_top = NOTICE_BOTTOM - ceilf(h)
+	notice.pivot_offset = Vector2(notice.size.x / 2.0, notice.size.y)
 	if _notice_tween:
 		_notice_tween.kill()
 	notice.modulate.a = 1.0

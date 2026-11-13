@@ -42,6 +42,8 @@ func setup_area() -> void:
 		clearing.entities.add_child(Landmark.create("landmark", m.type, m.cell))
 	for g in layout.glyphs:
 		clearing.entities.add_child(Landmark.create("glyph", g.glyph, g.cell))
+	for c in layout.chests:
+		clearing.entities.add_child(TreasureChest.create(c.id, sector(), c.cell))
 	_sync_fog()
 	EventBus.night_started.connect(_on_night_started)
 	EventBus.phase_changed.connect(_on_phase_changed)

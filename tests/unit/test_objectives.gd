@@ -39,9 +39,18 @@ func test_room_goal_needs_a_closed_room_with_a_bed() -> void:
 		for y in range(0, 4):
 			if x == 0 or x == 4 or y == 0 or y == 3:
 				s[Vector2i(x, y)] = {"type": "wooden_wall"}
-	s[Vector2i(2, 1)] = {"type": "bed"}
 	GameState.structures = s
+	check_eq(Objectives.context(null).rooms, 1, "an empty closed room is a house")
+	s[Vector2i(2, 1)] = {"type": "bed"}
 	check_eq(Objectives.context(null).rooms_with_bed, 1, "walled bed counts")
+	check_eq(Objectives.context(null).rooms, 1, "still one house")
 	s.erase(Vector2i(4, 2))
 	check_eq(Objectives.context(null).rooms_with_bed, 0, "a gap in the wall is no room")
+	check_eq(Objectives.context(null).rooms, 0, "a gap in the wall is no house")
 	GameState.structures = saved
+
+
+func test_house_comes_before_the_bed() -> void:
+	var ids := Objectives.ids()
+	check(ids.find("workbench") < ids.find("house"), "workbench before house")
+	check(ids.find("house") < ids.find("bed"), "house before bed")

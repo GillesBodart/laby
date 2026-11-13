@@ -23,6 +23,7 @@ TimeSystem="*res://autoload/time_system.gd"
 SaveSystem="*res://autoload/save_system.gd"
 KeyBindings="*res://autoload/key_bindings.gd"
 Sound="*res://autoload/sound.gd"
+Accessibility="*res://autoload/accessibility.gd"
 Gamepad="*res://autoload/gamepad.gd"
 DebugTools="*res://autoload/debug_tools.gd"
 
@@ -39,8 +40,8 @@ window/stretch/scale_mode="fractional"
 [gui]
 
 theme/custom="res://resources/ui/theme.tres"
-theme/default_font_antialiasing=1
-theme/default_font_hinting=1
+theme/default_font_antialiasing=2
+theme/default_font_hinting=0
 theme/default_font_subpixel_positioning=1
 
 [input]
@@ -145,7 +146,7 @@ stash={
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
+textures/canvas_textures/default_texture_filter=1
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 2d/snap/snap_2d_transforms_to_pixel=true

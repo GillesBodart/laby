@@ -127,6 +127,8 @@ func _sector_art() -> void:
 	_save(_old_engine(), "res://assets/sprites/environment/landmarks/landmark_old_engine.png")
 	_save(_glyph_stone(false), "res://assets/sprites/environment/landmarks/glyph_stone.png")
 	_save(_glyph_stone(true), "res://assets/sprites/environment/landmarks/glyph_stone_read.png")
+	_save(_treasure_chest(false), "res://assets/sprites/environment/landmarks/treasure_chest.png")
+	_save(_treasure_chest(true), "res://assets/sprites/environment/landmarks/treasure_chest_open.png")
 	# Survivor sprites (npcs/) are drawn by generate_placeholder_art.gd in the player's style.
 	var bed := _bed()
 	_save(bed, "res://assets/sprites/structures/bed.png")
@@ -438,6 +440,68 @@ func _glyph_stone(read: bool) -> Image:
 	for y in range(6, 12):
 		_px(img, 5, y, Color8(70, 120, 60))
 	_px(img, 6, 11, Color8(90, 150, 70))
+	return _outline(img)
+
+
+## Old iron-bound chest of the maze, mossy and half sunk; open ones show a
+## dark empty hold under the raised lid.
+func _treasure_chest(open: bool) -> Image:
+	var img := _img(28, 26)
+	var iron := [Color8(40, 40, 46), Color8(70, 72, 78), Color8(110, 112, 116), Color8(160, 160, 160)]
+	var gold := [Color8(150, 104, 40), Color8(214, 168, 60), Color8(250, 220, 120)]
+	# Body.
+	for y in range(13, 24):
+		for x in range(3, 25):
+			var col: Color = WOOD[2]
+			if y == 13:
+				col = WOOD[3]
+			elif y >= 22 or x == 24:
+				col = WOOD[1]
+			elif (y - 13) % 4 == 3:
+				col = WOOD[1]
+			elif _hash(x, y, 17) > 0.86:
+				col = WOOD[3]
+			_px(img, x, y, col)
+	if open:
+		# Raised lid seen from the front: its underside above a dark hold.
+		for y in range(3, 9):
+			for x in range(4, 24):
+				_px(img, x, y, WOOD[1] if y > 4 else WOOD[2])
+		_rect(img, 4, 3, 20, 1, WOOD[3])
+		_rect(img, 4, 8, 20, 1, iron[1])
+		for y in range(9, 14):
+			for x in range(4, 24):
+				_px(img, x, y, Color8(20, 16, 18) if y > 9 else Color8(40, 30, 26))
+		_px(img, 9, 12, gold[1])
+		_px(img, 18, 11, gold[0])
+	else:
+		# Domed lid.
+		for y in range(5, 13):
+			var inset := 0 if y > 7 else 8 - y
+			for x in range(3 + inset, 25 - inset):
+				var col: Color = WOOD[3] if y <= 7 else WOOD[2]
+				if x >= 24 - inset:
+					col = WOOD[1]
+				elif y == 12:
+					col = WOOD[1]
+				_px(img, x, y, col)
+		_rect(img, 3, 12, 22, 1, iron[1])
+	# Iron bands and a gold lock.
+	var top := 3 if open else 5
+	for bx in [6, 20]:
+		_rect(img, bx, top, 2, 24 - top, iron[1])
+		_rect(img, bx, top, 1, 24 - top, iron[2])
+		if not open:
+			_px(img, bx, 8, iron[3])
+	_rect(img, 12, 12 if not open else 14, 4, 5, gold[1])
+	_rect(img, 12, 12 if not open else 14, 4, 1, gold[2])
+	_rect(img, 13, 15 if not open else 17, 2, 1, gold[0])
+	# Moss creeping over the base.
+	for x in range(3, 25):
+		if _hash(x, 24, 23) > 0.45:
+			_px(img, x, 24, Color8(70, 120, 60))
+		if _hash(x, 23, 29) > 0.75:
+			_px(img, x, 23, Color8(90, 150, 70))
 	return _outline(img)
 
 

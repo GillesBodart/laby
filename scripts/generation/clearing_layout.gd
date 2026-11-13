@@ -40,6 +40,8 @@ var buildable := false
 var landmarks: Array = []
 ## Glyph stones: [{"glyph": String, "cell": Vector2i}].
 var glyphs: Array = []
+## Treasure chests: [{"id": String, "cell": Vector2i}] (see Blueprints).
+var chests: Array = []
 ## Tile rects of the maze regions that moved at the current shift.
 var shift_tiles: Array = []
 ## Whether unexplored cells are hidden on the map (the Labyrinth).

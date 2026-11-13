@@ -36,6 +36,8 @@ func _draw() -> void:
 		return
 	var s := player.survival
 	var hp := s.health / s.max_health()
+	# Text size: the panel grows from the screen corner, the prompt from the bottom.
+	Accessibility.scale_about(self, Vector2.ZERO)
 	# Each row: icon, fill, colour, critical (blinks and gets a "!" badge so
 	# the warning never relies on colour alone).
 	var rows := [
@@ -69,7 +71,9 @@ func _draw() -> void:
 	draw_string(_font, Vector2(panel.position.x + ICON_X, y + 9), "Lv%d" % s.level, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, TEXT)
 	_bar(Vector2(panel.position.x + BAR_X, y + 2), float(s.xp) / Survival.xp_for_level(s.level), Color8(124, 150, 236), BAR_H - 3.0)
 	_draw_comfort(s, panel.end.y + 3.0)
+	Accessibility.scale_about(self, Vector2(480, 524))
 	_draw_prompt(player)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 ## Room comfort under the panel: "Rested Cosy 4:58" (time it still lasts).

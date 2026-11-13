@@ -41,7 +41,7 @@ func _ready() -> void:
 	add_child(_sprite)
 	if is_farm():
 		add_child(_crop_sprite)
-	if type in ["well", "waystone", "skill_altar", "bed"]:
+	if type in ["well", "waystone", "skill_altar", "bed"] or def.get("door", false):
 		add_to_group("interactable")
 	if def.has("light"):
 		_light = PointLight2D.new()
@@ -150,11 +150,15 @@ func interact_hint() -> String:
 			return "Skill Altar: skills / respec"
 		"bed":
 			return "Sleep until morning"
+	if BuildCatalog.TYPES[type].get("door", false):
+		return "Close door" if is_open else "Open door"
 	return "Waystone: travel"
 
 
 func interact(player: Player) -> void:
-	if type == "bed":
+	if BuildCatalog.TYPES[type].get("door", false):
+		use_door()
+	elif type == "bed":
 		player.try_sleep(cell)
 	elif type == "well":
 		player.drink_at_source()
@@ -163,6 +167,23 @@ func interact(player: Player) -> void:
 			EventBus.altar_used.emit(self)
 	elif player.input.is_local():
 		EventBus.waystone_used.emit(self)
+
+
+## E on a door: opens or closes it (kept in GameState). A door will not shut
+## on a survivor standing in the doorway.
+func use_door() -> bool:
+	if is_open:
+		for p in GameState.players.values():
+			if is_instance_valid(p) and p.cell() == cell:
+				EventBus.notify.emit("Step out of the doorway to close the door")
+				return false
+	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
+	if world:
+		world.toggle_structure(cell)
+	else:
+		toggle()
+	Sound.play("door", global_position)
+	return true
 
 
 func toggle() -> void:
