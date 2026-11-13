@@ -37,6 +37,7 @@ const BUTTON_NAMES := {
 	JOY_BUTTON_DPAD_RIGHT: "Right", JOY_BUTTON_LEFT_STICK: "L3", JOY_BUTTON_RIGHT_STICK: "R3",
 	JOY_BUTTON_BACK: "Back",
 }
+const AXIS_NAMES := {JOY_AXIS_TRIGGER_LEFT: "LT", JOY_AXIS_TRIGGER_RIGHT: "RT"}
 ## [axis, direction] pairs.
 const AXES := {
 	"move_left": [JOY_AXIS_LEFT_X, -1.0],
@@ -82,7 +83,27 @@ func _add(action: String, ev: InputEvent) -> void:
 func prompt(action: String) -> String:
 	if using_pad and BUTTONS.has(action):
 		return BUTTON_NAMES.get(BUTTONS[action][0], "?")
+	if using_pad and AXES.has(action) and AXES[action][0] in AXIS_NAMES:
+		return AXIS_NAMES[AXES[action][0]]
 	return KeyBindings.key_label(KeyBindings.key_of(action))
+
+
+## Replaces every {action} token in a text with that action's prompt
+## ("Hold {interact}" -> "Hold E" or "Hold X"). Unknown tokens stay as they are.
+func fill(text: String) -> String:
+	var start := text.find("{")
+	while start != -1:
+		var end := text.find("}", start)
+		if end == -1:
+			break
+		var action := text.substr(start + 1, end - start - 1)
+		if InputMap.has_action(action):
+			var label := prompt(action)
+			text = text.substr(0, start) + label + text.substr(end + 1)
+			start = text.find("{", start + label.length())
+		else:
+			start = text.find("{", end)
+	return text
 
 
 ## True when a panel, the pause menu or the title screen is showing, so the pad

@@ -1,6 +1,6 @@
 extends Node
 ## Developer helpers.
-## - F3: toggle fast time (x30).
+## - F3: toggle fast time (x30), debug builds only.
 ## - Command line (after `--`); any flag except --title skips the title screen:
 ##     --title[=new]            stay on the title screen (=new: its New game page)
 ##     --seed=<int>             force world seed
@@ -383,7 +383,7 @@ func _teleport_local_player(cell_text: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("debug_fast_time"):
+	if event.is_action_pressed("debug_fast_time") and OS.is_debug_build():
 		TimeSystem.time_scale = 1.0 if TimeSystem.time_scale > 1.0 else FAST_TIME_SCALE
 		EventBus.notify.emit("Time x%d" % int(TimeSystem.time_scale))
 

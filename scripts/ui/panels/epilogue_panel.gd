@@ -1,6 +1,6 @@
 extends Control
-## Epilogue shown once, when the players first walk out of the Maze: what the
-## run took (days, guardians, people, discoveries), then keep exploring or go
+## Epilogue shown once, when the players first walk out of the maze: what the
+## run took (days, guardians, people, discoveries), then walk back in or go
 ## back to the title. Opened in the Clearing after the escape travel (see
 ## GameState.epilogue_pending). Pauses the game while open.
 ## Also the end of a permadeath run (open_fallen): same summary, and the only
@@ -18,7 +18,7 @@ const SLATE := Color8(44, 58, 72)
 const SLATE_DARK := Color8(22, 30, 40)
 const TEXT_LIGHT := Color8(238, 226, 196)
 const TEXT_DIM := Color8(170, 182, 190)
-const BUTTONS := ["Keep exploring", "Title screen"]
+const BUTTONS := ["Walk back in", "Title screen"]
 const FALLEN_BUTTONS := ["Title screen"]
 
 var _font: Font
@@ -66,13 +66,20 @@ static func stats() -> Array:
 	for kind in GameState.journal:
 		found += GameState.journal[kind].size()
 	return [
-		["Days in the Maze", str(TimeSystem.clock.day())],
+		["Days in the maze", str(TimeSystem.clock.day())],
 		["Guardians slain", "%d / %d" % [GameState.bosses_defeated.size(), Sectors.ORDER.size()]],
 		["Survivors in the camp", str(GameState.survivors.size())],
 		["Creatures tamed", str(tamed)],
 		["Journal entries", str(found)],
 		["Structures built", str(GameState.structures.size())],
 	]
+
+
+## Who walks out: the survivors of the camp, or the player alone.
+static func together_line(survivors: int) -> String:
+	if survivors <= 0:
+		return "You walk out alone, and that is allowed."
+	return "%d of you walk out together, squinting." % (survivors + 1)
 
 
 func choose(i: int) -> void:
@@ -145,11 +152,13 @@ func _draw() -> void:
 	draw_string(_font, Vector2(title.get_center().x - tw / 2.0, title.end.y - 5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_DARK)
 	var y := title.end.y + 16.0
 	if fallen:
-		_center(y, "One life, and the Maze has taken it.", 10, TEXT_LIGHT)
+		_center(y, "One life, and the maze has taken it.", 10, TEXT_LIGHT)
 		_center(y + 12.0, "This run's saves are gone with you.", 10, TEXT_DIM)
 	else:
 		_center(y, "Light. Wind. An open sky with no walls in it.", 10, TEXT_LIGHT)
-		_center(y + 12.0, "Behind you, the Maze keeps grinding.", 10, TEXT_DIM)
+		_center(y + 11.0, "Behind you, the old engines grind on, guarding nothing.", 10, TEXT_DIM)
+		_center(y + 22.0, together_line(GameState.survivors.size()), 10, TEXT_DIM)
+		y += 8.0
 	y += 30.0
 	for row in stats():
 		draw_string(_font, Vector2(PANEL.position.x + 28, y), row[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, TEXT_LIGHT)

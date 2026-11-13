@@ -129,14 +129,14 @@ func _draw() -> void:
 			_text(Vector2(x + 4, y), "%s %s %d/%d" % ["+" if ok else "-", Settlement.NEED_NAMES[key], mini(have, int(need[key])), int(need[key])], 10, GREEN if ok else RED)
 			y += 12
 	else:
-		_text(Vector2(x, y), "The settlement is complete.", 10, GREEN)
+		_text(Vector2(x, y), "The camp is complete.", 10, GREEN)
 		y += 12
 	y += 6
 	var n := Settlement.needs(GameState.survivors, GameState.structures, GameState.stash)
 	_text(Vector2(x, y), "Camp needs (%d/%d people)" % [GameState.survivors.size(), Settlement.cap(tier)], 10, TEXT_DARK)
 	y += 13
 	var rows := [
-		["Food in the Stash (%d/day)" % Settlement.food_needed(GameState.survivors), n.food],
+		["Food in the Stash (%d / %d a day)" % [Settlement.food_points(GameState.stash), Settlement.food_needed(GameState.survivors) * Settlement.RATION], n.food],
 		["Water (a well for 3+)", n.water],
 		["Shelter (beds)", n.shelter],
 	]

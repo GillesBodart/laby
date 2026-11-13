@@ -17,8 +17,8 @@ const WIDE_BUTTON := Vector2(220, 20)
 ## New game page: Begin, the two death rules (toggles), Back.
 const NEW_HINTS := [
 	"Start the run with these rules.",
-	"Recoverable: wake at camp, your pack waits where you fell.\nPermanent: one life; death ends the run and erases its saves.",
-	"Recover: a downed companion rests at the campfire.\nPermanent: a companion that falls is gone for good.",
+	"Recoverable: wake at camp; your backpack waits where you fell.\nPermanent: one life; death ends the run and erases its saves.",
+	"Recoverable: a fallen companion rests at the campfire.\nPermanent: a companion that falls is gone for good.",
 	"Back to the title.",
 ]
 const BUTTON_TOP := 98.0
@@ -93,7 +93,7 @@ func has_any_save() -> bool:
 func rows() -> Array:
 	if page == "new":
 		return ["Begin", "Your death: %s" % ("Permanent" if permadeath else "Recoverable"),
-			"Companions: %s" % ("Permanent" if companion_permadeath else "Recover"), "Back"]
+			"Companion death: %s" % ("Permanent" if companion_permadeath else "Recoverable"), "Back"]
 	return ROWS
 
 

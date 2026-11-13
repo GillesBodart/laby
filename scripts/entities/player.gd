@@ -260,19 +260,27 @@ func use_item(id: String) -> bool:
 ## Drinks the best healing item, or an antidote when poisoned.
 func drink_best_potion() -> bool:
 	var best := ""
-	var best_score := 0.0
+	var best_score := -INF
+	var missing := survival.max_health() - survival.health
 	for s in inventory.slots:
 		if s.is_empty():
 			continue
 		var it: Dictionary = ItemCatalog.ITEMS[s.id]
 		if it.get("food", 0.0) > 0.0 and not it.has("cure") and it.get("heal", 0.0) < 12.0:
 			continue
-		var score: float = it.get("heal", 0.0)
-		if it.get("cure", false) and not effects.is_empty():
+		var heal: float = it.get("heal", 0.0)
+		var cures: bool = it.get("cure", false) and not effects.is_empty()
+		var refresh: bool = it.get("stamina", 0.0) > 0.0 and survival.stamina < 20.0
+		var quench: bool = survival.thirst_enabled and survival.thirst < 70.0 and it.get("water", 0.0) > 0.0
+		if not (cures or refresh or quench or (heal > 0.0 and missing > 0.5)):
+			continue
+		# Fit the heal to the wound: an elixir is not spent on a scratch.
+		var score: float = minf(heal, missing) - 0.25 * maxf(heal - missing, 0.0)
+		if cures:
 			score += 200.0
-		if it.get("stamina", 0.0) > 0.0 and survival.stamina < 20.0:
+		if refresh:
 			score += 30.0
-		if survival.thirst_enabled and survival.thirst < 70.0:
+		if quench:
 			score += it.get("water", 0.0)
 		if score > best_score:
 			best_score = score
@@ -424,23 +432,33 @@ func drink_at_source() -> void:
 	EventBus.notify.emit(", ".join(msg) + "." if not msg.is_empty() else "Fresh water. You are not thirsty.")
 
 
-## Eats the most nourishing food in the backpack. Returns whether anything was eaten.
+## Eats the meal that best fits the hunger (least waste, small overshoot
+## allowed) with all its effects. Returns whether anything was eaten.
 func eat_best_food() -> bool:
-	var best := ""
-	for s in inventory.slots:
-		if not s.is_empty() and ItemCatalog.food_of(s.id) > (ItemCatalog.food_of(best) if best != "" else 0.0):
-			best = s.id
+	var best := best_meal(Survival.MAX_HUNGER - survival.hunger)
 	if best == "":
 		EventBus.notify.emit("Nothing to eat.")
 		return false
 	if survival.hunger >= Survival.MAX_HUNGER - 0.5:
 		EventBus.notify.emit("Not hungry.")
 		return false
-	inventory.remove(best, 1)
-	survival.eat(ItemCatalog.food_of(best))
-	Sound.play("eat", global_position)
-	EventBus.notify.emit("Ate %s." % ItemCatalog.item_name(best))
-	return true
+	return use_item(best)
+
+
+## The meal in the backpack closest to `need` hunger points (overshoot costs
+## half as much as falling short of a bigger meal would save).
+func best_meal(need: float) -> String:
+	var best := ""
+	var best_err := INF
+	for s in inventory.slots:
+		if s.is_empty() or not ItemCatalog.is_meal(s.id):
+			continue
+		var f := ItemCatalog.food_of(s.id)
+		var err := (need - f) if f <= need else (f - need) * 1.5
+		if err < best_err:
+			best_err = err
+			best = s.id
+	return best
 
 
 func gain_xp(amount: int) -> void:
@@ -448,7 +466,8 @@ func gain_xp(amount: int) -> void:
 	amount = roundi(amount * (1.0 + survival.bonus("xp") / 100.0))
 	if survival.add_xp(amount) > 0:
 		Sound.play("level", global_position, 0.0)
-		EventBus.notify.emit("Level %d! +%d skill point" % [survival.level, survival.level - before])
+		var gained := survival.level - before
+		EventBus.notify.emit("Level %d! +%d skill point%s." % [survival.level, gained, "" if gained == 1 else "s"])
 
 
 func _on_died() -> void:
@@ -469,9 +488,10 @@ func _on_died() -> void:
 	velocity = Vector2.ZERO
 	var world := get_tree().get_first_node_in_group("clearing_world") as ClearingWorld
 	if GameState.area != "clearing" or world == null:
-		GameState.arriving = false
 		GameState.survivals[peer_id] = survival.to_data()
 		GameState.travel("clearing")
+		# Wake at the camp, not at the gate you came through (it may be shut for the night).
+		GameState.arriving = false
 	else:
 		global_position = ClearingWorld.cell_center(world.layout.spawn_cell)
 

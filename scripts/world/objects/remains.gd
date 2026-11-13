@@ -26,7 +26,7 @@ func _ready() -> void:
 
 
 func interact_hint() -> String:
-	return "Pick up dropped items" if entry.get("dropped", false) else "Recover your remains"
+	return "Pick up dropped items" if entry.get("dropped", false) else "Recover your backpack"
 
 
 ## Moves every stack that fits into the player's backpack.

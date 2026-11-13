@@ -15,16 +15,16 @@ const ORDER := ["labyrinth", "overgrowth", "desert", "ice", "volcano", "hell"]
 const DATA := {
 	"labyrinth": {"name": "Stone Labyrinth", "climate": 0, "tint": Color(1, 1, 1), "moss": 0.18,
 		"boss": "stone_colossus", "key": "key_stone",
-		"greet": "The Labyrinth. Stone walls swallow the light...",
+		"greet": "The Stone Labyrinth. The walls swallow the light.",
 		"resources": [
 			["rubble", 6.0, 0.0], ["ore_coal", 7.0, 0.0], ["ore_copper", 6.0, 0.0], ["ore_tin", 4.0, 0.1],
 			["ore_iron", 4.0, 0.4], ["ore_silver", 2.5, 0.55], ["ore_gold", 1.5, 0.75], ["ore_crystal", 1.2, 0.8],
-			["quartz", 2.0, 0.35], ["obsidian", 1.5, 0.85], ["sulfur", 2.0, 0.25], ["saltpeter", 2.0, 0.25],
+			["quartz", 2.0, 0.35], ["sulfur", 2.0, 0.25], ["saltpeter", 2.0, 0.25],
 			["glowcap", 3.0, 0.2], ["cave_moss", 4.0, 0.0], ["vines", 3.5, 0.0], ["bone_pile", 3.0, 0.1],
 			["scrap_heap", 2.5, 0.3], ["machine", 1.2, 0.5], ["shadow_orchid", 0.8, 0.65], ["cobweb", 3.0, 0.15],
 			["grass", 2.0, 0.0], ["mushroom", 1.5, 0.0],
 		]},
-	"overgrowth": {"name": "The Overgrowth", "climate": 0, "tint": Color(0.78, 1.0, 0.72), "moss": 0.6,
+	"overgrowth": {"name": "Overgrowth", "climate": 0, "tint": Color(0.78, 1.0, 0.72), "moss": 0.6,
 		"boss": "briar_hydra", "key": "key_overgrowth",
 		"greet": "The Overgrowth. Roots split the walls. Something hums.",
 		"resources": [
@@ -34,7 +34,7 @@ const DATA := {
 			["flower", 2.0, 0.0], ["grass", 4.0, 0.0], ["resin_stump", 2.0, 0.0], ["apple_tree", 1.5, 0.2],
 			["blueberry", 2.0, 0.0], ["shadow_orchid", 0.8, 0.6], ["ore_copper", 2.0, 0.0], ["ore_iron", 1.5, 0.4],
 		]},
-	"desert": {"name": "The Sunken Dunes", "climate": 1, "tint": Color(1.28, 1.08, 0.74), "moss": 0.05,
+	"desert": {"name": "Sunken Dunes", "climate": 1, "tint": Color(1.28, 1.08, 0.74), "moss": 0.05,
 		"boss": "sun_wyrm", "key": "key_desert",
 		"greet": "The Sunken Dunes. The air burns your throat. Find water.",
 		"resources": [
@@ -44,7 +44,7 @@ const DATA := {
 			["ore_gold", 1.5, 0.5], ["ore_silver", 1.5, 0.4], ["bone_pile", 3.0, 0.0], ["quartz", 2.0, 0.3],
 			["saltpeter", 2.0, 0.1], ["scrap_heap", 1.5, 0.2], ["rubble", 3.0, 0.0], ["obsidian", 0.8, 0.8],
 		]},
-	"ice": {"name": "The Rime Halls", "climate": -1, "tint": Color(0.86, 1.04, 1.36), "moss": 0.08,
+	"ice": {"name": "Rime Halls", "climate": -2, "tint": Color(0.86, 1.04, 1.36), "moss": 0.08,
 		"boss": "hoarfrost_dragon", "key": "key_ice",
 		"greet": "The Rime Halls. Frost creeps up the walls. Stay warm.",
 		"resources": [
@@ -54,9 +54,9 @@ const DATA := {
 			["quartz", 2.0, 0.2], ["bone_pile", 2.0, 0.0], ["cave_moss", 2.0, 0.0], ["glowcap", 2.0, 0.1],
 			["ore_gold", 1.0, 0.6], ["obsidian", 1.0, 0.7], ["cobweb", 1.5, 0.0], ["mushroom", 1.0, 0.0],
 		]},
-	"volcano": {"name": "The Cinder Forge", "climate": 2, "tint": Color(0.82, 0.56, 0.48), "moss": 0.05,
+	"volcano": {"name": "Cinder Forge", "climate": 2, "tint": Color(0.82, 0.56, 0.48), "moss": 0.05,
 		"boss": "forgeheart_giant", "key": "key_volcano",
-		"greet": "The Cinder Forge. The stones glow. Unguarded, the heat kills.",
+		"greet": "The Cinder Forge. The stones glow. The heat kills the unprepared.",
 		"resources": [
 			["basalt", 5.0, 0.0], ["magma_vent", 2.0, 0.2], ["ash_pile", 4.0, 0.0], ["ore_ember", 2.0, 0.3],
 			["fire_lily", 2.0, 0.1], ["charred_stump", 3.0, 0.0], ["ore_coal", 4.0, 0.0], ["ore_iron", 3.0, 0.0],
@@ -64,7 +64,7 @@ const DATA := {
 			["ore_crystal", 1.0, 0.5], ["rubble", 3.0, 0.0], ["quartz", 1.5, 0.2], ["bone_pile", 2.0, 0.0],
 			["scrap_heap", 2.0, 0.0], ["machine", 1.5, 0.3], ["glowcap", 1.5, 0.0], ["ore_silver", 1.5, 0.2],
 		]},
-	"hell": {"name": "The Pit", "climate": 1, "tint": Color(0.96, 0.5, 0.46), "moss": 0.1,
+	"hell": {"name": "Pit", "climate": 2, "tint": Color(0.96, 0.5, 0.46), "moss": 0.1,
 		"boss": "pit_lord", "key": "key_hell",
 		"greet": "The Pit. The heart of the maze. Something watches.",
 		"resources": [

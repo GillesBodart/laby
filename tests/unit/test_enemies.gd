@@ -63,6 +63,23 @@ func test_labyrinth_spawns() -> void:
 		check(EnemyCatalog.has(s.type) and EnemyCatalog.def(s.type).biome == "labyrinth", "valid labyrinth type")
 
 
+func test_every_sector_keeps_elites_and_ordered_glyphs() -> void:
+	var entry := Vector2i(LabyrinthGenerator.COLS / 2, LabyrinthGenerator.ROWS - 1)
+	for s in Sectors.ORDER:
+		for seed_value in [1, 7, 42]:
+			var l := LabyrinthGenerator.generate(seed_value, s)
+			var elites := l.enemy_spawns.filter(func(e): return EnemyCatalog.def(e.type).elite)
+			check(elites.size() >= 1, "%s seed %d: an elite lairs somewhere" % [s, seed_value])
+			var spots := LabyrinthGenerator.glyph_spots(seed_value, s)
+			check_eq(spots.size(), LabyrinthGenerator.GLYPH_COUNT, "%s: four glyph stones" % s)
+			var rows := spots.map(func(g): return g.mc.y)
+			check(rows[0] > rows[3] and rows[1] > rows[3], "%s: the story stone lies deeper than the first ones" % s)
+			check(absi(spots[1].mc.x - entry.x) + absi(spots[1].mc.y - entry.y) <= 8, "%s: the route stone is near the way in" % s)
+			for shift in [1, 3]:
+				for r in LabyrinthGenerator.shift_regions(seed_value, s, shift):
+					check(not spots.any(func(g): return r.has_point(g.mc)), "%s: glyph stones never shift" % s)
+
+
 func test_clearing_wildlife_keeps_camp_safe() -> void:
 	var layout := ClearingGenerator.generate(5)
 	check(layout.enemy_spawns.size() >= 20, "the forest is inhabited")

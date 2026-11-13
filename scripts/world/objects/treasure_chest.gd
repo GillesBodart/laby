@@ -50,7 +50,7 @@ func can_interact(_player: Node) -> bool:
 
 
 func interact_hint() -> String:
-	return "Open the old chest" if not is_open() else "Empty chest"
+	return "Open the old chest" if not is_open() else "Empty old chest"
 
 
 ## Seeded per chest and world, so a reload cannot reroll the contents.

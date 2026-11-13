@@ -24,22 +24,22 @@ extends RefCounted
 ##   "survivors": n    - people living in the camp
 ##   "escaped": true
 const GOALS := [
-	{"id": "wood", "text": "Gather 6 Wood", "hint": "Hold E next to a tree.", "item": [["wood"], 6]},
-	{"id": "stone", "text": "Gather 6 Stone", "hint": "Hold E next to a rock.", "item": [["stone"], 6]},
-	{"id": "tool", "text": "Craft a Stone Axe or Pickaxe", "hint": "I opens the backpack; sticks come from wood.", "item": [["stone_axe", "stone_pickaxe"], 1]},
-	{"id": "workbench", "text": "Build a Workbench", "hint": "Craft it at the campfire (E), place it with B.", "build": [["workbench"], 1]},
-	{"id": "house", "text": "Build a house", "hint": "Craft walls and a door at the workbench; close a small room with B.", "house": 1},
-	{"id": "bed", "text": "Put a Straw Bed in your house", "hint": "Workbench recipe, grass gives fiber. Sleep there at night.", "room": 1},
-	{"id": "maze", "text": "Enter the Labyrinth", "hint": "North gate. Go by day: it shuts at 20:00.", "reach": "labyrinth"},
-	{"id": "glyph", "text": "Read a glyph stone", "hint": "Carved stones in quiet maze corners. Press E.", "glyphs": 1},
-	{"id": "village", "text": "Grow the camp to 3 survivors", "hint": "2 beds, a workbench and food in the Stash (Tab: Camp).", "survivors": 3},
+	{"id": "wood", "text": "Gather 6 Wood", "hint": "Hold {interact} next to a tree.", "item": [["wood"], 6]},
+	{"id": "stone", "text": "Gather 6 Stone", "hint": "Hold {interact} next to a rock.", "item": [["stone"], 6]},
+	{"id": "tool", "text": "Craft a Stone Axe or Pickaxe", "hint": "Open the backpack ({inventory}) to craft. Sticks come from wood.", "item": [["stone_axe", "stone_pickaxe"], 1]},
+	{"id": "workbench", "text": "Build a Workbench", "hint": "Craft it at the campfire ({interact}), then place it in build mode ({build_toggle}).", "build": [["workbench"], 1]},
+	{"id": "house", "text": "Build a house", "hint": "Craft walls and a door at the workbench (about 15 wood), then close a small room in build mode ({build_toggle}).", "house": 1},
+	{"id": "bed", "text": "Put a Straw Bed in your house", "hint": "Craft it at the workbench (grass gives Fibre). Sleep in it at night; {eat} eats, {drink} heals.", "room": 1},
+	{"id": "maze", "text": "Enter the Stone Labyrinth", "hint": "North gate. Go by day: it shuts at 20:00. {map} opens the map.", "reach": "labyrinth"},
+	{"id": "glyph", "text": "Read a glyph stone", "hint": "Carved stones hide in quiet corners of the maze. Read one with {interact}; the journal ({journal}) keeps what you learn.", "glyphs": 1},
+	{"id": "village", "text": "Shelter 3 survivors", "hint": "Place 2 beds and a workbench, and keep food in the Stash. Talk to a survivor to see the camp.", "survivors": 3},
 	{"id": "boss_labyrinth", "text": "Slay the Stone Colossus", "hint": "Its arena lies at the north end of the Stone Labyrinth.", "boss": "stone_colossus"},
 	{"id": "boss_overgrowth", "text": "Slay the Briar Hydra", "hint": "The Stone Key opens the Overgrowth, north of the arena.", "boss": "briar_hydra"},
 	{"id": "boss_desert", "text": "Slay the Sun Wyrm", "hint": "The Sunken Dunes are thirsty: carry a waterskin.", "boss": "sun_wyrm"},
-	{"id": "boss_ice", "text": "Slay the Hoarfrost Dragon", "hint": "The Rime Halls freeze the unprepared: wear warm gear.", "boss": "hoarfrost_dragon"},
+	{"id": "boss_ice", "text": "Slay the Hoarfrost Dragon", "hint": "The Rime Halls freeze the unprepared: wear two warm pieces.", "boss": "hoarfrost_dragon"},
 	{"id": "boss_volcano", "text": "Slay the Forgeheart Giant", "hint": "The Cinder Forge burns: cooling gear or draughts.", "boss": "forgeheart_giant"},
-	{"id": "boss_hell", "text": "Slay the Pit Lord", "hint": "The last guardian waits at the bottom of the Pit.", "boss": "pit_lord"},
-	{"id": "escape", "text": "Walk out of the Maze", "hint": "Six Keys open the Pit's final gate.", "escaped": true},
+	{"id": "boss_hell", "text": "Slay the Last Keeper", "hint": "The Pit scorches: wear cooling gear. The Last Keeper waits at the bottom.", "boss": "pit_lord"},
+	{"id": "escape", "text": "Walk out of the maze", "hint": "Six Keys open the Pit's final gate.", "escaped": true},
 ]
 
 

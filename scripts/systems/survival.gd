@@ -31,7 +31,7 @@ const REGEN_MIN_THIRST := 30.0
 ## pushes it 55 further from 0; past +-TEMP_HARM it hurts.
 const TEMP_PER_STRESS := 55.0
 const TEMP_RATE := 9.0
-const TEMP_HARM := 99.0
+const TEMP_HARM := 95.0
 const TEMP_DAMAGE := 2.5
 ## Food and water a night's sleep costs.
 const SLEEP_HUNGER := 15.0
@@ -319,8 +319,13 @@ func load_data(data: Dictionary) -> void:
 	skill_points = int(data.get("skill_points", 0))
 	skills = {}
 	for k in data.get("skills", {}):
+		var rank := int(data.skills[k])
 		if SkillGraph.has(k):
-			skills[k] = clampi(int(data.skills[k]), 0, SkillGraph.max_rank(k))
+			skills[k] = clampi(rank, 0, SkillGraph.max_rank(k))
+			skill_points += maxi(rank - skills[k], 0) * SkillGraph.cost(k)
+		else:
+			# A node removed from the graph gives its points back.
+			skill_points += maxi(rank, 0)
 	_bonus = SkillGraph.totals(skills)
 	health = clampf(float(data.get("health", MAX_HEALTH)), 0.0, max_health())
 	_exhausted = false

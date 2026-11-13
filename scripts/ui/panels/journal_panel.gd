@@ -17,7 +17,9 @@ const BOOK := Rect2(20, 34, 440, 216)
 const TABS := ["creatures", "resources", "glyphs", "places"]
 const TAB_NAMES := ["Creatures", "Resources", "Glyphs", "Places"]
 const ROW_H := 26.0
-const ROWS_VISIBLE := 8
+## Creature rows are taller: their lore line may wrap.
+const CREATURE_ROW_H := 40.0
+const TEMPER_LABEL := {"passive": "timid", "neutral": "fights back", "hostile": "hostile", "nocturnal": "hostile at night"}
 
 var tab := 0
 var _scroll := 0
@@ -86,13 +88,21 @@ func set_tab(i: int) -> void:
 
 
 func scroll(by: int) -> void:
-	_scroll = clampi(_scroll + by, 0, maxi(entries().size() - ROWS_VISIBLE, 0))
+	_scroll = clampi(_scroll + by, 0, maxi(entries().size() - _rows_visible(), 0))
 	queue_redraw()
 
 
 func _process(_delta: float) -> void:
 	if visible:
 		queue_redraw()
+
+
+func _row_h() -> float:
+	return CREATURE_ROW_H if TABS[tab] == "creatures" else ROW_H
+
+
+func _rows_visible() -> int:
+	return int((BOOK.size.y - 8.0) / _row_h())
 
 
 func _tab_rect(i: int) -> Rect2:
@@ -112,9 +122,11 @@ func entries() -> Array:
 					continue
 				var d := EnemyCatalog.def(id)
 				var tier := Taming.tier(id)
+				var area := "Clearing" if d.biome == "forest" else Sectors.display_name(d.biome)
 				out.append({"icon": EnemyCatalog.sprite_path(id), "title": d.name,
-					"sub": "%s  %s  %s" % [String(d.biome).capitalize(), d.temper, d.attack],
-					"text": "Defeated %d   Tame tier %s   HP %d" % [int(j[id]), "-" if tier < 0 else str(tier), int(d.hp)]})
+					"sub": "%s · %s" % [area, TEMPER_LABEL.get(d.temper, d.temper)],
+					"stats": "Defeated %d · Tame %s · HP %d" % [int(j[id]), "-" if tier < 0 else str(tier), int(d.hp)],
+					"text": d.lore})
 		"resources":
 			var ids := j.keys()
 			ids.sort_custom(func(a, b): return ItemCatalog.sorts_before(a, b))
@@ -132,7 +144,7 @@ func entries() -> Array:
 					var read := j.has(id)
 					out.append({"icon": "res://assets/sprites/environment/landmarks/glyph_stone%s.png" % ("_read" if read else ""),
 						"title": "%s, stone %d" % [Sectors.display_name(s), i + 1],
-						"sub": "decoded" if read else "unread (insight %d)" % Glyphs.required_lore(id),
+						"sub": "decoded" if read else ("unread" if Glyphs.required_lore(id) == 0 else "needs glyph insight %d" % Glyphs.required_lore(id)),
 						"text": Glyphs.text(id) if read else "Somewhere in this sector..."})
 		"places":
 			for s in Sectors.ORDER:
@@ -144,7 +156,7 @@ func entries() -> Array:
 					"sub": "landmark", "text": Glyphs.landmark_text(id)})
 			var nights := maxi(TimeSystem.clock.night_index(), 0)
 			if nights > 0:
-				out.append({"icon": "", "title": "The walls move", "sub": "%d shift%s witnessed" % [nights, "s" if nights > 1 else ""],
+				out.append({"icon": "", "title": "The walls move", "sub": "1 shift witnessed" if nights == 1 else "%d shifts witnessed" % nights,
 					"text": "Each nightfall some passages close and others open. Old maps grow unreliable."})
 	return out
 
@@ -195,11 +207,13 @@ func _draw() -> void:
 	var rows := entries()
 	if rows.is_empty():
 		_text(BOOK.position + Vector2(16, 30), "Nothing recorded yet. Explore, gather, fight, read the walls.", TEXT_MID, 12)
-	for k in mini(ROWS_VISIBLE, rows.size() - _scroll):
+	var row_h := _row_h()
+	var visible_rows := _rows_visible()
+	for k in mini(visible_rows, rows.size() - _scroll):
 		var e: Dictionary = rows[_scroll + k]
-		var y := BOOK.position.y + 4 + k * ROW_H
+		var y := BOOK.position.y + 4 + k * row_h
 		if k % 2 == 1:
-			draw_rect(Rect2(BOOK.position.x + 2, y, BOOK.size.x - 4, ROW_H), PAGE_DARK.lerp(PAGE, 0.5))
+			draw_rect(Rect2(BOOK.position.x + 2, y, BOOK.size.x - 4, row_h), PAGE_DARK.lerp(PAGE, 0.5))
 		var tex := _tex(e.icon)
 		if tex:
 			var s := 22.0 / maxf(tex.get_width(), tex.get_height())
@@ -208,7 +222,12 @@ func _draw() -> void:
 		_text(Vector2(BOOK.position.x + 34, y + 11), e.title, TEXT_DARK, 12)
 		var tw2 := _font.get_string_size(e.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 		_text(Vector2(BOOK.position.x + 40 + tw2, y + 11), e.sub, TEXT_MID, 10)
-		_text(Vector2(BOOK.position.x + 34, y + 23), e.text, TEXT_MID, 10, BOOK.size.x - 40)
+		if e.has("stats"):
+			draw_string(_font, Vector2(BOOK.position.x + 34, y + 11), e.stats, HORIZONTAL_ALIGNMENT_RIGHT, BOOK.size.x - 42, 10, TEXT_MID)
+			draw_multiline_string(_font, Vector2(BOOK.position.x + 34, y + 23), e.text, HORIZONTAL_ALIGNMENT_LEFT,
+				BOOK.size.x - 40, 10, 2, TEXT_DARK)
+		else:
+			_text(Vector2(BOOK.position.x + 34, y + 23), e.text, TEXT_MID, 10, BOOK.size.x - 40)
 	var total := _total()
 	var count := rows.size()
 	if TABS[tab] == "glyphs":
@@ -217,6 +236,6 @@ func _draw() -> void:
 		count = GameState.journal.get("places", {}).size() + Sectors.ORDER.filter(func(s): return GameState.reached.has(s)).size()
 	var status := "%d recorded" % count if total == 0 else "%d / %d" % [count, total]
 	_text(Vector2(BOOK.end.x - 70, BOOK.end.y + 14), status, GOLD, 11)
-	if rows.size() > ROWS_VISIBLE:
-		_text(Vector2(BOOK.end.x - 160, BOOK.end.y + 14), "%d-%d" % [_scroll + 1, mini(_scroll + ROWS_VISIBLE, rows.size())], TEXT_LIGHT, 11)
-	_text(Vector2(8, SIZE.y - 6), "J: close    1-4 / A D: tabs    wheel / W S: scroll", Color8(160, 150, 130), 11)
+	if rows.size() > visible_rows:
+		_text(Vector2(BOOK.end.x - 160, BOOK.end.y + 14), "%d-%d" % [_scroll + 1, mini(_scroll + visible_rows, rows.size())], TEXT_LIGHT, 11)
+	_text(Vector2(8, SIZE.y - 6), Gamepad.fill("{journal}: close    1-4 / A D: tabs    wheel / W S: scroll"), Color8(160, 150, 130), 11)

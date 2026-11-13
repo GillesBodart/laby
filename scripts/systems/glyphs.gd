@@ -9,7 +9,7 @@ extends RefCounted
 ## What each stone of a sector reveals, by index.
 const HINTS := ["shift", "route", "key", "lore"]
 ## Lore (glyph insight) needed to read each stone.
-const REQUIRED_LORE := [0, 0, 1, 2]
+const REQUIRED_LORE := [0, 0, 0, 1]
 
 const HINT_TEXT := {
 	"shift": "The walls move when the sun dies. These marks name the passages that will turn tonight (see the map).",
@@ -20,12 +20,12 @@ const HINT_TEXT := {
 
 ## The story, one fragment per sector (the fourth stone).
 const STORY := {
-	"labyrinth": "\"Subjects adapt. Walls adjust. Observe, record, repeat.\" Someone built this on purpose.",
-	"overgrowth": "\"The gardens were meant to feed the watchers. Now the gardens feed on the walls.\"",
-	"desert": "\"Heat test 41: subjects ration water when they are made to choose.\" The sand hides the rest.",
-	"ice": "\"Cold sleep failed. Those who woke kept walking north.\" Frost fills the last line.",
-	"volcano": "\"The engines must never stop. The engines are the walls.\" The glyph is warm to the touch.",
-	"hell": "\"Final phase: a door that opens only for those who stayed together.\"",
+	"labyrinth": "\"We raised the walls to keep it out, and taught them to move so it could never learn the way.\" The rest is chiselled off.",
+	"overgrowth": "\"Plant deep. If the gates stay shut a hundred years, we will still eat.\" Roots have eaten the date.",
+	"desert": "\"The cisterns are failing. We draw lots for water now. I drew well. I wish I had not.\"",
+	"ice": "\"We slept in the cold to wait it out. Those who woke could not find the doors they had built.\" Frost fills the last line.",
+	"volcano": "\"The engines turn the walls. The engines must never stop. No one remembers how to stop them.\" The glyph is warm.",
+	"hell": "\"Six locks on the last door, one per hall, so no keeper could open it alone. We were careful. Too careful.\"",
 }
 
 const LANDMARKS := {

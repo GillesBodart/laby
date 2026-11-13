@@ -346,7 +346,11 @@ func defeat_boss(type: String) -> void:
 	for s in Sectors.ORDER:
 		if Sectors.DATA[s].boss == type:
 			keys[Sectors.DATA[s].key] = true
-			EventBus.notify.emit("The %s is unsealed. A gate opens to the north..." % Sectors.DATA[s].name)
+			EventBus.notify.emit("You claim the %s. The north gate grinds open." % ItemCatalog.item_name(Sectors.DATA[s].key))
+			var trophy: String = Blueprints.TROPHIES.get(s, "")
+			if trophy != "" and not blueprints.has(trophy):
+				blueprints[trophy] = true
+				EventBus.notify.emit("Scratched inside its lair: the blueprint for the %s." % ItemCatalog.item_name(trophy))
 
 
 func has_keys(list: Array) -> bool:

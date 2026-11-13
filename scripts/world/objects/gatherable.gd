@@ -25,7 +25,7 @@ func _ready() -> void:
 func hit(player: Player) -> void:
 	var tier := player.tool_tier(tool_kind)
 	if tier < min_tier:
-		EventBus.notify.emit("Needs a better %s" % tool_kind)
+		EventBus.notify.emit("Needs a better %s." % tool_kind)
 		_shake()
 		return
 	var dmg := 1 + tier

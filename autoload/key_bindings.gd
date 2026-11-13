@@ -106,3 +106,19 @@ func _set_primary(action: String, key: Key) -> void:
 	InputMap.action_add_event(action, ev)
 	for r in rest:
 		InputMap.action_add_event(action, r)
+	_strip_secondary(key, action)
+
+
+## A key bound as primary somewhere is removed from every other action's
+## secondary keys (e.g. an arrow key rebound away from movement).
+func _strip_secondary(key: Key, owner: String) -> void:
+	for a in ACTIONS:
+		if a[0] == owner:
+			continue
+		var first := true
+		for ev in InputMap.action_get_events(a[0]):
+			if not ev is InputEventKey:
+				continue
+			if not first and ev.physical_keycode == key:
+				InputMap.action_erase_event(a[0], ev)
+			first = false

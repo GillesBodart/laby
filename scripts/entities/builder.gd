@@ -72,9 +72,9 @@ func set_active(on: bool) -> void:
 func _announce() -> void:
 	var item := selected_item()
 	if item == "":
-		EventBus.notify.emit("Build mode: nothing to place. Craft walls, floors, a workbench or a chest (Tab).")
+		EventBus.notify.emit("Nothing to place. Craft walls, floors, a workbench or a Stash Chest first.")
 	else:
-		EventBus.notify.emit("Build: %s  [Q] next  [F] place  [X] remove" % ItemCatalog.item_name(item))
+		EventBus.notify.emit(Gamepad.fill("Build: %s  [{build_next}] next  [{build_place}] place  [{build_remove}] remove") % ItemCatalog.item_name(item))
 
 
 ## F: toggle a door under the cursor, otherwise place the selected item.

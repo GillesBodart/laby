@@ -4,7 +4,7 @@ What the game is and what is built: [`docs/GAME_SPEC.md`](../../docs/GAME_SPEC.m
 
 ## 1. Vision
 
-A 2D top-down survival / building RPG. The player wakes in the **Clearing**, a walled glade, surrounded by a **shifting labyrinth**. The goal is to escape. The game is the first half of a Maze Runner-style story: build a community, learn, explore, map and get out. There is no "outside the maze" phase.
+A 2D top-down survival / building RPG. The player wakes in the **Clearing**, a walled meadow, surrounded by a **shifting labyrinth**. The goal is to escape. The game is the first half of a Maze Runner-style story: build a community, learn, explore, map and get out. There is no "outside the maze" phase.
 
 Pillars. Every feature must serve at least one of them:
 
@@ -17,7 +17,7 @@ Core loop: **EXPLORE → GATHER → CRAFT → BUILD → SURVIVE → EXPLORE FURT
 
 ## 2. Inspirations
 
-- **The Maze Runner (atmosphere only)**: a hostile enclosed world, huge overgrown walls, a safe glade, rules the player discovers through experiment. Do not reproduce its characters, creatures, places, story or assets. The universe is original.
+- **The Maze Runner (atmosphere only)**: a hostile enclosed world, huge overgrown walls, a safe meadow, rules the player discovers through experiment. Do not reproduce its characters, creatures, places, story or assets. The universe is original.
 - **Dave the Diver (tone and loop)**: humour, charming exaggerated characters, and the rhythm of an expedition by day and base management by night. Humour lives in survivors, item and journal text and animations. It never shows in the maze's lighting or palette, which stay mysterious.
 - **Minecraft-style crafting**: many resources, many recipes, stations with their own recipe books, material tiers.
 

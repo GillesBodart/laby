@@ -25,6 +25,16 @@ const LOOT := {
 	"hell": [["soul_shard", 1, 3], ["hellsteel_ingot", 1, 2], ["obsidian", 2, 4], ["gold_ingot", 2, 4]],
 }
 const LOOT_PICKS := 2
+## The weapon blueprint each guardian guards: slaying it teaches the camp that
+## recipe, so the arms race never hangs on chest luck alone.
+const TROPHIES := {
+	"labyrinth": "war_hammer",
+	"overgrowth": "horn_halberd",
+	"desert": "silver_sword",
+	"ice": "mithril_sword",
+	"volcano": "ember_blade",
+	"hell": "hellsteel_greatsword",
+}
 
 static var _gated := {}
 

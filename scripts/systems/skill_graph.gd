@@ -28,7 +28,7 @@ const CLUSTERS := {
 ## Bonus wording; "%s" is replaced by the signed amount.
 const FX_TEXT := {
 	"hp": "%s max health", "dmg": "%s attack damage", "ranged": "%s ranged damage",
-	"armor": "%s armor", "block": "%s%% block chance", "crit": "%s%% critical hits",
+	"armor": "%s armour", "block": "%s%% block chance", "crit": "%s%% critical hits",
 	"speed": "%s%% move speed", "run_cost": "%s%% less run/roll stamina", "strength": "%s Strength",
 	"hunger": "%s%% slower hunger", "thirst": "%s%% slower thirst", "regen": "%s%% faster healing",
 	"warm": "%s cold protection", "cool": "%s heat protection", "gather": "%s%% double harvest",

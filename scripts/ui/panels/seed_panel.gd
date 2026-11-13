@@ -189,7 +189,7 @@ func _draw() -> void:
 	if _hover >= 0 and _hover < list.size():
 		var def: Dictionary = Farming.CROPS[list[_hover]]
 		if player.inventory.knows(def.seed):
-			hint = "%s: %d-%d %s, ripe in %d min, +%d xp" % [ItemCatalog.item_name(def.seed), def.min, def.max, ItemCatalog.item_name(def.yield), ceili(def.minutes / 120.0), def.xp]
+			hint = "%s: %d-%d %s, ripe in %d min, +%d XP" % [ItemCatalog.item_name(def.seed), def.min, def.max, ItemCatalog.item_name(def.yield), ceili(def.minutes / 120.0), def.xp]
 		else:
 			hint = "Find this seed in the wild first."
 	var hw := _font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x

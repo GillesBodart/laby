@@ -1,6 +1,6 @@
 class_name ClearingGenerator
 extends RefCounted
-## Deterministically builds the starting area from a seed: a grassy glade
+## Deterministically builds the starting area from a seed: a grassy meadow
 ## enclosed by massive walls with four gates, surrounded by a ring
 ## corridor and corridor stubs hinting at the labyrinth beyond.
 
@@ -293,7 +293,7 @@ func _place_props(center: Vector2i) -> void:
 	_place_creatures(center, inner, occupied)
 
 
-## 0 at the camp, 1 against the glade's walls.
+## 0 at the camp, 1 against the meadow's walls.
 static func _edge(cell: Vector2i, center: Vector2i, inner: Rect2i) -> float:
 	var d := Vector2(cell - center).abs() / (Vector2(inner.size) / 2.0)
 	return clampf(maxf(d.x, d.y), 0.0, 1.0)

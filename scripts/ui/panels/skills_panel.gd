@@ -144,7 +144,7 @@ func learn(id: String) -> bool:
 	if ok:
 		EventBus.notify.emit("%s %d/%d" % [SkillGraph.node(id).name, player.survival.rank(id), SkillGraph.max_rank(id)])
 	elif SkillGraph.has(id) and not SkillGraph.gate_open(id, GameState.reached):
-		EventBus.notify.emit("Sealed until you reach %s." % Sectors.display_name(SkillGraph.gate(id)))
+		EventBus.notify.emit("Sealed until you reach the %s." % Sectors.display_name(SkillGraph.gate(id)))
 	queue_redraw()
 	return ok
 
@@ -225,7 +225,7 @@ func _draw() -> void:
 	_text(Vector2(8, 18), "Level %d" % s.level, TEXT_LIGHT, 14)
 	_text(Vector2(8, 34), "Points: %d" % s.skill_points, GOLD if s.skill_points > 0 else TEXT_LIGHT, 14)
 	draw_rect(Rect2(0, SIZE.y - 20, SIZE.x, 20), Color(0.03, 0.04, 0.07, 1.0))
-	_text(Vector2(8, SIZE.y - 8), "[K] close   click: learn   drag: pan   wheel: zoom", Color8(160, 150, 130), 11)
+	_text(Vector2(8, SIZE.y - 8), Gamepad.fill("[{skills}] close   click: learn   drag: pan   wheel: zoom"), Color8(160, 150, 130), 11)
 	if _at_altar():
 		var shards := player.inventory.count(Survival.RESPEC_ITEM)
 		_box(RESPEC_RECT, Color8(70, 44, 110), GOLD if shards > 0 else DIM, 3)
@@ -273,7 +273,7 @@ func _draw_tooltip(id: String, s: Survival) -> void:
 		var names := SkillGraph.requires(id).map(func(r): return SkillGraph.node(r).name)
 		lines.append(["Needs: " + " or ".join(PackedStringArray(names)), Color8(150, 60, 40)])
 	if not SkillGraph.gate_open(id, GameState.reached):
-		lines.append(["Sealed until %s" % Sectors.display_name(SkillGraph.gate(id)), Color8(150, 60, 40)])
+		lines.append(["Sealed until you reach the %s" % Sectors.display_name(SkillGraph.gate(id)), Color8(150, 60, 40)])
 	var w := 0.0
 	for l in lines:
 		w = maxf(w, _text_w(l[0], 11))

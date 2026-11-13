@@ -4,7 +4,7 @@ What the game is, the rules it runs on, and what is left to build. Art, tone and
 
 ## 1. Concept
 
-A 2D top-down survival / building RPG in smooth HD art. The player is dropped into a walled glade (the **Clearing**) surrounded by a **shifting labyrinth** and has to **find the way out**. The fun is the first half of a Maze Runner-style story: build a community, learn, explore, map and escape. There is no gameplay outside the maze. Escaping ends the run with an epilogue.
+A 2D top-down survival / building RPG in smooth HD art. The player is dropped into a walled meadow (the **Clearing**) surrounded by a **shifting labyrinth** and has to **find the way out**. The fun is the first half of a Maze Runner-style story: build a community, learn, explore, map and escape. There is no gameplay outside the maze. Escaping ends the run with an epilogue.
 
 Pillars: EXPLORE · SURVIVE · BUILD · **KNOW** (maps, journal, glyphs, recipes, blueprints and skills are the real progression currency).
 
@@ -50,7 +50,7 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 ## 5. Survival, gear and death
 
 - **Needs**: health, hunger and stamina from the start; thirst once the desert is reached; body temperature in hot and cold climates (countered by gear, fire and tonics). Tuning rule: needs limit trip length but never nag; a well-prepared trip must be comfortable.
-- **Gear**: an equipment doll (weapon, offhand, head, body, feet, ring, amulet), material tiers up to the sector metals (mithril, ember, hellsteel), bows and arrows, shields, staffs, potions. A held torch gives light and keeps night hunters away. **Tools and weapons wear out** and break.
+- **Gear**: an equipment doll (weapon, offhand, head, body, feet, ring, amulet), material tiers up to the sector metals (Rimesilver, Ember, Deepsteel), bows and arrows, shields, staffs, potions. A held torch gives light and keeps night hunters away. **Tools and weapons wear out** and break.
 - **Combat**: real-time attacks and a dodge-roll that costs stamina. Creatures have distinct attacks (melee, charge, ranged, shields, poison or slow, packs). Avoiding fights is a valid choice; combat is not the main pillar.
 - **Death**: chosen at New Game.
   - *Recoverable* (default): the non-insured backpack drops as **remains** at the death spot; you respawn in the Clearing. The Stash and bound items (keys, relics) are never lost.

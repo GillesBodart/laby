@@ -53,6 +53,8 @@ const CACHE_SALT := 60013
 const CHEST_COUNT := 4
 const CHEST_MIN_DIST := 7
 const CHEST_SALT := 77017
+const ELITE_DENS := 2
+const ELITE_SALT := 31337
 
 const Id := TileCatalog.Id
 
@@ -63,6 +65,10 @@ var _sector := "labyrinth"
 var _shift := 0
 var _seed := 0
 var _landmark_cells := {}
+## Path distance (in maze cells) from the entrance in the unshifted maze, and
+## the length of the way to the arena door: depth 1.0 is the guardian's door.
+var _cell_dist := {}
+var _route_len := 1.0
 ## Chest maze cells per "seed:sector" (they come from the unshifted maze).
 static var _chest_cells_cache := {}
 
@@ -99,6 +105,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 		_landmark_cells[m.mc] = true
 	var entry := Vector2i(COLS / 2, ROWS - 1)
 	_open_extras(entry)
+	_measure_depth(entry)
 	# Dead ends of the unshifted maze, so the caches never move.
 	var dead_ends := _dead_ends(entry)
 	_layout.shift_tiles = []
@@ -152,7 +159,7 @@ func _generate(seed_value: int) -> ClearingLayout:
 		_layout.glyphs.append({"glyph": g.glyph, "cell": cell_origin(g.mc) + Vector2i(1, 1)})
 		_landmark_cells[g.mc] = true
 	_place_chests(entry, dead_ends)
-	_place_enemies(entry)
+	_place_enemies(entry, dead_ends)
 	_place_resources(entry)
 	_place_caches(entry, dead_ends)
 	return _layout
@@ -238,6 +245,9 @@ func _place_chests(entry: Vector2i, dead_ends: Array) -> void:
 func _place_caches(entry: Vector2i, dead_ends: Array) -> void:
 	var rng := _sector_rng(_seed, _sector, CACHE_SALT)
 	var table: Array = Sectors.info(_sector).resources.filter(func(r): return r[2] >= CACHE_RARE_DEPTH)
+	var occupied := {}
+	for p in _layout.props:
+		occupied[p.cell] = true
 	for de in dead_ends:
 		var mc: Vector2i = de.mc
 		var roll := rng.randf()
@@ -245,7 +255,13 @@ func _place_caches(entry: Vector2i, dead_ends: Array) -> void:
 		var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
 		if dist < CACHE_MIN_DIST or roll > CACHE_CHANCE or table.is_empty():
 			continue
-		var depth := dist / float(COLS + ROWS) * 1.4
+		# With both back corners already taken, a cache would wall the back
+		# off: a later shift opening a passage there would find it plugged.
+		var back: Vector2i = cell_origin(mc) + Vector2i.ONE - Vector2i(de.way)
+		var side := Vector2i(absi(de.way.y), absi(de.way.x))
+		if occupied.has(back + side) and occupied.has(back - side):
+			continue
+		var depth := _depth(mc)
 		var fits: Array = table.filter(func(r): return r[2] <= depth + 0.3)
 		if fits.is_empty():
 			fits = [table.reduce(func(a, b): return a if a[2] <= b[2] else b)]
@@ -259,11 +275,10 @@ func _place_caches(entry: Vector2i, dead_ends: Array) -> void:
 			if x <= 0.0:
 				type = r[0]
 				break
-		_layout.props.append({"type": type, "cell": cell_origin(mc) + Vector2i.ONE - Vector2i(de.way)})
+		_layout.props.append({"type": type, "cell": back})
 
 
-func _place_enemies(entry: Vector2i) -> void:
-	var max_dist := float(COLS + ROWS)
+func _place_enemies(entry: Vector2i, dead_ends: Array) -> void:
 	for my in ROWS:
 		for mx in COLS:
 			var mc := Vector2i(mx, my)
@@ -271,21 +286,59 @@ func _place_enemies(entry: Vector2i) -> void:
 			var roll := _rng.randf()
 			if dist <= SAFE_RADIUS or roll > ENEMY_CHANCE or ARENA.has_point(mc) or _landmark_cells.has(mc):
 				continue
-			var type := EnemyCatalog.pick(_sector, dist / max_dist * 1.4, _rng.randf())
+			var type := EnemyCatalog.pick(_sector, _depth(mc), _rng.randf())
 			var o := cell_origin(mc)
 			_layout.enemy_spawns.append({"type": type, "cell": o + Vector2i(1, 1)})
+	_place_elite_dens(dead_ends)
+
+
+## An elite lairs in each of the farthest free dead ends: the rare beasts that
+## drop Memory Shards are always somewhere to be found. Own rng stream.
+func _place_elite_dens(dead_ends: Array) -> void:
+	var rng := _sector_rng(_seed, _sector, ELITE_SALT)
+	var taken := {}
+	for s in _layout.enemy_spawns:
+		taken[s.cell] = true
+	var spots: Array = dead_ends.filter(func(de): return not _landmark_cells.has(de.mc) \
+		and not taken.has(cell_origin(de.mc) + Vector2i.ONE))
+	spots.sort_custom(func(a, b): return _cell_dist.get(a.mc, 0) > _cell_dist.get(b.mc, 0))
+	for i in mini(ELITE_DENS, spots.size()):
+		var type := EnemyCatalog.pick(_sector, _depth(spots[i].mc), rng.randf(), func(d): return d.elite)
+		if type == "":
+			type = EnemyCatalog.pick(_sector, 2.0, rng.randf(), func(d): return d.elite)
+		if type != "":
+			_layout.enemy_spawns.append({"type": type, "cell": cell_origin(spots[i].mc) + Vector2i.ONE})
+
+
+## Breadth-first path distances over the maze cells, from the entrance.
+func _measure_depth(entry: Vector2i) -> void:
+	_cell_dist = {entry: 0}
+	var queue: Array[Vector2i] = [entry]
+	var head := 0
+	while head < queue.size():
+		var c: Vector2i = queue[head]
+		head += 1
+		for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var n: Vector2i = c + d
+			if _in_maze(n) and not _cell_dist.has(n) and _is_linked(c, d):
+				_cell_dist[n] = _cell_dist[c] + 1
+				queue.append(n)
+	_route_len = maxf(1.0, _cell_dist.get(Vector2i(COLS / 2, ARENA.end.y), COLS + ROWS))
+
+
+func _depth(mc: Vector2i) -> float:
+	return clampf(_cell_dist.get(mc, _route_len) / _route_len, 0.0, 1.3)
 
 
 ## Resource nodes sit in the corners of maze cells (never blocking passages);
 ## richer deposits lie deeper in the maze.
 func _place_resources(entry: Vector2i) -> void:
-	var max_dist := float(COLS + ROWS)
 	var corners := [Vector2i(0, 0), Vector2i(2, 0), Vector2i(0, 2), Vector2i(2, 2)]
 	for my in ROWS:
 		for mx in COLS:
 			var mc := Vector2i(mx, my)
 			var dist := absi(mc.x - entry.x) + absi(mc.y - entry.y)
-			var depth := dist / max_dist * 1.4
+			var depth := _depth(mc)
 			var first := _rng.randi_range(0, 3)
 			var rolls := [_rng.randf(), _rng.randf()]
 			if dist <= 1 or ARENA.has_point(mc) or _landmark_cells.has(mc):
@@ -403,21 +456,28 @@ static func landmarks(seed_value: int, sector: String) -> Array:
 
 
 ## Glyph stones: [{glyph, mc}] in dead-quiet corners of the maze (never on a
-## landmark). The glyph ids index Glyphs.DATA.
+## landmark). The glyph ids index Glyphs.DATA and follow depth: the shift
+## stone near the entrance, the route stone on the way in, the deeper ones
+## towards the arena.
 static func glyph_spots(seed_value: int, sector: String) -> Array:
 	var rng := _sector_rng(seed_value, sector, 51551)
 	var taken := {}
 	for m in landmarks(seed_value, sector):
 		taken[m.mc] = true
+	var entry := Vector2i(COLS / 2, ROWS - 1)
+	var bands := [Vector2i(ROWS - 5, ROWS - 3), Vector2i(ROWS - 7, ROWS - 4), Vector2i(3, ROWS - 7), Vector2i(1, 4)]
 	var out := []
-	var tries := 0
-	while out.size() < GLYPH_COUNT and tries < 200:
-		tries += 1
-		var mc := Vector2i(rng.randi_range(0, COLS - 1), rng.randi_range(1, ROWS - 3))
-		if taken.has(mc) or ARENA.has_point(mc):
-			continue
-		taken[mc] = true
-		out.append({"glyph": "%s_%d" % [sector, out.size()], "mc": mc})
+	for i in GLYPH_COUNT:
+		var band: Vector2i = bands[i % bands.size()]
+		for tries in 200:
+			var mc := Vector2i(rng.randi_range(0, COLS - 1), rng.randi_range(band.x, band.y))
+			if taken.has(mc) or ARENA.grow(1).has_point(mc):
+				continue
+			if i == 1 and absi(mc.x - entry.x) + absi(mc.y - entry.y) > 8:
+				continue
+			taken[mc] = true
+			out.append({"glyph": "%s_%d" % [sector, i], "mc": mc})
+			break
 	return out
 
 
@@ -427,7 +487,8 @@ static func shift_regions(seed_value: int, sector: String, shift: int) -> Array:
 	if shift <= 0:
 		return []
 	var rng := _sector_rng(seed_value + shift * 7907, sector, 99991)
-	var fixed := landmarks(seed_value, sector).map(func(m): return m.mc) + chest_cells(seed_value, sector)
+	var fixed := landmarks(seed_value, sector).map(func(m): return m.mc) + chest_cells(seed_value, sector) \
+		+ glyph_spots(seed_value, sector).map(func(g): return g.mc)
 	var out := []
 	var tries := 0
 	while out.size() < SHIFT_REGIONS and tries < 100:

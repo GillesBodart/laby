@@ -88,7 +88,7 @@ func _update_fog() -> void:
 
 
 func portal_message(_target: String) -> String:
-	return "You step into the Labyrinth..."
+	return "You step into the Stone Labyrinth."
 
 
 ## Brings each survivor's companions along. Downed ones rest in the Clearing
@@ -187,20 +187,24 @@ func start_raid(night: int) -> int:
 		e.make_raider(camp)
 		clearing.entities.add_child(e)
 	Sound.play("horn", Vector2.INF, 0.0)
-	EventBus.notify.emit("Night %d: %d raiders pour out of the maze toward the camp!" % [night, n])
+	EventBus.notify.emit("Night %d: %d raiders pour out of the maze towards the camp!" % [night, n])
 	return n
 
 
-## Free cells at the edge of the Clearing, far from the fire.
+## Free cells at the edge of the Clearing, far from the fire. Most raiders pour
+## in by the north gate (the only one); a few climb the other walls.
 func _raid_spawns(n: int) -> Array:
 	var r := layout.clearing_rect
+	var gate_x := r.get_center().x
 	var out := []
 	for i in 400:
 		if out.size() >= n:
 			break
-		var side := randi() % 4
-		var c := Vector2i(randi_range(r.position.x + 1, r.end.x - 2), r.position.y + 1 if side == 0 else r.end.y - 2)
-		if side >= 2:
+		var side := 0 if randf() < 0.7 else 1 + randi() % 3
+		var c := Vector2i(randi_range(gate_x - 12, gate_x + 12), r.position.y + 1 + randi() % 2)
+		if side == 1:
+			c = Vector2i(randi_range(r.position.x + 1, r.end.x - 2), r.end.y - 2)
+		elif side >= 2:
 			c = Vector2i(r.position.x + 1 if side == 2 else r.end.x - 2, randi_range(r.position.y + 1, r.end.y - 2))
 		if layout.is_walkable(c) and not GameState.structures.has(c) and c.distance_to(layout.campfire_cell) > 8.0:
 			out.append(ClearingWorld.cell_center(c))

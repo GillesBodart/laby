@@ -134,6 +134,30 @@ func test_thirst_and_climate() -> void:
 	hp = s.health
 	s.tick(1.0, false, false)
 	check(s.health >= hp, "mild heat is bearable")
+	# The Rime Halls (climate -2): bare skin freezes, two warm pieces are enough.
+	var cold := Survival.new()
+	for i in 30:
+		cold.tick_climate(1.0, Sectors.climate_of("ice"), 0, 0)
+	hp = cold.health
+	cold.tick(1.0, false, false)
+	check(cold.health < hp, "the Rime Halls freeze the unprepared")
+	var dressed := Survival.new()
+	for i in 30:
+		dressed.tick_climate(1.0, Sectors.climate_of("ice"), 2, 0)
+	check_eq(dressed.temperature, 0.0, "two warm pieces keep the cold out")
+
+
+func test_meals_skip_medicine_and_precious_food() -> void:
+	check(ItemCatalog.is_meal("berry"), "berries are a meal")
+	check(not ItemCatalog.is_meal("stamina_tonic"), "tonics are not rations")
+	check(not ItemCatalog.is_meal("royal_jelly"), "royal jelly is kept for elixirs")
+	check(not ItemCatalog.is_meal("antidote"), "medicine is not food")
+
+
+func test_skill_points_refunded_for_removed_nodes() -> void:
+	var s := Survival.new()
+	s.load_data({"skills": {"gone_node": 3}, "skill_points": 1})
+	check_eq(s.skill_points, 4, "a removed node gives its points back")
 
 
 func test_rooms_need_closed_walls_and_grant_buffs() -> void:

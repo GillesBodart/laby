@@ -211,9 +211,9 @@ func _draw() -> void:
 		var p := origin + (Vector2(c) + Vector2(0.5, 0.5)) * scale
 		draw_circle(p, 3.0, INK)
 		draw_circle(p, 2.0, Color.WHITE if blink else Color8(230, 70, 70))
-	var footer := "[M] close"
+	var footer := Gamepad.fill("[{map}] close")
 	if world.fog != null:
-		footer = "Explored %d%%   1-4: %s   click: mark / erase   M: close" % [int(world.fog.explored_fraction() * 100.0), marker_kind]
+		footer = Gamepad.fill("Explored %d%%   1-4: %s   click: mark / erase   {map}: close") % [int(world.fog.explored_fraction() * 100.0), marker_kind]
 		draw_circle(Vector2(456, 260), 4.0, INK)
 		draw_circle(Vector2(456, 260), 3.0, marker_color(marker_kind))
 	draw_string(_font, Vector2(24, 266), footer, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEXT_LIGHT)

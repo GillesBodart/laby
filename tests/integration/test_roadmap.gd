@@ -99,6 +99,7 @@ func test_guardian_keys_unseal_and_persist() -> void:
 	check(not GameState.has_keys(["key_stone"]), "starts sealed")
 	GameState.defeat_boss("stone_colossus")
 	check(GameState.has_keys(["key_stone"]), "the colossus yields its key")
+	check(GameState.blueprints.has(Blueprints.TROPHIES.labyrinth), "and teaches its weapon blueprint")
 	GameState.reached["desert"] = true
 	GameState.escaped = true
 	check(GameState.thirst_unlocked(), "the desert unlocks thirst")
@@ -155,6 +156,27 @@ func test_water_sources_and_waterskins() -> void:
 	player.inventory.add("warming_tonic", 1)
 	check(player.use_item("warming_tonic"), "tonics are always drinkable")
 	check(player.survival.warmth > 0.0, "warmth buff on")
+	world.free()
+
+
+func test_eat_key_picks_the_fitting_meal_with_its_effects() -> void:
+	var world: Node = await _start_world(10 * 60)
+	var player := _local_player()
+	for id in ["berry", "cooked_meat", "hunter_feast"]:
+		player.inventory.remove(id, player.inventory.count(id))
+		player.inventory.add(id, 1)
+	player.survival.hunger = Survival.MAX_HUNGER - 30.0
+	check_eq(player.best_meal(30.0), "cooked_meat", "a small hunger is not fed a feast")
+	check(player.eat_best_food(), "R eats")
+	check_eq(player.inventory.count("hunter_feast"), 1, "the feast is kept")
+	player.inventory.add("spiced_stew", 1)
+	player.survival.hunger = 5.0
+	player.survival.health = 40.0
+	var hp := player.survival.health
+	player.inventory.remove("hunter_feast", 1)
+	player.inventory.remove("berry", 1)
+	check(player.eat_best_food(), "R eats the stew")
+	check(player.survival.health > hp and player.survival.warmth > 0.0, "the meal's heal and warmth apply")
 	world.free()
 
 
@@ -472,8 +494,8 @@ func test_live_shift_moves_walls_and_glyphs_need_insight() -> void:
 	stones.sort_custom(func(a, b): return Glyphs.index_of(a.id) < Glyphs.index_of(b.id))
 	stones[0].interact(player)
 	check(GameState.in_journal("glyphs", "labyrinth_0"), "first stone needs no insight")
-	stones[2].interact(player)
-	check(not GameState.in_journal("glyphs", "labyrinth_2"), "deeper stones need glyph insight")
+	stones[3].interact(player)
+	check(not GameState.in_journal("glyphs", "labyrinth_3"), "the story stone needs glyph insight")
 	var statue: Landmark = _tree().get_nodes_in_group("landmarks").filter(func(l): return l.kind == "landmark")[0]
 	statue.interact(player)
 	check(GameState.in_journal("places", statue.id), "landmark logged")
@@ -539,6 +561,7 @@ func test_settlement_dawn_feeds_works_and_welcomes() -> void:
 	stash.add("cooked_meat", 2)
 	stash.add("raw_meat", 3)
 	stash.add("herb", 2)
+	stash.add("glass_vial", 1)
 	var people := [{"cast": 0, "role": "gatherer"}, {"cast": 1, "role": "cook"}, {"cast": 2, "role": "healer"}]
 	var s := _structs({"bed": 4, "workbench": 1, "furnace": 1, "anvil": 1, "farm_plot": 4, "well": 1})
 	var r := Settlement.dawn(people, s, stash)
@@ -551,6 +574,12 @@ func test_settlement_dawn_feeds_works_and_welcomes() -> void:
 	var r2 := Settlement.dawn([{"cast": 0, "role": "gatherer"}, {"cast": 1, "role": "gatherer"}], s, hungry)
 	check_eq(hungry.count("wood"), 2, "hungry camp works at half pace")
 	check_eq(int(r2.arrival), -1, "nobody joins a hungry camp")
+	var pantry := Inventory.new(40)
+	pantry.add("berry", 6)
+	pantry.add("hunter_feast", 1)
+	Settlement.dawn([{"cast": 0, "role": "farmer"}], s, pantry)
+	check_eq(pantry.count("hunter_feast"), 1, "survivors eat plain rations before feasts")
+	check_eq(pantry.count("berry"), 4, "a ration is two berries")
 
 
 func test_survivors_live_in_the_clearing_and_persist() -> void:
@@ -591,18 +620,25 @@ func test_raid_rules_scale_with_tier_and_defence() -> void:
 	check_eq(BuildCatalog.repair_item("wooden_wall"), "plank", "walls are mended with their main material")
 
 
-func _shelters_camp(world: Node) -> void:
+func _village_camp(world: Node) -> void:
 	var fire: Vector2i = world.layout.campfire_cell
 	world.clearing.place_structure(fire + Vector2i(3, -3), "bed")
 	world.clearing.place_structure(fire + Vector2i(4, -3), "bed")
 	world.clearing.place_structure(fire + Vector2i(5, -3), "workbench")
 	world.clearing.place_structure(fire + Vector2i(3, 3), "wooden_wall")
+	world.clearing.place_structure(fire + Vector2i(6, -3), "bed")
+	world.clearing.place_structure(fire + Vector2i(7, -3), "bed")
+	world.clearing.place_structure(fire + Vector2i(-3, -3), "furnace")
+	world.clearing.place_structure(fire + Vector2i(-4, -3), "anvil")
+	world.clearing.place_structure(fire + Vector2i(-3, 3), "well")
+	for x in 4:
+		world.clearing.place_structure(fire + Vector2i(-6 - x, 3), "farm_plot")
 
 
 func test_night_raid_wrecks_and_guards_fight_back() -> void:
 	var world: Node = await _start_world(10 * 60)
-	_shelters_camp(world)
-	check_eq(GameState.settlement_tier, 1, "the camp became Shelters")
+	_village_camp(world)
+	check_eq(GameState.settlement_tier, 2, "the camp became a Village")
 	check_eq(world.start_raid(1), 0, "first night stays calm")
 	var n: int = world.start_raid(2)
 	check(n > 0, "second night brings raiders")
@@ -617,6 +653,7 @@ func test_night_raid_wrecks_and_guards_fight_back() -> void:
 	check(not GameState.structures.has(world.layout.campfire_cell + Vector2i(3, 3)), "and break")
 	var e: Enemy = raiders[0]
 	e._target = null
+	e._siege = null
 	var bed: Structure = world.clearing.structure_at(world.layout.campfire_cell + Vector2i(3, -3))
 	e.global_position = bed.global_position + Vector2(0, 20)
 	_local_player().global_position = Vector2(-5000, -5000)
@@ -644,7 +681,7 @@ func test_night_raid_wrecks_and_guards_fight_back() -> void:
 
 func test_raid_while_away_and_builders_mend() -> void:
 	GameState.new_game(9)
-	var s := _structs({"bed": 2, "workbench": 1, "wooden_wall": 6})
+	var s := _structs({"bed": 4, "workbench": 1, "furnace": 1, "anvil": 1, "farm_plot": 4, "well": 1, "wooden_wall": 6})
 	for c in s:
 		s[c]["open"] = false
 	GameState.structures = s

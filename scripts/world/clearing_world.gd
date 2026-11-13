@@ -271,7 +271,7 @@ func build_blocker(cell: Vector2i, type: String) -> String:
 		return "Occupied"
 	for prop in layout.props:
 		if prop.cell == cell and not GameState.depleted_cells.has(cell):
-			return "Blocked by %s" % prop.type
+			return "Something is in the way"
 	if BuildCatalog.TYPES[type].solid:
 		for player in GameState.players.values():
 			if walls.local_to_map(walls.to_local(player.global_position)) == cell:
@@ -342,6 +342,8 @@ func get_save_data() -> Dictionary:
 		var entry := {"cell": [c.x, c.y], "type": d.type, "open": d.open, "planted": d.get("planted", Farming.NOT_PLANTED), "crop": d.get("crop", Farming.DEFAULT_CROP)}
 		if d.has("floor"):
 			entry["floor"] = d.floor
+		if d.has("hp"):
+			entry["hp"] = int(d.hp)
 		built.append(entry)
 	return {"depleted": cells, "structures": built}
 
@@ -359,6 +361,8 @@ func load_save_data(data: Dictionary) -> void:
 			var record := {"type": String(d.type), "open": bool(d.open), "planted": float(d.get("planted", Farming.NOT_PLANTED)), "crop": String(d.get("crop", Farming.DEFAULT_CROP))}
 			if BuildCatalog.can_stand_on(String(d.get("floor", "")), record.type):
 				record["floor"] = String(d.floor)
+			if d.has("hp"):
+				record["hp"] = int(d.hp)
 			GameState.structures[Vector2i(int(d.cell[0]), int(d.cell[1]))] = record
 	_spawn_structures()
 

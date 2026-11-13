@@ -130,4 +130,4 @@ func portal_message(target: String) -> String:
 		if TimeSystem.phase() == DayClock.Phase.NIGHT:
 			return "Back at the Clearing... but the gates are shut for the night."
 		return "You return to the Clearing."
-	return "You enter %s." % Sectors.display_name(target)
+	return "You enter the %s." % Sectors.display_name(target)

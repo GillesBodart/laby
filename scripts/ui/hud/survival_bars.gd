@@ -102,7 +102,7 @@ func _temp_bar(pos: Vector2, t: float) -> void:
 	draw_rect(Rect2(Vector2(mid, pos.y), Vector2(1, BAR_H)), TEXT)
 
 
-## "[E] Recover your remains" above the notices when something usable is in reach.
+## "[E] Recover your backpack" above the notices when something usable is in reach.
 func _draw_prompt(player: Player) -> void:
 	for p in get_tree().get_nodes_in_group("ui_panels"):
 		if p.visible:

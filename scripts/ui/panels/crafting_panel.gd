@@ -28,7 +28,7 @@ const CARD := Rect2(372, 56, 100, 150)
 const GRID_COLS := 7
 const GRID_ROWS := 4
 const SLOT := Vector2(40, 36)
-const TABS := ["INVENTORY", "CRAFTING"]
+const TABS := ["BACKPACK", "CRAFTING"]
 
 const INK := Color8(27, 20, 16)
 const GREEN_DARK := Color8(24, 38, 30)
@@ -280,7 +280,7 @@ func sort_backpack() -> void:
 	var player := _player()
 	if player != null:
 		player.inventory.sort(player.survival.insured_slots())
-		EventBus.notify.emit("Backpack sorted")
+		EventBus.notify.emit("Backpack sorted.")
 
 
 func _scroll_by(d: int) -> void:
@@ -524,7 +524,7 @@ func _draw() -> void:
 			var rec: Dictionary = ItemCatalog.RECIPES[_hover]
 			detail_extra = _recipe_text(rec, player)
 	_draw_card(detail_id, detail_extra)
-	_text_center(PANEL.get_center().x, 247, "[I] close  [Tab] switch  [Click] equip / craft  [E] station", TEXT_LIGHT)
+	_text_center(PANEL.get_center().x, 247, Gamepad.fill("[{inventory}] close  [Tab] switch  [Click] equip / craft  [{interact}] station"), TEXT_LIGHT)
 	if _dragging and _drag_from >= 0 and not player.inventory.slots[_drag_from].is_empty():
 		_icon(get_local_mouse_position(), player.inventory.slots[_drag_from].id)
 
@@ -680,9 +680,9 @@ func _recipe_text(rec: Dictionary, player: Player) -> String:
 		lines.append("%s %d/%d" % [ItemCatalog.item_name(k), Crafting.available(player.inventory, k, store), rec["in"][k]])
 	lines.append("At %s" % ItemCatalog.STATIONS[rec.station] if rec.station != "" else "By hand")
 	if store != null:
-		lines.append("Room chest counts")
+		lines.append("Uses Stash items in a room with a chest")
 	if Blueprints.gates(rec.id):
-		lines.append("Blueprint from a maze chest")
+		lines.append("Blueprint from an old chest")
 	return "\n".join(lines)
 
 

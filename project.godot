@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Laby"
-config/description="2D pixel-art survival / building RPG set in a shifting labyrinth."
+config/description="2D smooth HD survival / building RPG set in a shifting labyrinth."
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

@@ -28,10 +28,10 @@ const ROLE_TEXT := {
 	"gatherer": "Brings wood, stone and fiber.",
 	"farmer": "Grows wheat and carrots (more with farm plots).",
 	"builder": "Saws planks, cuts stone, mends damaged structures.",
-	"cook": "Cooks raw meat in the Stash; the camp eats less.",
+	"cook": "Cooks raw meat in the Stash; needs no ration of their own.",
 	"guard": "Defends the Clearing when the maze sends raiders.",
 	"cartographer": "Charts a patch of a sector you have visited.",
-	"healer": "Brews healing potions from herbs, or picks herbs.",
+	"healer": "Brews potions from herbs and vials in the Stash, or picks herbs.",
 }
 
 ## The cast, in arrival order. sprite = assets/sprites/characters/survivors/<sprite>.png
@@ -102,24 +102,33 @@ static func cap(tier_index: int) -> int:
 
 
 static func is_food(id: String) -> bool:
-	return ItemCatalog.food_of(id) > 0.0
+	return ItemCatalog.is_meal(id)
 
 
-## Food the settlement eats each dawn (cooks stretch the pot).
+## Food points one survivor eats each dawn (two berries, or one cooked meal).
+const RATION := 25.0
+
+
+## Survivors who eat each dawn (cooks stretch the pot).
 static func food_needed(survivors: Array) -> int:
 	var cooks := survivors.filter(func(s): return s.role == "cook").size()
 	return maxi(survivors.size() - cooks, 0) if not survivors.is_empty() else 0
 
 
+## Food points of every meal in the stash.
+static func food_points(stash: Inventory) -> float:
+	var food := 0.0
+	for s in stash.slots:
+		if not s.is_empty() and is_food(s.id):
+			food += ItemCatalog.food_of(s.id) * s.count
+	return food
+
+
 ## Settlement needs: fed (enough food in the stash), water (a well once
 ## three or more live here), shelter (a bed each beyond the first), defence.
 static func needs(survivors: Array, structures: Dictionary, stash: Inventory) -> Dictionary:
-	var food := 0
-	for s in stash.slots:
-		if not s.is_empty() and is_food(s.id):
-			food += int(s.count)
 	return {
-		"food": food >= food_needed(survivors),
+		"food": food_points(stash) >= food_needed(survivors) * RATION,
 		"water": survivors.size() < 3 or count(structures, "well") > 0,
 		"shelter": count(structures, "bed") >= survivors.size() - 1,
 		"defence": defence(survivors, structures),
@@ -145,20 +154,20 @@ static func produce(role: String, structures: Dictionary) -> Dictionary:
 	return {}
 
 
-## Eats the settlement's food from the stash (cooked food first); returns
-## how many were eaten.
-static func eat(survivors: Array, stash: Inventory) -> int:
-	var need := food_needed(survivors)
-	var eaten := 0
+## Eats the settlement's rations from the stash, plainest food first so
+## feasts are kept for the player; returns the food points eaten.
+static func eat(survivors: Array, stash: Inventory) -> float:
+	var need := food_needed(survivors) * RATION
+	var eaten := 0.0
 	var order := []
 	for s in stash.slots:
 		if not s.is_empty() and is_food(s.id) and not order.has(s.id):
 			order.append(s.id)
-	order.sort_custom(func(a, b): return ItemCatalog.food_of(a) > ItemCatalog.food_of(b))
+	order.sort_custom(func(a, b): return ItemCatalog.food_of(a) < ItemCatalog.food_of(b))
 	for id in order:
 		while eaten < need and stash.count(id) > 0:
 			stash.remove(id, 1)
-			eaten += 1
+			eaten += ItemCatalog.food_of(id)
 	return eaten
 
 
@@ -168,6 +177,14 @@ static func dawn(survivors: Array, structures: Dictionary, stash: Inventory, bos
 	var out := {"gained": {}, "report": [], "chart": 0, "arrival": -1}
 	if survivors.is_empty():
 		return out
+	# Cooks work the fire before breakfast.
+	for s in survivors:
+		if s.role == "cook":
+			var meat := mini(stash.count("raw_meat"), 4)
+			if meat > 0:
+				stash.remove("raw_meat", meat)
+				stash.add("cooked_meat", meat)
+				out.gained["cooked_meat"] = int(out.gained.get("cooked_meat", 0)) + meat
 	var n := needs(survivors, structures, stash)
 	var fed: bool = n.food
 	eat(survivors, stash)
@@ -176,26 +193,27 @@ static func dawn(survivors: Array, structures: Dictionary, stash: Inventory, bos
 	if not n.water:
 		out.report.append("No well: the survivors waste the morning fetching water.")
 	var work := 1.0 if fed and n.water else 0.5
+	var brewed := {}
 	for s in survivors:
 		for id in produce(s.role, structures):
 			var amount := maxi(int(produce(s.role, structures)[id] * work), 1)
 			out.gained[id] = int(out.gained.get(id, 0)) + amount
 		match s.role:
-			"cook":
-				var meat := mini(stash.count("raw_meat"), 4)
-				if meat > 0:
-					stash.remove("raw_meat", meat)
-					out.gained["cooked_meat"] = int(out.gained.get("cooked_meat", 0)) + meat
 			"healer":
-				if stash.count("herb") >= 2:
+				if stash.count("herb") >= 2 and stash.count("glass_vial") >= 1:
 					stash.remove("herb", 2)
-					out.gained["healing_potion"] = int(out.gained.get("healing_potion", 0)) + 1
+					stash.remove("glass_vial", 1)
+					brewed["healing_potion"] = int(brewed.get("healing_potion", 0)) + 1
 				else:
 					out.gained["herb"] = int(out.gained.get("herb", 0)) + 2
 			"cartographer":
 				out.chart += 1
 	for id in out.gained:
-		stash.add(id, out.gained[id])
+		if id != "cooked_meat":
+			stash.add(id, out.gained[id])
+	for id in brewed:
+		stash.add(id, brewed[id])
+		out.gained[id] = int(out.gained.get(id, 0)) + brewed[id]
 	var t := tier(structures, bosses)
 	if fed and survivors.size() < cap(t) and count(structures, "bed") >= survivors.size() and survivors.size() < CAST.size():
 		out.arrival = next_arrival(survivors)
@@ -216,10 +234,10 @@ static func next_role(role: String) -> String:
 
 
 ## Tonight's raid on the Clearing: how many raiders come. None while the camp
-## is a lone fire (tier 0) or before the second night; then every other
+## is still small (below a Village) or before the second night; then every other
 ## night, more as the settlement grows and fewer the better it is defended.
 static func raid_size(tier_index: int, night: int, defence_rating: int) -> int:
-	if tier_index <= 0 or night < 2 or night % 2 == 1:
+	if tier_index < 2 or night < 2 or night % 2 == 1:
 		return 0
 	return clampi(1 + tier_index * 2 + floori(night / 5.0) - floori(defence_rating / 8.0), 0, 12)
 
