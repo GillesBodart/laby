@@ -145,7 +145,7 @@ func _draw() -> void:
 		_center(y + 12.0, "This run's saves are gone with you.", 10, TEXT_DIM)
 	else:
 		_center(y, "Light. Wind. An open sky with no walls in it.", 10, TEXT_LIGHT)
-		_center(y + 11.0, "Behind you, the old engines grind on, guarding nothing.", 10, TEXT_DIM)
+		_center(y + 11.0, "Behind you, the great wheels grind on, guarding nothing.", 10, TEXT_DIM)
 		_center(y + 22.0, together_line(GameState.survivors.size()), 10, TEXT_DIM)
 		y += 8.0
 	y += 30.0

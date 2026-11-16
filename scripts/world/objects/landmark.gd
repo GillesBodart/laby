@@ -1,6 +1,6 @@
 class_name Landmark
 extends StaticBody2D
-## A fixed point of the shifting maze: a statue or old machine to find your
+## A fixed point of the shifting maze: a statue or old wheel to find your
 ## way by (kind "landmark"), or a glyph stone to decode (kind "glyph").
 ## Both log to the journal (see Glyphs, GameState.journal).
 

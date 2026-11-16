@@ -1,10 +1,13 @@
 // Turns the generated low-resolution art into smooth HD art.
 //
-// Each PNG under assets/ is upscaled 4x with the xBR edge-directed filter
-// (smooth, anti-aliased contours instead of stair-stepped pixels), then
-// box-filtered down to 2x. The Laby HD Texture importer
-// (addons/laby_hd_texture) imports the result at its logical size, so
-// gameplay code, atlas regions and tile sets keep their units.
+// Each PNG under assets/ is first denoised at 1x (per-pixel grain merges into
+// flat tones; ink lines and contrasty details stay), upscaled 4x with the
+// xBR edge-directed filter (smooth, anti-aliased contours instead of
+// stair-stepped pixels), painted with an edge-preserving bilateral pass
+// (cel-shading bands melt into soft gradients), then box-filtered down to 2x.
+// The Laby HD Texture importer (addons/laby_hd_texture) imports the result
+// at its logical size, so gameplay code, atlas regions and tile sets keep
+// their units.
 //
 // Run after tools/generate_placeholder_art.gd, then reimport:
 //   cd tools/smooth_art && npm install && node smooth_art.mjs
@@ -25,6 +28,14 @@ const ROOT = path.resolve(HERE, '../..');
 const ASSETS = path.join(ROOT, 'assets');
 const MANIFEST = path.join(HERE, 'manifest.json');
 const PAD = 3;
+// Denoise: colour distance (sum of RGB deltas) under which 1x neighbours merge.
+const GRAIN = 36;
+const GRAIN_PASSES = 2;
+// Bilateral paint pass at 4x: spatial sigma (4x px) and colour sigma.
+const PAINT_SPATIAL = 3;
+const PAINT_RANGE = 34;
+// Pixels darker than this (luma) are ink: never blurred, never blended in.
+const INK_LUMA = 48;
 
 // Sheets whose cells must not bleed into each other: [cell w, cell h].
 const GRIDS = {
@@ -36,9 +47,11 @@ const GRIDS = {
 };
 
 // Survivor walk strips (idle + 4 walk poses) are 48 px cells too; sector tile
-// atlases share the clearing atlas layout.
-const gridOf = (rel) => GRIDS[rel] ?? (/characters\/survivors\/.*_walk\.png$/.test(rel) ? [48, 48]
-  : /tilesets\/sector_\w+_tiles\.png$/.test(rel) ? [32, 32] : undefined);
+// atlases share the clearing atlas layout; creature sheets are 9 poses x 3
+// facings (CreatureSheet), whatever the creature's cell size.
+const gridOf = (rel, png) => GRIDS[rel] ?? (/characters\/survivors\/.*_walk\.png$/.test(rel) ? [48, 48]
+  : /tilesets\/sector_\w+_tiles\.png$/.test(rel) ? [32, 32]
+  : /sprites\/enemies\/[^/]+\.png$/.test(rel) ? [png.width / 9, png.height / 3] : undefined);
 
 // Drawn through their RID in texture pixels (StyleBoxTexture 9-slice), so
 // they keep their logical resolution; linear filtering smooths them.
@@ -93,12 +106,76 @@ function bleed(img) {
   }
 }
 
-// xBR 4x of a padded cell, box-filtered (alpha-weighted) to 2x, written
-// into `dst` at (dx, dy) in 2x units.
+// Edge-preserving 1x denoise: each opaque pixel averages its opaque 3x3
+// neighbours of a close colour, removing per-pixel grain but keeping tone
+// bands, ink lines and small high-contrast details.
+function denoise(img) {
+  const { data, w, h } = img;
+  for (let pass = 0; pass < GRAIN_PASSES; pass++) {
+    const src = Uint8Array.from(data);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const j = (y * w + x) * 4;
+      if (src[j + 3] < 128) continue;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const k = (ny * w + nx) * 4;
+        if (src[k + 3] < 128) continue;
+        if (Math.abs(src[k] - src[j]) + Math.abs(src[k + 1] - src[j + 1]) + Math.abs(src[k + 2] - src[j + 2]) > GRAIN) continue;
+        const wt = dx === 0 && dy === 0 ? 2 : 1;
+        r += src[k] * wt; g += src[k + 1] * wt; b += src[k + 2] * wt; n += wt;
+      }
+      data[j] = r / n; data[j + 1] = g / n; data[j + 2] = b / n;
+    }
+  }
+}
+
+// Separable bilateral blur over opaque, non-ink pixels (two iterations):
+// close colours blend into gradients, contrasty edges stay sharp.
+function paint(d, w, h) {
+  const R = Math.ceil(PAINT_SPATIAL * 2);
+  const ok = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const L = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+    ok[i] = d[i * 4 + 3] > 200 && L > INK_LUMA ? 1 : 0;
+  }
+  const ks = [];
+  for (let i = -R; i <= R; i++) ks.push(Math.exp(-(i * i) / (2 * PAINT_SPATIAL * PAINT_SPATIAL)));
+  const ir = 1 / (2 * PAINT_RANGE * PAINT_RANGE);
+  const pass = (src, dx, dy) => {
+    const out = Float32Array.from(src);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!ok[p]) continue;
+      const pr = src[p * 4], pg = src[p * 4 + 1], pb = src[p * 4 + 2];
+      let r = 0, g = 0, b = 0, s = 0;
+      for (let i = -R; i <= R; i++) {
+        const nx = x + dx * i, ny = y + dy * i;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const q = ny * w + nx;
+        if (!ok[q]) continue;
+        const cr = src[q * 4] - pr, cg = src[q * 4 + 1] - pg, cb = src[q * 4 + 2] - pb;
+        const wt = ks[i + R] * Math.exp(-(cr * cr + cg * cg + cb * cb) * ir);
+        r += src[q * 4] * wt; g += src[q * 4 + 1] * wt; b += src[q * 4 + 2] * wt; s += wt;
+      }
+      out[p * 4] = r / s; out[p * 4 + 1] = g / s; out[p * 4 + 2] = b / s;
+    }
+    return out;
+  };
+  let f = Float32Array.from(d);
+  for (let it = 0; it < 2; it++) f = pass(pass(f, 1, 0), 0, 1);
+  for (let i = 0; i < w * h; i++) if (ok[i]) for (let c = 0; c < 3; c++) d[i * 4 + c] = Math.round(f[i * 4 + c]);
+}
+
+// xBR 4x of a padded cell, painted, box-filtered (alpha-weighted) to 2x,
+// written into `dst` at (dx, dy) in 2x units.
 function smoothCell(cell, w, h, dst, dw, dx, dy) {
+  denoise(cell);
   bleed(cell);
   const src = new Uint32Array(cell.data.buffer);
   const big = new Uint8Array(xbr4x(src, cell.w, cell.h, { blendColors: true, scaleAlpha: true }).buffer);
+  paint(big, cell.w * 4, cell.h * 4);
   const BW = cell.w * 4;
   for (let y = 0; y < h * 2; y++) for (let x = 0; x < w * 2; x++) {
     let r = 0, g = 0, b = 0, a = 0;
@@ -150,7 +227,8 @@ for (const file of walk(ASSETS).sort()) {
   if (manifest[rel] === sha1(bytes)) {
     skipped++;
   } else {
-    const hd = smooth(PNG.sync.read(bytes), gridOf(rel));
+    const png = PNG.sync.read(bytes);
+    const hd = smooth(png, gridOf(rel, png));
     fs.writeFileSync(file, hd);
     manifest[rel] = sha1(hd);
     done++;

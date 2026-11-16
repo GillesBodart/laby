@@ -2,7 +2,6 @@ extends CanvasLayer
 ## HUD: day/clock panel, survival bars, goal, the panels, and the notice feed
 ## (bottom right) that shows EventBus.notify messages and item drops.
 
-const ICONS := preload("res://assets/ui/icons/time_icons.png")
 const NATIVE_SIZE := Vector2(960, 540)
 const CLOCK_COLOR := Color(0.93, 0.89, 0.78)
 const DUSK_COLOR := UiPalette.AMBER
@@ -10,8 +9,7 @@ const DUSK_COLOR := UiPalette.AMBER
 @onready var icon: TextureRect = %Icon
 @onready var clock_label: Label = %ClockLabel
 
-var _sun := AtlasTexture.new()
-var _moon := AtlasTexture.new()
+var _night := false
 var _clock_panel: Control
 ## Bottom-right stack of notices (NoticeFeed).
 var feed: Control
@@ -32,10 +30,9 @@ func _ready() -> void:
 	_clock_panel = clock_panel
 	clock_panel.reparent(native, false)
 	clock_panel.position = Vector2(8, 8)
-	_sun.atlas = ICONS
-	_sun.region = Rect2(0, 0, 9, 9)
-	_moon.atlas = ICONS
-	_moon.region = Rect2(9, 0, 9, 9)
+	icon.texture = null
+	icon.custom_minimum_size = Vector2(14, 14)
+	icon.draw.connect(_draw_phase_icon)
 	EventBus.minute_changed.connect(_on_minute_changed)
 	var bars := Control.new()
 	bars.set_script(preload("res://scripts/ui/hud/survival_bars.gd"))
@@ -103,8 +100,46 @@ func _on_minute_changed(day: int, minute_of_day: int) -> void:
 		clock_label.add_theme_color_override("font_color", DUSK_COLOR)
 	else:
 		clock_label.add_theme_color_override("font_color", CLOCK_COLOR)
-	icon.texture = _moon if phase == DayClock.Phase.NIGHT else _sun
+	_night = phase == DayClock.Phase.NIGHT
+	icon.queue_redraw()
 	_clock_panel.reset_size()
+
+
+## Smooth sun (rays around a disc) or crescent moon telling the day phase.
+func _draw_phase_icon() -> void:
+	var c := icon.size / 2.0
+	var ink := UiPalette.INK
+	if _night:
+		# Crescent: the outer disc minus a disc offset up-right.
+		var R := 6.0
+		var r := 5.0
+		var q := Vector2(3.0, -1.5)
+		var d := q.length()
+		var tu := q.angle()
+		var a := (R * R - r * r + d * d) / (2.0 * d)
+		var h := sqrt(R * R - a * a)
+		# Angles of the two cusps, seen from each circle's centre.
+		var phi := atan2(h, a)
+		var psi := atan2(h, a - d)
+		var moon := PackedVector2Array()
+		for i in 25:
+			moon.append(c + Vector2.from_angle(lerpf(tu + phi, tu + TAU - phi, i / 24.0)) * R)
+		# Back along the bite, on the side facing the moon's centre.
+		for i in range(1, 24):
+			moon.append(c + q + Vector2.from_angle(lerpf(tu - psi, tu + psi - TAU, i / 24.0)) * r)
+		var loop := moon.duplicate()
+		loop.append(moon[0])
+		icon.draw_polyline(loop, ink, 2.0, true)
+		icon.draw_colored_polygon(moon, Color8(214, 222, 240))
+		return
+	var sun := Color8(255, 204, 82)
+	for i in 8:
+		var d := Vector2.RIGHT.rotated(i * TAU / 8.0)
+		icon.draw_line(c + d * 4.6, c + d * 6.6, ink, 2.6, true)
+		icon.draw_line(c + d * 4.8, c + d * 6.3, sun, 1.3, true)
+	icon.draw_circle(c, 4.2, ink, true, -1.0, true)
+	icon.draw_circle(c, 3.3, sun, true, -1.0, true)
+	icon.draw_circle(c + Vector2(-1.1, -1.1), 1.1, Color(1, 1, 0.85, 0.8), true, -1.0, true)
 
 
 ## A message in the bottom-right notice feed.

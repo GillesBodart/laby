@@ -21,7 +21,7 @@ const NEW_HINTS := [
 	"Recoverable: a fallen companion rests at the campfire.\nPermanent: a companion that falls is gone for good.",
 	"Back to the title.",
 ]
-const BUTTON_TOP := 98.0
+const BUTTON_TOP := 108.0
 const BUTTON_STEP := 25.0
 
 ## Backdrop maze: CELL-pixel tiles on an odd grid (walls between corridors),
@@ -296,13 +296,25 @@ func _text_center(cx: float, y: float, s: String, size_px: int, col: Color, widt
 func _draw() -> void:
 	_draw_backdrop()
 	var cx := SIZE.x / 2.0
-	var plaque := Rect2(cx - 92, 14, 184, 62)
-	UiFrame.box(self, plaque)
-	draw_string(_font, Vector2(cx - _font.get_string_size("LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x / 2.0 + 2, 54), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Menu.INK)
-	draw_string(_font, Vector2(cx - _font.get_string_size("LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36).x / 2.0, 52), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 36, Menu.GOLD)
-	_text_center(cx, 69, "The walls remember.", 10, Menu.TEXT_LIGHT, plaque.size.x - 16)
-	var can_load := has_any_save()
+	var plaque := Rect2(cx - 100, 12, 200, 76)
+	# Soft dark backing so the buttons stand out from the grass and maze.
 	var list := rows()
+	var top := plaque.end.y - 6.0
+	var backing := Rect2(cx - 84, top, 168, BUTTON_TOP + (list.size() - 1) * BUTTON_STEP + BUTTON.y + 10.0 - top)
+	if page == "new":
+		backing = backing.grow_individual(32, 0, 32, 0)
+	draw_style_box(UiFrame.flat(Color(0, 0, 0, 0.25), Color(0, 0, 0, 0), 12, 0), backing.grow(5))
+	draw_style_box(UiFrame.flat(Color(UiPalette.HUD_BG, 0.85), UiPalette.BRASS_DARK, 8), backing)
+	UiFrame.box(self, plaque)
+	var tw := _font.get_string_size("LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x
+	var tp := Vector2(cx - tw / 2.0, 54)
+	draw_string_outline(_font, tp + Vector2(0, 2), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 40, 6, Menu.INK)
+	draw_string(_font, tp + Vector2(0, 2), "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Menu.INK)
+	draw_string_outline(_font, tp, "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 40, 2, UiPalette.BRASS_DARK)
+	draw_string(_font, tp, "LABY", HORIZONTAL_ALIGNMENT_LEFT, -1, 40, Menu.GOLD)
+	draw_line(Vector2(cx - 50, 62), Vector2(cx + 50, 62), Color(Menu.GOLD, 0.5), 1.0, true)
+	_text_center(cx, 77, "The walls remember.", 11, Menu.TEXT_LIGHT, plaque.size.x - 24)
+	var can_load := has_any_save()
 	for i in list.size():
 		var r := _row_rect(i)
 		var usable := page != "" or i != 1 or can_load
@@ -314,10 +326,10 @@ func _draw() -> void:
 	if page == "new" and _hover >= 0 and not _settings.visible:
 		var lines: PackedStringArray = String(NEW_HINTS[_hover]).split("\n")
 		var lh := float(UiFrame.fs(10)) + 2.0
-		var box := Rect2(cx - 160, 202, 320, 8 + lines.size() * lh)
+		var box := Rect2(cx - 160, 212, 320, 8 + lines.size() * lh)
 		_box(box, Color(0.03, 0.05, 0.08, 0.85), Menu.BROWN, 3)
 		for k in lines.size():
 			_text_center(cx, box.position.y + 2 + lh * (k + 1), lines[k], 10, Menu.TEXT_LIGHT, box.size.x - 8)
 	elif status != "":
-		_text_center(cx, 214, status, 11, Menu.GOLD, SIZE.x - 16)
+		_text_center(cx, 224, status, 11, Menu.GOLD, SIZE.x - 16)
 	UiFrame.footer(self, "[Up/Down] choose  [Enter] / [{click}] select")

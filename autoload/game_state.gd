@@ -148,8 +148,9 @@ func meta_from_data(data: Dictionary) -> void:
 	escaped = bool(data.get("escaped", false))
 	companions = []
 	for c in data.get("companions", []):
-		if EnemyCatalog.has(String(c.get("type", ""))):
-			companions.append({"type": String(c.type), "name": String(c.get("name", "")), "owner": int(c.get("owner", 1)),
+		var ctype := EnemyCatalog.resolve(String(c.get("type", "")))
+		if EnemyCatalog.has(ctype):
+			companions.append({"type": ctype, "name": String(c.get("name", "")), "owner": int(c.get("owner", 1)),
 				"hp": int(c.hp), "max_hp": int(c.max_hp), "level": int(c.get("level", 1)), "xp": int(c.get("xp", 0)),
 				"mode": String(c.get("mode", "follow")), "downed": bool(c.get("downed", false))})
 	journal = {}
@@ -292,6 +293,8 @@ func _chart_somewhere() -> void:
 func log_journal(kind: String, id: String, count := 1) -> bool:
 	if not JOURNAL_KINDS.has(kind) or id == "":
 		return false
+	if kind == "creatures":
+		id = EnemyCatalog.resolve(id)
 	if not journal.has(kind):
 		journal[kind] = {}
 	var fresh: bool = not journal[kind].has(id)
@@ -333,6 +336,7 @@ func party_of(peer_id: int) -> Array:
 
 
 func add_companion(type: String, peer_id: int) -> Dictionary:
+	type = EnemyCatalog.resolve(type)
 	var hp := int(EnemyCatalog.def(type).hp)
 	var c := {"type": type, "name": String(EnemyCatalog.def(type).name), "owner": peer_id, "hp": hp, "max_hp": hp,
 		"level": 1, "xp": 0, "mode": "follow", "downed": false}

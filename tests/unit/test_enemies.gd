@@ -14,12 +14,33 @@ func test_catalog_sane() -> void:
 		if d.summon != "":
 			check(EnemyCatalog.has(d.summon), "%s summons a known creature" % id)
 		check(ResourceLoader.exists(EnemyCatalog.sprite_path(id)), "%s sprite" % id)
+		check(EnemyCatalog.FAMILIES.has(d.family), "%s belongs to a family" % id)
+		check(EnemyCatalog.rig_of(id) in CreatureSheet.RIGS, "%s has a known rig" % id)
+		if ResourceLoader.exists(EnemyCatalog.sprite_path(id)):
+			var tex: Texture2D = load(EnemyCatalog.sprite_path(id))
+			var cell := CreatureSheet.frame_size(tex)
+			check(cell.x == cell.y and tex.get_width() == cell.x * CreatureSheet.COLS
+				and tex.get_height() == cell.y * CreatureSheet.ROWS, "%s sheet is 9x3 square cells" % id)
+
+
+func test_legacy_ids_resolve() -> void:
+	for old in EnemyCatalog.LEGACY:
+		check(not EnemyCatalog.has(old), "%s was removed" % old)
+		check(EnemyCatalog.has(EnemyCatalog.resolve(old)), "%s maps to a living species" % old)
+	check_eq(EnemyCatalog.resolve("stalker"), "stalker", "current ids resolve to themselves")
+	var families := {}
+	for id in EnemyCatalog.TYPES:
+		families[EnemyCatalog.def(id).family] = int(families.get(EnemyCatalog.def(id).family, 0)) + 1
+	for f in EnemyCatalog.FAMILIES:
+		check(families.get(f, 0) >= 2, "%s family has variants" % f)
+	check(EnemyCatalog.roster("forest").all(func(id): return not EnemyCatalog.def(id).family in ["undead", "demons"]),
+		"no undead or demons in the Clearing woods")
 
 
 func test_rosters_are_varied() -> void:
 	for biome in ["forest"] + Sectors.ORDER:
 		var ids := EnemyCatalog.roster(biome)
-		check(ids.size() >= 20, "%s has 20+ creatures (%d)" % [biome, ids.size()])
+		check(ids.size() >= 8, "%s has 8+ creatures (%d)" % [biome, ids.size()])
 		var styles := {}
 		var shields := 0
 		for id in ids:

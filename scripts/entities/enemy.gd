@@ -31,7 +31,7 @@ const PATROL_REACH := 12.0
 ## A cached flow-field step is trusted this long while the creature stays on
 ## its tile (walls shift, gates open and shut).
 const STEP_REFRESH_MS := 500
-const WINDUP := {"melee": 0.28, "ambush": 0.12, "blink": 0.22, "hit_run": 0.08, "charge": 0.55,
+const WINDUP := {"melee": 0.28, "ambush": 0.12, "blink": 0.22, "hit_run": 0.22, "charge": 0.55,
 	"pounce": 0.35, "slam": 0.7, "ranged": 0.4, "summon": 0.6}
 
 var type_id := "grub"
@@ -55,7 +55,14 @@ var _action := ""
 var _guard := Vector2.DOWN
 var _bar := 0.0
 var _sprite_y := -14.0
+## Top of the body (health bar, floating numbers), pixels above the feet.
+var _top_y := -24.0
 var _gait: Gait
+var _anim := CreatureSheet.new()
+var _airborne := false
+## Strike pose kept on screen this long after the blow lands.
+var _strike_t := 0.0
+var _anim_t := 0.0
 var _flee_from := Vector2.ZERO
 var _summons: Array = []
 var _regen_acc := 0.0
@@ -96,16 +103,22 @@ func _ready() -> void:
 	add_to_group("enemies")
 	if Taming.tier(type_id) >= 0:
 		add_to_group("interactable")
-	sprite.texture = load(EnemyCatalog.sprite_path(type_id))
-	# Feet on the node origin whatever the creature's size; shadow follows its width.
-	var tex_size := sprite.texture.get_size()
-	_sprite_y = 2.0 - tex_size.y / 2.0
-	sprite.position.y = _sprite_y
+	# Feet on the node origin whatever the creature's size; shadow follows its size.
+	var cell := CreatureSheet.setup_sprite(sprite, type_id)
+	_sprite_y = sprite.position.y
+	var size := EnemyCatalog.size_of(type_id)
+	var rig := EnemyCatalog.rig_of(type_id)
+	_airborne = CreatureSheet.airborne(rig)
+	_top_y = -CreatureSheet.height_for(rig, size) - (6.0 if _airborne else 0.0)
+	_top_y = maxf(_top_y, -float(cell))
+	_anim.hold_time = 0.35 if size >= 54 else 0.18
+	_anim.row = CreatureSheet.DOWN
+	sprite.frame = CreatureSheet.frame(_anim.row, CreatureSheet.IDLE)
 	_gait = Gait.attach(self, [sprite])
-	_gait.fit(tex_size, bool(_def.phasing))
+	_gait.fit_creature(rig, size)
 	var shadow := get_node_or_null("Shadow") as Sprite2D
 	if shadow:
-		shadow.scale = Vector2.ONE * clampf(tex_size.x / 26.0, 0.5, 1.8)
+		shadow.scale = Vector2.ONE * clampf(size / 30.0, 0.5, 2.6)
 	var shape := CircleShape2D.new()
 	shape.radius = _def.radius
 	collision.shape = shape
@@ -305,6 +318,9 @@ func _chase() -> Vector2:
 func _windup(action: String) -> void:
 	_action = action
 	_enter(S.WINDUP, WINDUP.get(action, 0.3))
+	# The aim is locked as the blow winds up: dodging sideways now pays off.
+	if _target and is_instance_valid(_target):
+		_anim.face(_target.global_position - global_position, 0.0, true)
 
 
 ## Whether the creature can see `p`: a ray against the walls (and built
@@ -409,6 +425,7 @@ func _perform() -> void:
 			_enter(S.ACTION, 0.55 if _action == "charge" else 0.32)
 			return
 		"slam":
+			_strike_t = 0.2
 			HitChips.burst(get_parent(), global_position, [Color8(150, 120, 90), Color8(110, 90, 70), Color8(200, 180, 150)], 12)
 			for p in GameState.players.values():
 				if global_position.distance_to(p.global_position) <= _def.blast:
@@ -416,10 +433,12 @@ func _perform() -> void:
 			_enter(S.RECOVER, 0.8)
 			return
 		"ranged":
+			_strike_t = 0.12
 			_shoot(t)
 			_enter(S.RECOVER, 0.3)
 			return
 		"summon":
+			_strike_t = 0.2
 			_summon_cd = _def.cooldown * 3.0
 			for i in 1 + int(randf() < 0.5):
 				_summon()
@@ -433,6 +452,7 @@ func _perform() -> void:
 			_windup("melee")
 			_timer = 0.35
 			return
+	_strike_t = 0.12
 	if global_position.distance_to(t.global_position) <= _def.range + 10.0:
 		_hit(t, _def.damage)
 	if _action == "hit_run":
@@ -601,7 +621,7 @@ func take_damage(amount: int, source: Node2D = null, from := Vector2.INF) -> voi
 		blocked = true
 	amount = maxi(amount - _def.armor, 1)
 	hp -= amount
-	DamageNumber.pop(get_parent(), global_position + Vector2(0, _sprite_y * 2.0 - 12.0), amount, Color8(180, 186, 196) if blocked else Color8(255, 244, 214))
+	DamageNumber.pop(get_parent(), global_position + Vector2(0, _top_y - 10.0), amount, Color8(180, 186, 196) if blocked else Color8(255, 244, 214))
 	_flash = 0.12
 	_bar = 4.0
 	if blocked:
@@ -713,28 +733,54 @@ func _update_guard(delta: float) -> void:
 
 
 func _update_look(desired: Vector2) -> void:
-	var look_x := desired.x
-	if _target and is_instance_valid(_target) and _state != S.FLEE and _state != S.WANDER:
-		look_x = _target.global_position.x - global_position.x
-	if _def.face != 0 and absf(look_x) > 0.5:
-		sprite.flip_h = (look_x < 0.0) == (_def.face > 0)
+	var dt := get_physics_process_delta_time()
+	_anim_t += dt
+	_strike_t = maxf(_strike_t - dt, 0.0)
+	var has_target := _target != null and is_instance_valid(_target)
+	match _state:
+		S.ACTION:
+			_anim.face(_dash, dt)
+		S.WINDUP, S.RECOVER, S.FUSE, S.HIDDEN:
+			pass
+		S.CHASE:
+			_anim.face(_target.global_position - global_position if has_target else desired, dt)
+		_:
+			_anim.face(desired, dt)
+	var pose := "idle"
+	var moving := desired.length() > 4.0
+	if _state == S.HIDDEN:
+		pose = "hidden"
+	elif _state == S.WINDUP or _state == S.FUSE:
+		pose = "windup"
+	elif _state == S.ACTION or _strike_t > 0.0:
+		pose = "strike"
+	elif _state == S.RECOVER:
+		pose = "recover"
+	elif _flash > 0.0:
+		pose = "hurt"
+	elif moving:
+		pose = "walk"
+	sprite.flip_h = _anim.flip
+	sprite.frame = CreatureSheet.frame(_anim.row, CreatureSheet.column(pose, _gait.steps, _anim_t, _airborne))
 	var mod := Color.WHITE
 	if _flash > 0.0:
-		_flash -= get_physics_process_delta_time()
+		_flash -= dt
 		mod = Color(1.8, 1.8, 1.8)
 	elif _state == S.WINDUP:
-		mod = Color(1.5, 1.15, 0.7)
+		# The telegraph glows up as the blow draws near rather than popping on.
+		var total: float = WINDUP.get(_action, 0.3)
+		mod = Color.WHITE.lerp(Color(1.55, 1.15, 0.65), clampf(1.0 - _timer / maxf(total, 0.01), 0.0, 1.0))
+	elif _strike_t > 0.1:
+		mod = Color(1.3, 1.3, 1.3)
 	elif _state == S.FUSE:
 		mod = Color(2.0, 2.0, 1.4) if int(_timer * 12.0) % 2 == 0 else Color.WHITE
 	elif _state == S.RECOVER and _action == "charge":
 		mod = Color(0.8, 0.8, 0.9)
-	if _state == S.HIDDEN:
-		mod.a = 0.3
-	elif _def.phasing:
+	if _def.phasing and _state != S.WINDUP and _state != S.ACTION and _strike_t <= 0.0:
 		mod.a = 0.75
 	sprite.modulate = mod
-	var dt := get_physics_process_delta_time()
-	_gait.advance(dt, 0.0 if _state == S.ACTION or _state == S.HIDDEN else velocity.length())
+	var still := _state == S.ACTION or _state == S.HIDDEN or _state == S.WINDUP
+	_gait.advance(dt, 0.0 if still else desired.length())
 
 
 func _draw() -> void:
@@ -743,7 +789,7 @@ func _draw() -> void:
 		draw_arc(Vector2(0, -8), _def.radius + 5.0, a - 0.7, a + 0.7, 6, Color(0.85, 0.88, 0.95, 0.55), 2.0)
 	if (_bar > 0.0 or _def.elite or _def.boss) and _state != S.HIDDEN and hp < max_hp:
 		var w := 20.0 if not (_def.elite or _def.boss) else (48.0 if _def.boss else 28.0)
-		var r := Rect2(-w / 2.0, _sprite_y * 2.0 - 7.0, w, 4.0)
+		var r := Rect2(-w / 2.0, _top_y - 7.0, w, 4.0)
 		draw_rect(r, Color8(27, 20, 16))
 		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2((w - 2.0) * clampf(float(hp) / max_hp, 0.0, 1.0), 2.0)),
 			Accessibility.color("bad") if not (_def.elite or _def.boss) else (Color8(190, 90, 230) if _def.boss else Color8(232, 170, 60)))

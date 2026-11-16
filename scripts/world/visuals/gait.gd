@@ -51,6 +51,29 @@ func fit(art_size: Vector2, hovers := false) -> void:
 	floating = hovers
 
 
+## Creature preset: the pose sheet carries the steps, so the body only bobs
+## lightly (no sway) and cadence follows ground speed exactly. Airborne rigs
+## hover, capfolk hop.
+func fit_creature(rig: String, size: int) -> void:
+	floating = CreatureSheet.airborne(rig)
+	stride = CreatureSheet.stride_for(rig, size)
+	sway_deg = 0.0
+	min_cadence = 0.0
+	max_cadence = 5.0
+	squash = 0.025
+	breathe = 0.015
+	match rig:
+		"quadruped":
+			hop = 0.6
+		"biped":
+			hop = 0.8 if size < 40 else (0.4 if size < 60 else 0.0)
+		"fungus":
+			hop = 2.5
+			squash = 0.09
+		_:
+			hop = 0.0
+
+
 ## Advances by `delta` for a body moving at `speed` px/s. Pass `phase` (in
 ## steps, contact at whole numbers) to follow a sprite's own walk cycle.
 func advance(delta: float, speed: float, phase := -1.0) -> void:

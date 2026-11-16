@@ -4,7 +4,7 @@ extends RefCounted
 ## stones (see LabyrinthGenerator.glyph_spots); deeper meanings need Lore,
 ## the Scholar's "glyph insight". Each decoded stone gives a concrete hint
 ## (applied by the labyrinth scene) and a fragment of the maze's story.
-## Landmarks are the fixed statues and machines used to find your way.
+## Landmarks are the fixed statues and ruins used to find your way.
 
 ## What each stone of a sector reveals, by index.
 const HINTS := ["shift", "route", "hoard", "lore"]
@@ -24,7 +24,7 @@ const STORY := {
 	"overgrowth": "\"Plant deep. If the gates stay shut a hundred years, we will still eat.\" Roots have eaten the date.",
 	"desert": "\"The cisterns are failing. We draw lots for water now. I drew well. I wish I had not.\"",
 	"ice": "\"We slept in the cold to wait it out. Those who woke could not find the doors they had built.\" Frost fills the last line.",
-	"volcano": "\"The engines turn the walls. The engines must never stop. No one remembers how to stop them.\" The glyph is warm.",
+	"volcano": "\"The great wheels turn the walls. The wheels must never stop. No one remembers how to stop them.\" The glyph is warm.",
 	"hell": "\"Six locks on the last door, one per hall, so no keeper could open it alone. We were careful. Too careful.\"",
 }
 
@@ -36,7 +36,7 @@ const LANDMARKS := {
 	"statue_sword": {"name": "Planted Blade", "text": "A huge sword driven into the floor. Moss grows only on its southern side."},
 	"statue_twins": {"name": "The Twins", "text": "Two figures back to back, one smiling, one not. They never seem to move. Never."},
 	"column": {"name": "Marked Pillar", "text": "A lone pillar covered in chalk arrows from many hands. Most of them point at each other."},
-	"old_engine": {"name": "Old Engine", "text": "Cogs as tall as you, cold and rusted. Sometimes, at night, it ticks."},
+	"old_engine": {"name": "Old Wallwheel", "text": "A stone wheel as tall as you, carved with runes. Sometimes, at night, it turns a notch."},
 	"mossy_giant": {"name": "Mossy Giant", "text": "A seated colossus wearing a coat of moss. Something nests in its ear and hums when you pass."},
 	"sand_obelisk": {"name": "Sun Needle", "text": "A sandstone needle whose shadow points at nothing. Unless you wait. Then it still points at nothing, but slower."},
 	"rime_angel": {"name": "Frozen Herald", "text": "A winged figure sealed in clear ice, mouth open mid-word. You lean in. It does not finish the sentence."},

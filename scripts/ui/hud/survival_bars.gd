@@ -118,8 +118,7 @@ func _draw_prompt(player: Player) -> void:
 	UiFrame.panel(self, r)
 	# The key sits in its own little keycap.
 	var cap := Rect2(r.position + Vector2(4, 4), Vector2(kw, 14))
-	draw_rect(cap, Color8(226, 200, 140))
-	draw_rect(Rect2(cap.position.x, cap.end.y - 2, cap.size.x, 2), Color8(150, 112, 64))
+	UiFrame.plate(self, cap, Color8(226, 200, 140), Color8(150, 112, 64), 3)
 	draw_string(_font, Vector2(cap.position.x + 4, cap.position.y + 11), key, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, INK)
 	draw_string(_font, Vector2(cap.end.x + 6, r.position.y + 15), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, TEXT)
 
@@ -127,29 +126,33 @@ func _draw_prompt(player: Player) -> void:
 ## Little "!" badge hanging off the panel's right edge.
 func _alert(pos: Vector2, lit: bool) -> void:
 	var r := Rect2(pos, Vector2(12, 15))
-	draw_rect(r.grow(1), INK)
 	var bad := Accessibility.color("bad")
-	draw_rect(r, bad if lit else bad.darkened(0.45))
+	UiFrame.plate(self, r, bad if lit else bad.darkened(0.45), INK, 4)
 	draw_string(_font, Vector2(r.position.x + 3, r.position.y + 12), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT, Color8(255, 240, 210))
 
 
 func _track(pos: Vector2, h: float) -> void:
-	draw_rect(Rect2(pos - Vector2(1, 1), Vector2(BAR_W + 2, h + 2)), INK)
-	draw_rect(Rect2(pos, Vector2(BAR_W, h)), TRACK)
-	draw_rect(Rect2(pos, Vector2(BAR_W, 1)), TRACK.darkened(0.4))
+	var r := h / 2.0 + 1.0
+	draw_style_box(UiFrame.flat(INK, INK, int(r), 0), Rect2(pos - Vector2(1, 1), Vector2(BAR_W + 2, h + 2)))
+	draw_style_box(UiFrame.flat(TRACK, TRACK, int(r - 1.0), 0), Rect2(pos, Vector2(BAR_W, h)))
+	UiFrame.gradient(self, Rect2(pos + Vector2(2, 0.5), Vector2(BAR_W - 4, h * 0.5)), Color(0, 0, 0, 0.35), Color(0, 0, 0, 0))
 
 
-## Glossy fill: lit top rows, a darker lip at the bottom.
+## Glossy rounded fill: a lit band along the top, a darker lower half.
 func _fill(r: Rect2, color: Color) -> void:
-	draw_rect(r, color)
-	draw_rect(Rect2(r.position, Vector2(r.size.x, 2)), color.lightened(0.3))
-	draw_rect(Rect2(r.position + Vector2(0, r.size.y - 1), Vector2(r.size.x, 1)), color.darkened(0.3))
+	var rad := int(minf(r.size.y, r.size.x) / 2.0)
+	draw_style_box(UiFrame.flat(color, color, rad, 0), r)
+	if r.size.x < 4.0:
+		return
+	UiFrame.gradient(self, Rect2(r.position + Vector2(1, r.size.y * 0.55), Vector2(r.size.x - 2, r.size.y * 0.45 - 0.5)), Color(0, 0, 0, 0), Color(0, 0, 0, 0.22))
+	draw_line(r.position + Vector2(rad, 1.5), Vector2(r.end.x - rad, r.position.y + 1.5), Color(1, 1, 1, 0.4), 1.2, true)
 
 
 func _bar(pos: Vector2, fraction: float, color: Color, h := BAR_H) -> void:
 	_track(pos, h)
-	var w := floorf(BAR_W * clampf(fraction, 0.0, 1.0))
-	if w > 0.0:
-		_fill(Rect2(pos, Vector2(w, h)), color)
+	var w := BAR_W * clampf(fraction, 0.0, 1.0)
+	if w > 0.5:
+		_fill(Rect2(pos, Vector2(maxf(w, h), h)), color)
 	for q in [0.25, 0.5, 0.75]:
-		draw_rect(Rect2(Vector2(pos.x + floorf(BAR_W * q), pos.y + 1), Vector2(1, h - 2)), Color(INK, 0.35))
+		var x: float = pos.x + BAR_W * q
+		draw_line(Vector2(x, pos.y + 2), Vector2(x, pos.y + h - 2), Color(INK, 0.3), 1.0, true)

@@ -84,7 +84,7 @@ const NODES := {
 	"u_haul": {"name": "Hauler", "cluster": "builder", "at": [3.0, 0.0], "max": 3, "requires": ["brawn"], "fx": {"gather": 6}},
 	"u_mason": {"name": "Mason", "cluster": "builder", "at": [4.0, -1.0], "max": 3, "requires": ["u_haul"], "fx": {"struct_hp": 15}},
 	"u_back": {"name": "Strong Back", "cluster": "builder", "at": [4.0, 1.0], "max": 2, "requires": ["u_haul"], "fx": {"strength": 5}},
-	"u_engineer": {"name": "Engineer", "cluster": "builder", "at": [5.0, 0.0], "kind": "notable", "requires": ["u_mason", "u_back"], "fx": {"struct_hp": 25, "gather": 8}},
+	"u_engineer": {"name": "Wallwright", "cluster": "builder", "at": [5.0, 0.0], "kind": "notable", "requires": ["u_mason", "u_back"], "fx": {"struct_hp": 25, "gather": 8}},
 	"u_tools": {"name": "Toolwise", "cluster": "builder", "at": [6.0, 0.0], "max": 2, "requires": ["u_engineer"], "fx": {"gather": 6, "dmg": 1}},
 	"u_master": {"name": "Master Builder", "cluster": "builder", "at": [7.0, 0.0], "kind": "keystone", "requires": ["u_tools"], "gate": "ice", "fx": {"struct_hp": 60, "strength": 10, "speed": -6}},
 	# --- bridges between neighbouring clusters (hybrid builds)

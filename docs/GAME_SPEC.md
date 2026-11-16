@@ -12,7 +12,7 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 
 ## 2. Structure and win condition
 
-- **Six sectors** north of the Clearing, in a fixed order. Each has its own palette, 20+ creatures, 20+ resources, a hazard and a guardian boss in an arena:
+- **Six sectors** north of the Clearing, in a fixed order. Each has its own palette, its own fauna, 20+ resources, a hazard and a guardian boss in an arena:
 
   | # | Sector (id) | Theme / hazard |
   |---|-------------|----------------|
@@ -66,7 +66,7 @@ Loop: by day, leave the Clearing, map, gather and come back before the gates clo
 
 - **Needs**: health, hunger and stamina from the start; thirst once the desert is reached; body temperature in hot and cold climates (countered by gear, fire and tonics). Tuning rule: needs limit trip length but never nag; a well-prepared trip must be comfortable.
 - **Gear**: an equipment doll (weapon, offhand, head, body, feet, ring, amulet), material tiers up to the sector metals (Rimesilver, Ember, Deepsteel), bows and arrows, shields, staffs, potions. A held torch gives light and keeps night hunters away. **Tools and weapons wear out** and break.
-- **Combat**: real-time attacks and a dodge-roll that costs stamina. Creatures have distinct attacks (melee, charge, ranged, shields, poison or slow, packs). They must see you past the walls to start a chase (or be within a couple of steps), then hunt you round the walls along the maze's paths and go back to their den when they lose you. Avoiding fights is a valid choice; combat is not the main pillar.
+- **Combat**: real-time attacks and a dodge-roll that costs stamina. Creatures have distinct attacks (melee, charge, ranged, shields, poison or slow, packs), each played as a wind-up, strike and recover animation so it can be read and dodged. They must see you past the walls to start a chase (or be within a couple of steps), then hunt you round the walls along the maze's paths and go back to their den when they lose you. Avoiding fights is a valid choice; combat is not the main pillar.
 - **Death**: chosen at New Game.
   - *Recoverable* (default): the non-insured backpack drops as **remains** at the death spot; you respawn in the Clearing. The Stash and bound items (keys, relics) are never lost.
   - *Permanent*: the run and its saves end, and the run summary is shown.

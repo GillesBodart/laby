@@ -23,7 +23,7 @@ const GHOST := {
 }
 const EQUIP_SLOT := Vector2(24, 24)
 const PANEL := Rect2(44, 36, 320, 196)
-const CARD := Rect2(372, 56, 100, 150)
+const CARD := Rect2(372, 50, 100, 200)
 ## Recipe book: a scrollable grid of recipe slots; click one to craft it.
 const GRID_COLS := 7
 const GRID_ROWS := 4
@@ -521,8 +521,12 @@ func _draw_backpack(player: Player) -> String:
 		var selected := i == _hover
 		var insured := i < player.survival.insured_slots()
 		var safe := Accessibility.color("good")
-		_diamond(c, DIAMOND, CREAM, GOLD if selected else (safe.darkened(0.35) if insured else BROWN))
-		_diamond(c, DIAMOND - 3, Color8(240, 200, 140) if selected else (TAN.lerp(safe, 0.3) if insured else TAN), BROWN)
+		var sq := Rect2(c - Vector2(DIAMOND, DIAMOND) * 0.72, Vector2(DIAMOND, DIAMOND) * 1.44)
+		var rim_col: Color = GOLD if selected else (safe.darkened(0.2) if insured else Color(UiPalette.BRASS_DARK, 0.9))
+		var well: Color = Color8(244, 206, 150) if selected else (TAN.lerp(safe, 0.3) if insured else Color8(200, 160, 108))
+		UiFrame.plate(self, sq, well, rim_col, 5)
+		# Recessed well: darker at the top, lit lower lip.
+		UiFrame.gradient(self, sq.grow(-2.5), Color(0.25, 0.12, 0.0, 0.28), Color(1, 1, 1, 0.0))
 		if insured:
 			_padlock(c + Vector2(-11, -12))
 		if s.is_empty():
@@ -561,12 +565,12 @@ func _draw_doll(player: Player) -> String:
 	var eq := player.equipment
 	# Faint survivor silhouette behind the slots.
 	var ghost := Color(GREEN_LINE, 0.35)
-	draw_circle(Vector2(104, 64), 13.0, ghost)
-	draw_colored_polygon(PackedVector2Array([Vector2(86, 82), Vector2(122, 82), Vector2(126, 124), Vector2(82, 124)]), ghost)
-	draw_rect(Rect2(88, 124, 10, 22), ghost)
-	draw_rect(Rect2(110, 124, 10, 22), ghost)
-	draw_line(Vector2(84, 86), Vector2(74, 104), ghost, 5.0)
-	draw_line(Vector2(124, 86), Vector2(134, 104), ghost, 5.0)
+	draw_circle(Vector2(104, 64), 13.0, ghost, true, -1.0, true)
+	draw_style_box(UiFrame.flat(ghost, ghost, 8, 0), Rect2(84, 80, 40, 46))
+	draw_style_box(UiFrame.flat(ghost, ghost, 5, 0), Rect2(88, 120, 11, 27))
+	draw_style_box(UiFrame.flat(ghost, ghost, 5, 0), Rect2(109, 120, 11, 27))
+	draw_line(Vector2(84, 86), Vector2(74, 104), ghost, 6.0, true)
+	draw_line(Vector2(124, 86), Vector2(134, 104), ghost, 6.0, true)
 	var hovered := ""
 	for slot in DOLL:
 		var r := Rect2(DOLL[slot] - EQUIP_SLOT / 2.0, EQUIP_SLOT)
@@ -627,7 +631,7 @@ func _draw_crafting(player: Player) -> String:
 		_text_center(PANEL.get_center().x, PANEL.get_center().y, "No recipes yet: gather new materials to discover some.", TEXT_LIGHT, 10)
 	if locked > 0:
 		var lt := "%d undiscovered" % locked
-		_text(Vector2(PANEL.end.x - _text_w(lt, 10) - 14, PANEL.end.y - 10), lt, TEXT_LIGHT, 10)
+		_text(Vector2(PANEL.end.x - _text_w(lt, 10) - 14, PANEL.position.y + 20), lt, TEXT_LIGHT, 10)
 	if station == "":
 		_text_center(PANEL.get_center().x, PANEL.end.y - 14, "%s at a campfire, workbench, furnace, anvil... for more." % Gamepad.prompt("interact"), TEXT_LIGHT, 10)
 	elif station not in stations:
@@ -695,7 +699,8 @@ func _draw_card(id: String, extra: String) -> void:
 	draw_string(_font, Vector2(CARD.get_center().x - cw / 2.0, CARD.position.y + 31), cat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, FADED)
 	var body := ItemCatalog.description(id)
 	if extra != "":
-		body += "\n" + extra
+		# The recipe comes first: it is what the player needs to craft.
+		body = extra + "\n\n" + body
 	var para := TextParagraph.new()
 	para.add_string(body, _font, body_size)
 	para.width = CARD.size.x - 16

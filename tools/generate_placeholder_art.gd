@@ -137,10 +137,16 @@ func _init() -> void:
 		quit()
 		return
 	if "--creatures" in OS.get_cmdline_user_args():
-		_import_creatures()
+		_make_creatures()
 		print("Creatures generated.")
 		quit()
 		return
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--art="):
+			_make_biome_art(a.trim_prefix("--art=").split(","))
+			print("Biome art generated.")
+			quit()
+			return
 	for dir in ["res://assets/tilesets", "res://assets/sprites/characters", "res://assets/sprites/effects", "res://assets/sprites/environment/trees", "res://assets/sprites/environment/rocks", "res://assets/sprites/environment/gatherables", "res://assets/sprites/structures", "res://assets/ui", "res://assets/ui/icons/items/small", "res://assets/sprites/enemies"]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	_make_tilesets()
@@ -2923,31 +2929,6 @@ func _fill_poly(img: Image, pts: PackedVector2Array, tones: Array) -> void:
 				_px(img, x, y, tones[int(t * tones.size())])
 
 
-## 32x32 creature sprites, feet at the bottom centre.
-func _make_enemy(kind: String) -> Image:
-	var img := _new_image(32, 32)
-	var eye := Color(1.0, 0.85, 0.2)
-	match kind:
-		"grub":
-			_blob(img, 16, 22, 10, 6, [Color(0.18, 0.28, 0.12), Color(0.3, 0.45, 0.2), Color(0.45, 0.62, 0.3), Color(0.6, 0.75, 0.4)], 0.15, 3)
-			_blob(img, 22, 19, 5, 4, [Color(0.22, 0.34, 0.14), Color(0.36, 0.5, 0.22), Color(0.5, 0.66, 0.32)], 0.1, 4)
-			_rect(img, 23, 18, 2, 2, eye)
-		"stalker":
-			_blob(img, 15, 18, 9, 5, [Color(0.12, 0.1, 0.16), Color(0.2, 0.17, 0.26), Color(0.3, 0.26, 0.38), Color(0.42, 0.36, 0.5)], 0.12, 5)
-			_blob(img, 23, 15, 4, 3, [Color(0.16, 0.13, 0.2), Color(0.26, 0.22, 0.32), Color(0.38, 0.32, 0.46)], 0.1, 6)
-			for lx in [8, 12, 17, 21]:
-				_line(img, Vector2(lx, 21), Vector2(lx + (lx - 15) / 3, 27), Color(0.2, 0.17, 0.26))
-			_rect(img, 24, 14, 2, 2, Color(1.0, 0.3, 0.25))
-		_:
-			_blob(img, 16, 18, 11, 10, [Color(0.22, 0.22, 0.24), Color(0.36, 0.37, 0.38), Color(0.5, 0.5, 0.5), Color(0.64, 0.65, 0.62)], 0.2, 7)
-			_blob(img, 12, 14, 5, 4, [Color(0.2, 0.34, 0.16), Color(0.3, 0.46, 0.22)], 0.2, 8)
-			_blob(img, 17, 10, 5, 4, [Color(0.3, 0.3, 0.32), Color(0.46, 0.46, 0.46), Color(0.6, 0.6, 0.58)], 0.12, 9)
-			_rect(img, 15, 10, 2, 2, Color(0.4, 0.9, 1.0))
-			_rect(img, 19, 10, 2, 2, Color(0.4, 0.9, 1.0))
-	_outline(img, Color(0.05, 0.05, 0.07))
-	return img
-
-
 # ---------------------------------------------------------------- beveled icons
 # Shapes are built as pixel masks, then shaded with the light from the top-left:
 # a bright rim, a softer second ring, a mid fill and a dark bottom-right edge.
@@ -3421,8 +3402,9 @@ func _ic_bowl(surface: Array, bits: Array, hot: bool) -> Image:
 
 
 # ---------------------------------------------------------------- biome art (M10)
-# Creature sprites and gear/potion icons are vendored Dungeon Crawl Stone Soup
+# Gear/potion icons are vendored Dungeon Crawl Stone Soup
 # tiles (CC0, OpenGameArt) under tools/third_party/dcss, re-outlined to match.
+# Creature sheets come from tools/creature_art.gd.
 # Everything else below is procedural, built from a few shaded primitives.
 
 const DCSS := "res://tools/third_party/dcss"
@@ -3461,25 +3443,31 @@ const DCSS_ICONS := ["apple", "honey", "flatbread", "hunter_feast", "fruit_salad
 	"spark_core", "glow_gland"]
 
 
-func _make_biome_art() -> void:
-	_import_creatures()
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/environment/crops"))
-	for crop in FarmingScript.CROPS:
-		var def: Dictionary = FarmingScript.CROPS[crop]
-		var col := _item_color(def.yield)
-		for stage in [1, 2]:
-			_save(_make_crop(def.shape, col, stage), "res://assets/sprites/environment/crops/%s_%d.png" % [crop, stage])
-	_save(_make_structure_m10("loom"), "res://assets/sprites/structures/loom.png")
-	_save(_make_structure_m10("alchemy_table"), "res://assets/sprites/structures/alchemy_table.png")
+## Biome nodes, crops and icons; `only` (ids) redraws just those nodes and
+## icons, without creatures, crops or stations.
+func _make_biome_art(only: PackedStringArray = PackedStringArray()) -> void:
 	var nodes := _biome_nodes()
-	for id in nodes:
-		_save(nodes[id], "res://assets/sprites/environment/gatherables/%s.png" % id)
 	var icons := _biome_icons()
-	for id in DCSS_ICONS:
-		icons[id] = _dcss("items/" + id)
-	icons["loom"] = _make_structure_m10("loom")
-	icons["alchemy_table"] = _make_structure_m10("alchemy_table")
+	if only.is_empty():
+		_make_creatures()
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/sprites/environment/crops"))
+		for crop in FarmingScript.CROPS:
+			var def: Dictionary = FarmingScript.CROPS[crop]
+			var col := _item_color(def.yield)
+			for stage in [1, 2]:
+				_save(_make_crop(def.shape, col, stage), "res://assets/sprites/environment/crops/%s_%d.png" % [crop, stage])
+		_save(_make_structure_m10("loom"), "res://assets/sprites/structures/loom.png")
+		_save(_make_structure_m10("alchemy_table"), "res://assets/sprites/structures/alchemy_table.png")
+		for id in DCSS_ICONS:
+			icons[id] = _dcss("items/" + id)
+		icons["loom"] = _make_structure_m10("loom")
+		icons["alchemy_table"] = _make_structure_m10("alchemy_table")
+	for id in nodes:
+		if only.is_empty() or id in only:
+			_save(nodes[id], "res://assets/sprites/environment/gatherables/%s.png" % id)
 	for id in icons:
+		if not (only.is_empty() or id in only):
+			continue
 		var big := _fit_icon(icons[id])
 		_save(big, "res://assets/ui/icons/items/%s.png" % id)
 		var small := big.duplicate() as Image
@@ -3487,19 +3475,21 @@ func _make_biome_art() -> void:
 		_save(small, "res://assets/ui/icons/items/small/%s.png" % id)
 
 
-## Copies every vendored creature tile to assets/sprites/enemies.
-func _import_creatures() -> void:
-	var dir := DirAccess.open(DCSS + "/monsters")
-	if dir == null:
-		push_error("Missing %s/monsters" % DCSS)
-		return
-	for f in dir.get_files():
-		if f.ends_with(".png"):
-			var id := f.get_basename()
-			_save(_fit_creature(_dcss("monsters/" + id, false), EnemyCatalogScript.size_of(id)), "res://assets/sprites/enemies/" + f)
+## Draws every creature's pose sheet (tools/creature_art.gd) into
+## assets/sprites/enemies; --only=id,id limits the run to a few species.
+func _make_creatures() -> void:
+	var art = CreatureArtScript.new()
+	var only: Array = []
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--only="):
+			only = Array(a.trim_prefix("--only=").split(","))
+	for id in EnemyCatalogScript.TYPES:
+		if only.is_empty() or id in only:
+			_save(art.make(id), "res://assets/sprites/enemies/%s.png" % id)
 
 
 const EnemyCatalogScript := preload("res://scripts/data/enemy_catalog.gd")
+const CreatureArtScript := preload("res://tools/creature_art.gd")
 const FarmingScript := preload("res://scripts/systems/farming.gd")
 
 const STEM5 := [Color8(28, 60, 30), Color8(44, 88, 40), Color8(70, 124, 52), Color8(108, 160, 70), Color8(156, 200, 104)]
@@ -3573,42 +3563,6 @@ func _make_crop(shape: String, col: Color, stage: int) -> Image:
 				for d in [Vector2(-5, -18), Vector2(3, -20), Vector2(6, -14), Vector2(-2, -13), Vector2(1, -17)]:
 					_berry_dot(img, f + d, fruit, 1.8)
 	_outline(img, Color8(28, 34, 22))
-	return img
-
-
-## Catalog sizes were tuned for the old 32 px hero; creatures now stand next to
-## a 42 px one.
-const CREATURE_SCALE := 1.4
-## Smallest creature sprite (longest side, outline included).
-const MIN_CREATURE := 32
-
-
-## Crops a creature to its pixels and fits its longest side to the catalog size
-## (x CREATURE_SCALE). The source art is kept at its native 1:1 detail whenever
-## it fits, doubled with scale2x for the big ones; only tiny critters are
-## filtered down. Tiny critters are kept at least MIN_CREATURE px so they stay
-## readable. Finished with the same rim light and outline as our sprites.
-func _fit_creature(src: Image, size: int) -> Image:
-	var used := src.get_used_rect()
-	var body := src.get_region(used)
-	var target := maxi(mini(int(round(size * CREATURE_SCALE)), 88) - 2, MIN_CREATURE - 2)
-	var native := maxi(used.size.x, used.size.y)
-	var big := body
-	if target >= native * 1.75:
-		big = _scale2x(body)
-	elif target < native * 0.9 or (native < MIN_CREATURE - 2 and target > native):
-		var k := float(target) / native
-		big = _scale2x(body)
-		big.resize(maxi(int(round(used.size.x * k)), 1), maxi(int(round(used.size.y * k)), 1), Image.INTERPOLATE_LANCZOS)
-	var w := big.get_width()
-	var h := big.get_height()
-	var img := _new_image(w + 2, h + 2)
-	for y in h:
-		for x in w:
-			var c := big.get_pixel(x, y)
-			if c.a >= 0.5:
-				img.set_pixel(x + 1, y + 1, Color(c.r, c.g, c.b, 1.0))
-	_ink(img)
 	return img
 
 
@@ -4133,13 +4087,16 @@ func _i_glowcap() -> Image:
 
 
 func _i_scrap() -> Image:
+	# rusted iron: a broken blade and a dented shield boss
 	var img := _new_image(T, T)
 	var rust := [Color8(70, 36, 24), Color8(116, 60, 34), Color8(160, 90, 50), Color8(196, 128, 76), Color8(220, 170, 120)]
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(4, 18), Vector2(17, 13), Vector2(20, 24), Vector2(7, 28)])), rust)
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12, 6), Vector2(26, 8), Vector2(25, 18), Vector2(14, 16)])), MAT["iron"])
-	_bevel(img, _mask_stroke(Vector2(18, 27), Vector2(28, 19), 1.6), MAT["iron"])
-	for p in [Vector2i(15, 9), Vector2i(23, 11), Vector2i(9, 21)]:
-		_px(img, p.x, p.y, C.outline)
+	_bevel(img, _mask_ellipse(Vector2(12, 19), 8.0, 7.0), rust)
+	_bevel(img, _mask_ellipse(Vector2(12, 19), 3.0, 2.6), MAT["iron"])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(16, 24), Vector2(25, 7), Vector2(28, 9), Vector2(19, 26)])), MAT["iron"])
+	_line(img, Vector2(25, 9), Vector2(27, 13), C.outline)
+	_bevel(img, _mask_stroke(Vector2(15, 25), Vector2(21, 28), 1.6), rust)
+	for p in [Vector2i(8, 15), Vector2i(17, 22), Vector2i(22, 15)]:
+		_px(img, p.x, p.y, rust[0])
 	return _fin(img)
 
 
@@ -4151,9 +4108,22 @@ func _gear(img: Image, c: Vector2, r: float, tones: Array, teeth := 8) -> void:
 	_bevel(img, _mask_cut(m, _mask_ellipse(c, r * 0.35, r * 0.35)), tones)
 
 
+func _rune_wheel(img: Image, c: Vector2, r: float, tones: Array) -> void:
+	# a carved wheel: rim, hub and six spokes, with rune notches on the rim
+	var m := _mask_cut(_mask_ellipse(c, r, r), _mask_ellipse(c, r * 0.68, r * 0.68))
+	m = _mask_add(m, _mask_ellipse(c, r * 0.3, r * 0.3))
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.26
+		m = _mask_add(m, _mask_stroke(c, c + Vector2(cos(a), sin(a)) * r * 0.8, 1.2))
+	_bevel(img, m, tones)
+	for i in 6:
+		var a2 := TAU * i / 6.0
+		_px(img, int(c.x + cos(a2) * r * 0.84), int(c.y + sin(a2) * r * 0.84), tones[0])
+
+
 func _i_cog(tones: Array) -> Image:
 	var img := _new_image(T, T)
-	_gear(img, Vector2(16, 16), 9.0, tones, 9)
+	_rune_wheel(img, Vector2(16, 16), 10.0, tones)
 	return _fin(img)
 
 
@@ -4523,31 +4493,31 @@ func _n_bones() -> Image:
 
 
 func _n_scrap() -> Image:
+	# fallen arms: a rusted shield and broken blades in the grass
 	var img := _new_image(T, T)
 	var rust := [Color8(70, 36, 24), Color8(116, 60, 34), Color8(160, 90, 50), Color8(196, 128, 76), Color8(220, 170, 120)]
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(3, 29), Vector2(9, 19), Vector2(17, 16), Vector2(25, 19), Vector2(29, 29)])), rust)
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 20), Vector2(17, 12), Vector2(20, 17), Vector2(10, 24)])), MAT["iron"])
-	_gear(img, Vector2(22, 20), 4.0, MAT["iron"], 7)
-	_bevel(img, _mask_stroke(Vector2(5, 14), Vector2(14, 23), 1.3), MAT["iron"])
-	_speck(img, _mask_ellipse(Vector2(16, 25), 12, 5), rust[0], 0.1, 1220)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(3, 29), Vector2(9, 22), Vector2(17, 20), Vector2(25, 22), Vector2(29, 29)])), rust)
+	_bevel(img, _mask_ellipse(Vector2(12, 20), 7.0, 6.0), [C.wood_dark, C.wood_dark, C.wood, C.wood_light, C.wood_light])
+	_bevel(img, _mask_ellipse(Vector2(12, 20), 2.5, 2.2), MAT["iron"])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(18, 25), Vector2(25, 9), Vector2(27, 10), Vector2(21, 26)])), MAT["iron"])
+	_bevel(img, _mask_stroke(Vector2(16, 24), Vector2(23, 27), 1.4), rust)
+	_bevel(img, _mask_stroke(Vector2(5, 14), Vector2(10, 26), 1.2), MAT["iron"])
+	_speck(img, _mask_ellipse(Vector2(16, 26), 12, 4), rust[0], 0.1, 1220)
 	return _fin(img)
 
 
 func _n_machine() -> Image:
+	# fallen wallwheel: a runed stone wheel half sunk in moss
 	var img := _new_image(T, T)
-	var hull := [Color8(36, 44, 46), Color8(58, 70, 70), Color8(86, 100, 96), Color8(118, 132, 124), Color8(150, 164, 152)]
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(4, 12), Vector2(28, 12), Vector2(28, 29), Vector2(4, 29)])), hull)
-	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 7), Vector2(17, 7), Vector2(17, 12), Vector2(7, 12)])), hull)
-	_gear(img, Vector2(21, 19), 4.5, BRONZE5, 8)
-	_rect(img, 7, 16, 7, 4, C.outline)
-	_rect(img, 8, 17, 2, 2, Color8(220, 70, 50))
-	_rect(img, 11, 17, 2, 2, GLOW5[3])
-	for x in range(6, 27, 4):
-		_px(img, x, 27, hull[0])
-	_bevel(img, _mask_stroke(Vector2(19, 9), Vector2(27, 5), 1.3), MAT["iron"])
+	var stone := [Color8(44, 56, 58), Color8(70, 86, 86), Color8(100, 118, 114), Color8(132, 150, 142), Color8(166, 182, 172)]
+	_bevel(img, _mask_ellipse(Vector2(16, 26), 13.0, 4.0), stone)
+	_rune_wheel(img, Vector2(16, 16), 11.0, stone)
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.5
+		_px(img, int(16 + cos(a) * 9.6), int(16 + sin(a) * 9.6), GLOW5[3])
 	var moss := [C.moss_dark, C.moss_dark, C.moss, C.moss_light]
-	_blob(img, 8, 28, 5, 2.5, moss, 0.5, 1230)
-	_blob(img, 26, 13, 3, 2, moss, 0.5, 1231)
+	_blob(img, 8, 27, 5, 2.5, moss, 0.5, 1230)
+	_blob(img, 24, 8, 3, 2, moss, 0.5, 1231)
 	return _fin(img)
 
 

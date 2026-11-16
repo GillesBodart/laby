@@ -1,21 +1,11 @@
 class_name UiFrame
 extends RefCounted
-## The HUD's shared look: a 9-slice brass-rimmed frame and small pixel icons,
-## drawn at native (960x540) resolution.
+## The HUD's shared look: a 9-slice brass-rimmed frame and small smooth vector
+## icons, drawn at native (960x540) resolution.
 
 const STYLE := preload("res://resources/ui/hud_frame.tres")
 const TEXT := Color8(238, 226, 196)
 const INK := Color8(14, 11, 14)
-
-## 9x9 icons: X main colour, h highlight, d shade, b pale (bone / glass).
-const ICONS := {
-	"heart": [".XX...XX.", "XhXX.XXXX", "XhXXXXXXX", "XXXXXXXXd", ".XXXXXXd.", "..XXXXd..", "...XXd...", "....d....", "........."],
-	"food": [".....XXX.", "....XhXXX", "...XhXXXX", "...XXXXXd", "....XXXd.", "...bd....", "..bb.....", ".bbb.....", "..b......"],
-	"water": ["....X....", "...XXX...", "..XhXXX..", ".XhXXXXX.", ".XhXXXXd.", "XXhXXXXXd", "XXXXXXXXd", ".XXXXXdd.", "..ddddd.."],
-	"stamina": [".....XXX.", "....XhX..", "...XhX...", "..XXXXXX.", "....XXd..", "...XXd...", "..XXd....", ".Xd......", "X........"],
-	"temp": ["....bb...", "...b..b..", "...bXXb..", "...bXXb..", "...bXXb..", "..bXXXXb.", "..bXhXXb.", "..bXXXdb.", "...bbbb.."],
-	"xp": ["....X....", "....X....", "...XhX...", "XXXXhXXXX", ".XXXXXXd.", "..XXXXd..", "..XX.XX..", ".XX...XX.", ".d.....d."],
-}
 
 ## Panels and menus are laid out in 480x270 and drawn at 2x. They share one
 ## frame language: box() (ink outline, the HUD's brass rim, green felt with a
@@ -33,7 +23,6 @@ const BODY_CAP := 1.25
 const TITLE_CAP := 1.25
 const FOOTER_CAP := 1.5
 
-static var _cache := {}
 static var _boxes := {}
 static var _font: Font
 
@@ -63,13 +52,28 @@ static func flat(fill: Color, border: Color, radius := 3, width := 1) -> StyleBo
 		sb.border_color = border
 		sb.set_border_width_all(width)
 		sb.set_corner_radius_all(radius)
+		sb.anti_aliasing = true
 		_boxes[key] = sb
 	return _boxes[key]
 
 
-## Small plate: buttons, rows, slots, chips and cards.
+## A vertical two-colour gradient inside `r`.
+static func gradient(ci: CanvasItem, r: Rect2, top: Color, bottom: Color) -> void:
+	ci.draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
+		PackedColorArray([top, top, bottom, bottom]))
+
+
+## Small plate: buttons, rows, slots, chips and cards. Soft drop shadow, a
+## lit top edge and a shaded lower half give it volume.
 static func plate(ci: CanvasItem, r: Rect2, fill: Color, border: Color, radius := 3) -> void:
+	if fill.a > 0.5 and r.size.y >= 12.0 and r.size.x >= 12.0:
+		ci.draw_style_box(flat(Color(0, 0, 0, 0.28), Color(0, 0, 0, 0.0), radius + 1, 0), Rect2(r.position + Vector2(0, 1.5), r.size))
 	ci.draw_style_box(flat(fill, border, radius), r)
+	if fill.a > 0.5 and r.size.y >= 12.0 and r.size.x >= 12.0:
+		var inner := r.grow(-1.5)
+		var rad := float(radius)
+		ci.draw_line(inner.position + Vector2(rad, 0.5), Vector2(inner.end.x - rad, inner.position.y + 0.5), Color(1, 1, 1, 0.38), 1.0, true)
+		gradient(ci, Rect2(inner.position + Vector2(1, inner.size.y * 0.55), Vector2(inner.size.x - 2, inner.size.y * 0.45 - 0.5)), Color(0, 0, 0, 0.0), Color(0.2, 0.08, 0.0, 0.14))
 
 
 ## The shared panel frame. `parchment` swaps the felt for a page (map, journal).
@@ -82,11 +86,17 @@ static func box(ci: CanvasItem, r: Rect2, parchment := false) -> void:
 		rim.border_width_bottom = 1
 		rim.set_corner_radius_all(7)
 		_boxes["rim"] = rim
+	ci.draw_style_box(flat(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 12, 0), Rect2(r.position + Vector2(-4, -2), r.size + Vector2(8, 8)))
+	ci.draw_style_box(flat(Color(0, 0, 0, 0.3), Color(0, 0, 0, 0), 10, 0), Rect2(r.position + Vector2(-2, -1), r.size + Vector2(4, 4)))
 	ci.draw_style_box(flat(UiPalette.INK, UiPalette.INK, 8, 0), r)
 	ci.draw_style_box(_boxes["rim"], r.grow(-1))
 	ci.draw_style_box(flat(UiPalette.FELT_DARK, UiPalette.FELT_DARK, 6, 0), r.grow(-2))
 	var inner := r.grow(-5)
 	ci.draw_style_box(flat(UiPalette.PAGE if parchment else UiPalette.FELT, UiPalette.INK if parchment else UiPalette.FELT_DARK, 5), inner)
+	# Light falling from the top, plus an inner shadow along the rim.
+	var lit := inner.grow(-1)
+	gradient(ci, lit, Color(1, 1, 0.8, 0.10 if not parchment else 0.18), Color(0, 0.06, 0.02, 0.22 if not parchment else 0.12))
+	ci.draw_style_box(flat(Color(0, 0, 0, 0), Color(0, 0, 0, 0.22), 5, 2), inner)
 	if parchment:
 		return
 	var seam := inner.grow(-4)
@@ -137,13 +147,78 @@ static func any_panel_open(tree: SceneTree) -> bool:
 	return false
 
 
-## A 9x9 icon (11x11 with its ink outline) whose top-left is `pos`.
+## A smooth vector icon in an 11x11 box whose top-left is `pos`: ink outline,
+## `color` body and a soft highlight. Ids: heart, food, water, stamina, temp, xp.
 static func icon(ci: CanvasItem, pos: Vector2, id: String, color: Color) -> void:
-	var key := "%s/%s" % [id, color.to_html()]
-	if not _cache.has(key):
-		_cache[key] = _build(ICONS[id], color)
-	for px in _cache[key]:
-		ci.draw_rect(Rect2(pos + px[0], Vector2.ONE), px[1])
+	var c := pos + Vector2(5.5, 5.5)
+	var hi := color.lightened(0.5)
+	match id:
+		"heart":
+			var pts := _heart(c, 5.2)
+			_shape(ci, pts, color)
+			ci.draw_circle(c + Vector2(-2.3, -1.9), 1.1, Color(hi, 0.85), true, -1.0, true)
+		"food":
+			# Drumstick: bone handle, then the meat.
+			ci.draw_line(c + Vector2(0.5, 0.5), c + Vector2(4.5, 4.5), INK, 3.6, true)
+			ci.draw_line(c + Vector2(0.5, 0.5), c + Vector2(4.2, 4.2), Color8(236, 228, 210), 1.8, true)
+			ci.draw_circle(c + Vector2(4.6, 3.6), 1.6, INK, true, -1.0, true)
+			ci.draw_circle(c + Vector2(3.6, 4.6), 1.6, INK, true, -1.0, true)
+			ci.draw_circle(c + Vector2(4.6, 3.6), 0.9, Color8(236, 228, 210), true, -1.0, true)
+			ci.draw_circle(c + Vector2(3.6, 4.6), 0.9, Color8(236, 228, 210), true, -1.0, true)
+			_shape(ci, _ellipse(c + Vector2(-1.3, -1.3), 4.0, 3.2, -PI / 4.0), color)
+			ci.draw_circle(c + Vector2(-2.6, -2.4), 1.0, Color(hi, 0.8), true, -1.0, true)
+		"water":
+			var drop := PackedVector2Array()
+			for i in 17:
+				var a := PI * (0.0 + i / 16.0)
+				drop.append(c + Vector2(0, 1.4) + Vector2(cos(a), sin(a)) * 3.8)
+			drop.append(c + Vector2(0, -5.2))
+			drop.reverse()
+			_shape(ci, drop, color)
+			ci.draw_circle(c + Vector2(-1.4, 1.0), 0.9, Color(hi, 0.85), true, -1.0, true)
+		"stamina":
+			_shape(ci, PackedVector2Array([c + Vector2(1.8, -5.4), c + Vector2(-3.6, 0.8), c + Vector2(-0.4, 0.8),
+				c + Vector2(-1.8, 5.4), c + Vector2(3.6, -1.0), c + Vector2(0.4, -1.0)]), color)
+		"temp":
+			var tube := Rect2(c + Vector2(-1.4, -5.2), Vector2(2.8, 7.0))
+			ci.draw_style_box(flat(INK, INK, 2, 0), tube.grow(1.0))
+			ci.draw_circle(c + Vector2(0, 2.8), 3.0, INK, true, -1.0, true)
+			ci.draw_style_box(flat(Color8(232, 226, 212), Color8(232, 226, 212), 1, 0), tube)
+			ci.draw_rect(Rect2(c + Vector2(-0.6, -1.0), Vector2(1.2, 3.0)), color)
+			ci.draw_circle(c + Vector2(0, 2.8), 2.1, color, true, -1.0, true)
+			ci.draw_circle(c + Vector2(-0.7, 2.1), 0.6, Color(hi, 0.85), true, -1.0, true)
+		"xp":
+			var star := PackedVector2Array()
+			for i in 10:
+				var a := -PI / 2.0 + i * PI / 5.0
+				star.append(c + Vector2(cos(a), sin(a)) * (5.4 if i % 2 == 0 else 2.4))
+			_shape(ci, star, color)
+
+
+static func _shape(ci: CanvasItem, pts: PackedVector2Array, color: Color) -> void:
+	var loop := pts.duplicate()
+	loop.append(pts[0])
+	ci.draw_polyline(loop, INK, 2.0, true)
+	ci.draw_colored_polygon(pts, color)
+	ci.draw_polyline(loop, color.darkened(0.35), 0.8, true)
+
+
+static func _heart(c: Vector2, r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 32:
+		var t := TAU * i / 32.0
+		var x := 16.0 * pow(sin(t), 3)
+		var y := -(13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t))
+		pts.append(c + Vector2(x, y + 1.5) * (r / 16.0))
+	return pts
+
+
+static func _ellipse(c: Vector2, rx: float, ry: float, rot: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 20:
+		var a := TAU * i / 20.0
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
+	return pts
 
 
 ## A thin durability bar (left-aligned at `pos`, `width` px) for a worn tool;
@@ -153,8 +228,8 @@ static func wear_bar(ci: CanvasItem, pos: Vector2, width: float, id: String, wea
 	if dur <= 0 or wear <= 0:
 		return
 	var frac := clampf(1.0 - float(wear) / dur, 0.0, 1.0)
-	ci.draw_rect(Rect2(pos - Vector2.ONE, Vector2(width + 2, 4)), INK)
-	ci.draw_rect(Rect2(pos, Vector2(maxf(width * frac, 1.0), 2)), wear_color(frac))
+	ci.draw_style_box(flat(INK, INK, 2, 0), Rect2(pos - Vector2.ONE, Vector2(width + 2, 4)))
+	ci.draw_line(pos + Vector2(0.5, 1), pos + Vector2(maxf(width * frac, 1.0) - 0.5, 1), wear_color(frac), 2.0, true)
 
 
 ## Bar colour for a share of durability left.
@@ -163,23 +238,3 @@ static func wear_color(frac: float) -> Color:
 	var mid := Accessibility.color("warn")
 	var bad := Accessibility.color("bad")
 	return mid.lerp(good, (frac - 0.5) * 2.0) if frac >= 0.5 else bad.lerp(mid, frac * 2.0)
-
-
-static func _build(rows: Array, color: Color) -> Array:
-	var tones := {"X": color, "h": color.lightened(0.45), "d": color.darkened(0.4), "b": Color8(232, 226, 212)}
-	var out := []
-	var solid := {}
-	for y in rows.size():
-		for x in rows[y].length():
-			if tones.has(rows[y][x]):
-				solid[Vector2i(x, y)] = rows[y][x]
-	var rim := {}
-	for c in solid:
-		for n in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			if not solid.has(c + n):
-				rim[c + n] = true
-	for c in rim:
-		out.append([Vector2(c + Vector2i.ONE), INK])
-	for c in solid:
-		out.append([Vector2(c + Vector2i.ONE), tones[solid[c]]])
-	return out

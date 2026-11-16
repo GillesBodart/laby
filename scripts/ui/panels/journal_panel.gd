@@ -132,7 +132,7 @@ func entries() -> Array:
 				var tier := Taming.tier(id)
 				var area := "Clearing" if d.biome == "forest" else Sectors.display_name(d.biome)
 				out.append({"icon": EnemyCatalog.sprite_path(id), "title": d.name,
-					"sub": "%s · %s" % [area, TEMPER_LABEL.get(d.temper, d.temper)],
+					"sub": "%s · %s · %s" % [String(EnemyCatalog.FAMILIES.get(d.family, {}).get("name", "")), area, TEMPER_LABEL.get(d.temper, d.temper)],
 					"stats": "Defeated %d · Tame %s · HP %d" % [int(j[id]), "-" if tier < 0 else str(tier), int(d.hp)],
 					"text": d.lore})
 		"resources":
@@ -189,7 +189,15 @@ func _tex(path: String) -> Texture2D:
 	if path == "" or not ResourceLoader.exists(path):
 		return null
 	if not _tex_cache.has(path):
-		_tex_cache[path] = load(path)
+		var tex: Texture2D = load(path)
+		if path.begins_with("res://assets/sprites/enemies/"):
+			# Creature sheets: the idle pose facing the reader.
+			var atlas := AtlasTexture.new()
+			atlas.atlas = tex
+			var cell := CreatureSheet.frame_size(tex)
+			atlas.region = Rect2(0, 0, cell.x, cell.y)
+			tex = atlas
+		_tex_cache[path] = tex
 	return _tex_cache[path]
 
 

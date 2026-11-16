@@ -16,7 +16,7 @@ const PLANT_FOOD := {
 const FAVOURITE := {
 	"bramble_bear": "honey", "moss_bear": "honey", "bumbler": "honey", "hive_stinger": "honey",
 	"woolback": "carrot", "hare": "carrot", "snow_sheep": "snowberry", "tusk_boar": "potato",
-	"wild_hog": "potato", "cave_rat": "mushroom", "shell_crawler": "mushroom",
+	"grub": "mushroom", "snow_bear": "honey", "mammoth_yak": "snowberry",
 }
 const ELITE_FOOD := "royal_jelly"
 

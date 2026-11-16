@@ -23,6 +23,12 @@ var _regen_acc := 0.0
 var _sprite: Sprite2D
 var _gait: Gait
 var _flash := 0.0
+var _anim := CreatureSheet.new()
+var _airborne := false
+var _anim_t := 0.0
+## Attack pose timer: counts down through windup, strike and recover.
+var _swing := 0.0
+const SWING := 0.36
 
 
 static func spawn(parent: Node, record: Dictionary, owner_node: Player, at: Vector2) -> Companion:
@@ -45,13 +51,15 @@ func _ready() -> void:
 	shadow.position = Vector2(0, -2)
 	add_child(shadow)
 	_sprite = Sprite2D.new()
-	_sprite.texture = load(EnemyCatalog.sprite_path(type_id()))
-	var tex_size := _sprite.texture.get_size()
-	_sprite.position.y = 2.0 - tex_size.y / 2.0
-	shadow.scale = Vector2.ONE * clampf(tex_size.x / 26.0, 0.5, 1.8)
 	add_child(_sprite)
+	CreatureSheet.setup_sprite(_sprite, type_id())
+	var size := EnemyCatalog.size_of(type_id())
+	var rig := EnemyCatalog.rig_of(type_id())
+	_airborne = CreatureSheet.airborne(rig)
+	_anim.hold_time = 0.35 if size >= 54 else 0.18
+	shadow.scale = Vector2.ONE * clampf(size / 30.0, 0.5, 2.6)
 	_gait = Gait.attach(self, [_sprite])
-	_gait.fit(tex_size, bool(_def.get("phasing", false)))
+	_gait.fit_creature(rig, size)
 	var shape := CollisionShape2D.new()
 	shape.shape = CircleShape2D.new()
 	shape.shape.radius = minf(float(_def.radius), 7.0)
@@ -123,9 +131,22 @@ func _physics_process(delta: float) -> void:
 			_regen_acc = 0.0
 	velocity = desired
 	move_and_slide()
-	_gait.advance(delta, velocity.length())
-	if absf(velocity.x) > 4.0 and int(_def.face) != 0:
-		_sprite.flip_h = (velocity.x > 0.0) == (int(_def.face) < 0)
+	_gait.advance(delta, desired.length())
+	_anim_t += delta
+	_swing = maxf(_swing - delta, 0.0)
+	if _swing > 0.0 and _foe:
+		_anim.face(_foe.global_position - global_position, delta)
+	else:
+		_anim.face(desired, delta)
+	var pose := "idle"
+	if _swing > 0.0:
+		pose = "windup" if _swing > SWING - 0.1 else ("strike" if _swing > SWING - 0.24 else "recover")
+	elif _flash > 0.0:
+		pose = "hurt"
+	elif desired.length() > 4.0:
+		pose = "walk"
+	_sprite.flip_h = _anim.flip
+	_sprite.frame = CreatureSheet.frame(_anim.row, CreatureSheet.column(pose, _gait.steps, _anim_t, _airborne))
 	_sprite.modulate = Color(1.6, 0.6, 0.6) if _flash > 0.0 else Color.WHITE
 	queue_redraw()
 
@@ -149,10 +170,13 @@ func _find_foe(anchor: Vector2) -> Enemy:
 
 func _strike(foe: Enemy) -> void:
 	_hit_cd = HIT_COOLDOWN
+	_swing = SWING
+	_anim.face(foe.global_position - global_position, 0.0, true)
 	var tw := create_tween()
 	var lunge := (foe.global_position - global_position).normalized() * 5.0
-	tw.tween_property(_sprite, "offset", lunge, 0.08)
-	tw.tween_property(_sprite, "offset", Vector2.ZERO, 0.12)
+	tw.tween_interval(0.08)
+	tw.tween_property(_sprite, "offset", lunge, 0.06)
+	tw.tween_property(_sprite, "offset", Vector2.ZERO, 0.14)
 	var killed := foe.hp <= damage()
 	foe.take_damage(damage(), self)
 	if killed:
@@ -200,7 +224,7 @@ func take_damage(amount: int, _source: Node2D = null) -> void:
 
 func _draw() -> void:
 	# Green collar pip marks a friend; a small bar shows wounds.
-	var top := _sprite.position.y - _sprite.texture.get_size().y / 2.0 - 3.0
+	var top := -CreatureSheet.height_for(EnemyCatalog.rig_of(type_id()), EnemyCatalog.size_of(type_id())) - 3.0
 	draw_rect(Rect2(-2, top - 1, 4, 3), Color8(30, 40, 20))
 	draw_rect(Rect2(-1, top, 2, 1), Accessibility.color("ally_stay" if is_staying() else "ally"))
 	if hp() < max_hp():
