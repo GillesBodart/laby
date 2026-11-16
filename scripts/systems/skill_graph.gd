@@ -8,7 +8,8 @@ extends RefCounted
 ## NODES: id -> {
 ##   name, cluster,
 ##   at       [radius, offset]: polar placement along the cluster's angle
-##            (offset is perpendicular, in node units),
+##            (offset is perpendicular, in node units; positive leans
+##            toward the next cluster clockwise),
 ##   max      ranks (default 1), cost per rank (default 1),
 ##   kind     "small" | "notable" | "keystone",
 ##   requires any-of prerequisites (empty = hub root, always reachable),
@@ -134,7 +135,9 @@ static func position(id: String) -> Vector2:
 	var n: Dictionary = NODES[id]
 	var deg: float = n.get("angle", CLUSTERS[n.cluster].angle)
 	var dir := Vector2.from_angle(deg_to_rad(deg))
-	return dir * float(n.at[0]) + dir.orthogonal() * float(n.at[1])
+	# A positive offset leans toward the next cluster (angle + 60), where the
+	# bridge node that needs it sits, so no edge crosses the tree.
+	return dir * float(n.at[0]) - dir.orthogonal() * float(n.at[1])
 
 
 ## Undirected edges [a, b] drawn between prerequisites and their nodes.
