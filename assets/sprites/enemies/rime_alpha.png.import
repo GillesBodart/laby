@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://quait4ogjl26"
+path="res://.godot/imported/rime_alpha.png-afc6633be1a692f0ccd19fbae90d2d33.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/rime_alpha.png"
+dest_files=["res://.godot/imported/rime_alpha.png-afc6633be1a692f0ccd19fbae90d2d33.res"]
+
+[params]
+
+hd_scale=2

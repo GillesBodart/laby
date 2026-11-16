@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bdiuc7wpfic7j"
+path="res://.godot/imported/werewolf.png-f770ce92ed37035401d231a6b58464e5.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/werewolf.png"
+dest_files=["res://.godot/imported/werewolf.png-f770ce92ed37035401d231a6b58464e5.res"]
+
+[params]
+
+hd_scale=2

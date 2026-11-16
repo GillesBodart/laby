@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bijysutl5bpd1"
+path="res://.godot/imported/mummy.png-a7397c7374e4ae0e5c53049f6523ab82.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/mummy.png"
+dest_files=["res://.godot/imported/mummy.png-a7397c7374e4ae0e5c53049f6523ab82.res"]
+
+[params]
+
+hd_scale=2

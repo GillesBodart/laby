@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bq5jdn70m8x4n"
+path="res://.godot/imported/goblin_guard.png-df65f54b2dee6cec29ec1ffa220ae2ce.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/goblin_guard.png"
+dest_files=["res://.godot/imported/goblin_guard.png-df65f54b2dee6cec29ec1ffa220ae2ce.res"]
+
+[params]
+
+hd_scale=2

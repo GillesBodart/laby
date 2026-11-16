@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://b7anhl8mlu52e"
+path="res://.godot/imported/frost_gnome.png-f9a51922e17bf25c43edde12f28a85b0.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/frost_gnome.png"
+dest_files=["res://.godot/imported/frost_gnome.png-f9a51922e17bf25c43edde12f28a85b0.res"]
+
+[params]
+
+hd_scale=2

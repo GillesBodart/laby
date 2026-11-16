@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://b2xf0tty3kb4u"
+path="res://.godot/imported/tomb_king.png-7aa3d9c8574f2c5870ab12a9b55a7b0e.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/tomb_king.png"
+dest_files=["res://.godot/imported/tomb_king.png-7aa3d9c8574f2c5870ab12a9b55a7b0e.res"]
+
+[params]
+
+hd_scale=2

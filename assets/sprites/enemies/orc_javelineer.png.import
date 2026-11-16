@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://nab7d0fj1012"
+path="res://.godot/imported/orc_javelineer.png-455b7bde3f3d829cbd0d2a2238cefeee.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/orc_javelineer.png"
+dest_files=["res://.godot/imported/orc_javelineer.png-455b7bde3f3d829cbd0d2a2238cefeee.res"]
+
+[params]
+
+hd_scale=2

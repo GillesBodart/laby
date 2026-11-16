@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://1o00r60quqet"
+path="res://.godot/imported/she_wolf.png-a2cf0c7f53ae0aa63bac35f3247fba32.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/she_wolf.png"
+dest_files=["res://.godot/imported/she_wolf.png-a2cf0c7f53ae0aa63bac35f3247fba32.res"]
+
+[params]
+
+hd_scale=2

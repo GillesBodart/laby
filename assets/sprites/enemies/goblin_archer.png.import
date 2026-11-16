@@ -1,0 +1,15 @@
+[remap]
+
+importer="laby.hd_texture"
+type="Texture2D"
+uid="uid://bmxstrwrngmes"
+path="res://.godot/imported/goblin_archer.png-c5f7142283823e4db8006e976d56a7a8.res"
+
+[deps]
+
+source_file="res://assets/sprites/enemies/goblin_archer.png"
+dest_files=["res://.godot/imported/goblin_archer.png-c5f7142283823e4db8006e976d56a7a8.res"]
+
+[params]
+
+hd_scale=2
