@@ -448,6 +448,24 @@ func _icon(c: Vector2, id: String, half := 6, tint := Color.WHITE) -> void:
 	draw_rect(r, INK, false)
 
 
+## Side-tab picture: the backpack (null), the hand ("" = handcraft) or the
+## station's own icon, dimmed when the tab is not the open one.
+func _tab_icon(c: Vector2, book, on: bool) -> void:
+	var tint := Color.WHITE if on else Color(1, 1, 1, 0.8)
+	var id: String = "backpack" if book == null else ("hand" if book == "" else String(book))
+	var path := "res://assets/ui/icons/tabs/%s.png" % id
+	if not ResourceLoader.exists(path):
+		path = "res://assets/ui/icons/items/%s.png" % id
+	if not ResourceLoader.exists(path):
+		_icon(c, id, 8, tint)
+		return
+	var tex := _icon_tex(path)
+	var k := 20.0 / tex.get_width()
+	draw_set_transform((c - Vector2(tex.get_size()) * k * 0.5).round(), 0.0, Vector2(k, k))
+	draw_texture(tex, Vector2.ZERO, tint)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 func _draw() -> void:
 	var player := _player()
 	if player == null:
@@ -464,15 +482,7 @@ func _draw() -> void:
 		var on := i == _active_tab()
 		_box(r, CREAM if on else TAN, GOLD if on else BROWN, 3)
 		var c := r.get_center()
-		if i == 0:
-			draw_rect(Rect2(c + Vector2(-6, -3), Vector2(12, 9)), BROWN)
-			draw_rect(Rect2(c + Vector2(-3, -6), Vector2(6, 3)), BROWN)
-			draw_rect(Rect2(c + Vector2(-6, 0), Vector2(12, 1)), CREAM)
-		elif books[i] != "" and ItemCatalog.ITEMS.has(books[i]):
-			_icon(c, books[i], 8)
-		else:
-			draw_line(c + Vector2(-5, 5), c + Vector2(4, -4), BROWN, 2.0)
-			draw_rect(Rect2(c + Vector2(0, -7), Vector2(7, 4)), BROWN)
+		_tab_icon(c, books[i], on)
 
 	UiFrame.box(self, PANEL)
 

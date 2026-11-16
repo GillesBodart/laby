@@ -3465,6 +3465,11 @@ func _make_biome_art(only: PackedStringArray = PackedStringArray()) -> void:
 	for id in nodes:
 		if only.is_empty() or id in only:
 			_save(nodes[id], "res://assets/sprites/environment/gatherables/%s.png" % id)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/ui/icons/tabs"))
+	var tabs := _tab_icons()
+	for id in tabs:
+		if only.is_empty() or id in only:
+			_save(_fit_icon(tabs[id]), "res://assets/ui/icons/tabs/%s.png" % id)
 	for id in icons:
 		if not (only.is_empty() or id in only):
 			continue
@@ -3876,6 +3881,55 @@ func _leaf(img: Image, c: Vector2, ang: float, len: float, tones: Array) -> void
 	var d := Vector2(cos(ang), sin(ang))
 	var n := Vector2(-d.y, d.x) * len * 0.35
 	_bevel(img, _mask_poly(PackedVector2Array([c, c + d * len * 0.5 + n, c + d * len, c + d * len * 0.5 - n])), tones)
+
+
+# ---- crafting panel side-tab icons
+
+## Backpack, campfire and open hand for the crafting panel's side tabs.
+func _tab_icons() -> Dictionary:
+	return {"backpack": _t_backpack(), "campfire": _t_campfire(), "hand": _t_hand()}
+
+
+func _t_backpack() -> Image:
+	var img := _new_image(T, T)
+	var strap := [WOOD5[0], WOOD5[1], WOOD5[2], WOOD5[3], WOOD5[4]]
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(8, 11), Vector2(24, 11), Vector2(27, 17), Vector2(26, 29), Vector2(6, 29), Vector2(5, 17)])), HIDE5)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(10, 22), Vector2(22, 22), Vector2(23, 28), Vector2(9, 28)])), [HIDE5[0], HIDE5[1], HIDE5[2], HIDE5[3], HIDE5[3]])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(7, 11), Vector2(25, 11), Vector2(25, 18), Vector2(19, 21), Vector2(13, 21), Vector2(7, 18)])), strap)
+	_bevel(img, _mask_add(_mask_ellipse(Vector2(16, 8), 11, 3.6), _mask_ellipse(Vector2(5.5, 8), 2.4, 3.4)), RED5)
+	_line(img, Vector2(9, 6), Vector2(9, 10), RED5[0])
+	_line(img, Vector2(23, 6), Vector2(23, 10), RED5[0])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(14.5, 18), Vector2(17.5, 18), Vector2(17.5, 22), Vector2(14.5, 22)])), GOLD5)
+	_line(img, Vector2(8, 13), Vector2(24, 13), strap[3])
+	return _fin(img)
+
+
+func _t_campfire() -> Image:
+	var img := _new_image(T, T)
+	var stone := [Color8(54, 56, 62), Color8(86, 88, 96), Color8(122, 124, 130), Color8(158, 160, 164), Color8(196, 198, 200)]
+	for k in 7:
+		var a := PI * (0.05 + 0.9 * k / 6.0)
+		_bevel(img, _mask_ellipse(Vector2(16 - cos(a) * 11.0, 25 + sin(a) * 3.0), 3.0, 2.2), stone)
+	_bevel(img, _mask_stroke(Vector2(7, 26), Vector2(24, 19), 2.0), WOOD5)
+	_bevel(img, _mask_stroke(Vector2(25, 26), Vector2(8, 19), 2.0), WOOD5)
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(9, 23), Vector2(11, 14), Vector2(14, 17), Vector2(16, 4), Vector2(19, 13), Vector2(22, 10), Vector2(23, 23)])), [RED5[1], RED5[2], CARROT5[2], CARROT5[3], AMBER5[4]])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(12, 23), Vector2(14, 17), Vector2(16, 11), Vector2(18, 17), Vector2(20, 23)])), [AMBER5[2], AMBER5[3], AMBER5[3], AMBER5[4], WHITE5[4]])
+	return _fin(img)
+
+
+func _t_hand() -> Image:
+	var img := _new_image(T, T)
+	var skin := [Color8(120, 70, 50), Color8(170, 108, 78), Color8(214, 150, 112), Color8(236, 186, 146), Color8(250, 218, 186)]
+	var m := _mask_poly(PackedVector2Array([Vector2(9, 17), Vector2(23, 16), Vector2(23, 25), Vector2(19, 30), Vector2(12, 30), Vector2(9, 25)]))
+	for f in [[Vector2(11, 17), Vector2(10.5, 7), 1.9], [Vector2(15, 16), Vector2(15, 4), 2.0], [Vector2(19, 16), Vector2(19.5, 5), 2.0], [Vector2(22, 18), Vector2(23.5, 9), 1.7]]:
+		m = _mask_add(m, _mask_stroke(f[0], f[1], f[2]))
+	m = _mask_add(m, _mask_stroke(Vector2(10, 24), Vector2(4, 16), 2.0))
+	_bevel(img, m, skin)
+	for x in [13.0, 17.0, 21.0]:
+		_line(img, Vector2(x, 9), Vector2(x, 16), skin[1])
+	_line(img, Vector2(12, 21), Vector2(19, 25), skin[1])
+	_bevel(img, _mask_poly(PackedVector2Array([Vector2(11, 28), Vector2(21, 28), Vector2(20, 31), Vector2(12, 31)])), HIDE5)
+	return _fin(img)
 
 
 # ---- item icons
